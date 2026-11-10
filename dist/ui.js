@@ -1,3 +1,5 @@
+import {renderMarkdown} from './markdown.js';
+
 export const $ = (id) => document.getElementById(id);
 export const number = (value, digits = 0) => new Intl.NumberFormat('es-ES', {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
 export const size = (value) => value < 1024 * 1024 ? `${number(value / 1024, 1)} KB` : `${number(value / 1024 / 1024, 1)} MB`;
@@ -33,15 +35,7 @@ export function errorData(input = {}) {
 export async function copyText(text, message = 'Respuesta copiada') { try { await navigator.clipboard.writeText(text); toast(message); } catch { toast('No se ha podido copiar. Selecciona el texto y usa Ctrl + C.'); } }
 
 export function renderText(container, text, citations = new Set(), prefix = 'src') {
-  container.replaceChildren();
-  for (const part of String(text).split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g)) {
-    const match = part.match(/^\[(\d+)\]$/);
-    if (match && citations.has(Number(match[1]))) {
-      const link = node('a', 'citation', match[1]); link.href = `#${prefix}-${match[1]}`; link.setAttribute('aria-label', `Ver fuente ${match[1]}`); link.addEventListener('click', () => { const target = document.getElementById(`${prefix}-${match[1]}`); const details = target?.closest('details'); if (details) details.open = true; }); container.append(link);
-    } else if (part.startsWith('**') && part.endsWith('**')) { const strong = node('strong'); renderText(strong, part.slice(2, -2), citations, prefix); container.append(strong); }
-    else if (part.startsWith('`') && part.endsWith('`')) container.append(node('code', '', part.slice(1, -1)));
-    else container.append(document.createTextNode(part));
-  }
+  renderMarkdown(container,text,citations,prefix);
 }
 export function highlighted(container, text, question) {
   const terms = new Set((normalize(question).match(/[\p{L}\p{N}]{4,}/gu) || []));
