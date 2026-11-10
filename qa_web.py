@@ -19,7 +19,7 @@ def main():
         page=browser.new_page(viewport={"width":1440,"height":1100})
         errors=[]
         page.on("pageerror",lambda error:errors.append(str(error)))
-        for route,view in [("","query-view"),("/admin","admin-view"),("/configuracion","settings-view"),("/estadisticas","statistics-view")]:
+        for route,view in [("","query-view"),("/admin","admin-view"),("/configuracion","settings-view"),("/estadisticas","statistics-view"),("/?vista=consola","console-view")]:
             page.goto(args.url.rstrip("/")+route,wait_until="networkidle")
             expect(page.locator("#"+view)).to_be_visible()
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")

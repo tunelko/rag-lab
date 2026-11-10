@@ -15,6 +15,12 @@ El despliegue en un servidor iniciado con la validación anterior requiere reini
 cuando termine su cola. Sus tareas ya iniciadas conservan su instantánea de ajustes.
 
 - Nuevas rutas SPA: `/configuracion`, `/estadisticas`; las anteriores siguen funcionando.
+- Consola: `/consola` y `/?vista=consola`, `GET /api/console?after=N&limit=200`.
+  `server_console.py` captura stdout/stderr y registros Python con un búfer de 1000
+  líneas, cursor incremental e identificación del proceso. La UI ofrece filtros,
+  pausa, copia y descarga sin ejecución de comandos. El lector de archivos/API de
+  compatibilidad permite usar la sección durante una indexación de la instancia
+  anterior sin reiniciarla; se detiene al estar disponible la captura integrada.
 - `GET/PUT /api/settings`: preferencias persistentes y validación de modelos locales.
   `response_mode` admite `automatic` (predeterminado) o `manual`. `response_model`
   es el candidato textual en automático y el modelo fijo en manual; `vision_model`

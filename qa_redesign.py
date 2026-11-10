@@ -269,6 +269,26 @@ def run_browser(url):
         check("Page reload recovers a genuine server-side index job")
 
         clear_queue(page)
+        page.locator("#file-input").set_input_files([file(f"cancelar-todo-{index}.txt", large) for index in range(3)])
+        page.locator("#upload-button").click()
+        expect(page.locator(".queue-row[data-state=uploading],.queue-row[data-state=uploaded],.queue-row[data-state=fragmenting],.queue-row[data-state=indexing]")).not_to_have_count(0)
+        expect(page.locator("#cancel-pending")).to_have_text("Cancelar procesamiento")
+        expect(page.locator("#cancel-pending")).to_be_enabled()
+        page.locator("#cancel-pending").click()
+        for _ in range(200):
+            jobs = page.request.get(url + "/api/jobs?active=1").json()["jobs"]
+            if not any(job["kind"] == "index" for job in jobs):
+                break
+            page.wait_for_timeout(100)
+        else:
+            raise AssertionError("Cancellation left pending indexing jobs")
+        expect(page.locator(".queue-row[data-state=cancelled]")).not_to_have_count(0)
+        expect(page.locator(".queue-row[data-state=uploading],.queue-row[data-state=uploaded],.queue-row[data-state=fragmenting],.queue-row[data-state=indexing]")).to_have_count(0)
+        expect(page.locator("#cancel-pending")).to_be_disabled()
+        dialog_close(page)
+        check("Visible cancel-processing button stops uploads and queued parsing jobs while preserving completed index writes")
+
+        clear_queue(page)
         evil = '<img src=x onerror=alert(1)>.pdf'
         page.locator("#file-input").set_input_files(file(evil))
         expect(page.locator(".queue-name")).to_have_text(evil)
@@ -337,6 +357,26 @@ def run_browser(url):
         assert text_metrics["model"] == "qa-local:latest"
         assert text_metrics["images_used"] == 0
         check("Image upload, collapsed thumbnails and automatic vision/text selection with visible routing reasons using fake models")
+
+        page.locator("#nav-console").click()
+        expect(page.locator("#console-output")).to_contain_text("chunks")
+        page.locator("#console-pause").click()
+        expect(page.locator("#console-status")).to_contain_text("pausada")
+        page.locator("#console-search").fill("chunks")
+        assert page.locator(".console-line").count() > 0
+        assert all("chunks" in text for text in page.locator(".console-message").all_text_contents())
+        page.locator("#console-copy").click()
+        with page.expect_download() as download:
+            page.locator("#console-download").click()
+        assert download.value.suggested_filename == "rag-servidor.log"
+        page.locator("#console-clear").click()
+        expect(page.locator(".console-line")).to_have_count(0)
+        page.locator("#console-search").fill("")
+        page.locator("#console-pause").click()
+        page.screenshot(path=str(reports / "redesign-consola.png"), full_page=True)
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#console-output")).to_contain_text("chunks")
+        check("Read-only live console, safe log rendering, pause, filtering, copy, download, local clearing and direct route reload")
         page.locator("#nav-admin").click()
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)

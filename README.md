@@ -29,6 +29,21 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   tareas y tiempos/tokens de consultas recientes. Los datos de consultas se
   conservan en memoria del servidor, hasta 200 tareas; no representan un histórico
   permanente. Tokens/s proceden de las métricas nativas de Ollama, no de contar palabras.
+- **Consola:** http://127.0.0.1:8765/?vista=consola — salida y actividad del servidor
+  actualizada cada segundo. Incluye stdout, stderr, logs Python y avisos de procesado
+  visual/caché. Permite pausar la visualización, buscar, filtrar por nivel, copiar,
+  descargar y limpiar la vista. Es de lectura; no ejecuta comandos.
+  Conserva las últimas 1000 líneas en memoria y limita la longitud de cada línea.
+  Limpiar la vista no borra archivos ni el registro del servidor. Se consulta solo
+  mientras está visible y se adapta también a móvil.
+
+La captura integrada se inicia con el servidor. Para que una instancia anterior siga
+indexando sin reiniciarla, `server_console_reader.py` lee los archivos fijos de salida
+de ese proceso y sus fases reales mediante la API existente, y publica una instantánea
+local para la misma sección. Finaliza cuando termina ese proceso o aparece el endpoint
+integrado. Los mensajes de bibliotecas que se quedan en el búfer del proceso aparecen
+al escribirse en el archivo; las fases se consultan cada segundo. Esta compatibilidad
+no ejecuta inferencias ni modifica documentos, índices o preferencias.
 
 ### Primeros documentos
 
@@ -125,6 +140,11 @@ No se utiliza Claude ni Qdrant, Docker o un servicio externo de análisis docume
 La cola conserva progreso real, pausa, cancelación, reintentos y recuperación al
 recargar. La cancelación visual es cooperativa: puede esperar a que Ollama entregue
 el siguiente bloque. La escritura de lotes del índice no se interrumpe a mitad.
+**Cancelar procesamiento**, en Biblioteca, detiene subidas, cancela los trabajos
+en espera y solicita detener la extracción visual activa. Conserva originales y caché;
+si ya se está escribiendo el índice, esa escritura termina antes de quedar inactivo.
+Después de reiniciar el servidor, las tareas antiguas que ya no existen se muestran
+como canceladas; sus archivos siguen disponibles para **Actualizar índice**.
 El chat transmite al modelo los últimos tres pares de mensajes, acotados; recuperar
 evidencia sigue basándose en la pregunta actual. No implementa las herramientas
 iterativas del agente del repositorio de referencia.
