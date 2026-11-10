@@ -1,9 +1,10 @@
 import {$, node, icon, iconButton, button, fileType, progress, segments, number, duration, normalize, renderText, renderSources, showResult, errorData, toast, announce, copyText} from './ui.js';
 import {UploadQueue} from './queue.js';
 import {Chat} from './chat.js';
+import {ServerConsole} from './console.js';
 
 const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
-let queue, chat;
+let queue, chat, serverConsole;
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
 state.lastIndex=Number(sessionStorage.getItem('rag-local-last-index')||0);
@@ -12,21 +13,22 @@ async function api(path,options={}){
   let response,result;
   try{response=await fetch(path,{...options,headers});result=await response.json();}
   catch(error){const problem=new Error('Se perdió la conexión con el servidor local.');problem.info=errorData({code:'NETWORK',detail:error.message});throw problem;}
-  if(!response.ok){const message=typeof result.detail==='string'?result.detail:'No se ha podido completar la operación.';const problem=new Error(message);problem.info=errorData(result.error_info||{message,detail:JSON.stringify(result.detail)});throw problem;}
+  if(!response.ok){const message=typeof result.detail==='string'?result.detail:'No se ha podido completar la operación.';const problem=new Error(message);problem.status=response.status;problem.info=errorData(result.error_info||{message,detail:JSON.stringify(result.detail)});throw problem;}
   return result;
 }
 function navigate(path,replace=false){
-  const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin','Biblioteca'],'/biblioteca':['library','admin-view','nav-admin','Biblioteca'],'/configuracion':['settings','settings-view','nav-settings','Configuración'],'/estadisticas':['statistics','statistics-view','nav-statistics','Estadísticas']};
-  const target=views[path]||views['/'];state.view=target[0];
-  if(location.pathname!==path)history[replace?'replaceState':'pushState']({},'',path);
-  for(const id of ['query-view','admin-view','settings-view','statistics-view'])$(id).hidden=id!==target[1];
+  const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin','Biblioteca'],'/biblioteca':['library','admin-view','nav-admin','Biblioteca'],'/configuracion':['settings','settings-view','nav-settings','Configuración'],'/estadisticas':['statistics','statistics-view','nav-statistics','Estadísticas'],'/consola':['console','console-view','nav-console','Consola']};
+  const route=new URL(path,location.origin);const target=views[route.searchParams.get('vista')==='consola'?'/consola':route.pathname]||views['/'];state.view=target[0];
+  if(location.pathname+location.search!==path)history[replace?'replaceState':'pushState']({},'',path);
+  for(const id of ['query-view','admin-view','settings-view','statistics-view','console-view'])$(id).hidden=id!==target[1];
   document.querySelectorAll('.nav-item').forEach(link=>link.removeAttribute('aria-current'));$(target[2]).setAttribute('aria-current','page');
   $('breadcrumb-current').textContent=target[3];document.title=target[3]+' · RAG Local';
   if(state.view==='library'&&state.lastResult)$('queue-result-button').hidden=false;
   if(state.view==='statistics')refreshStatistics();
+  serverConsole?.setActive(state.view==='console');
 }
-document.addEventListener('click',(event)=>{const link=event.target.closest('a[href]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const url=new URL(link.href,location.href);if(url.origin===location.origin&&['/','/admin','/biblioteca','/configuracion','/estadisticas'].includes(url.pathname)&&!url.hash){event.preventDefault();navigate(url.pathname);window.scrollTo({top:0,behavior:'instant'});}});
-window.addEventListener('popstate',()=>navigate(location.pathname,true));
+document.addEventListener('click',(event)=>{const link=event.target.closest('a[href]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const url=new URL(link.href,location.href);if(url.origin===location.origin&&['/','/admin','/biblioteca','/configuracion','/estadisticas','/consola'].includes(url.pathname)&&!url.hash){event.preventDefault();navigate(url.pathname+url.search);window.scrollTo({top:0,behavior:'instant'});}});
+window.addEventListener('popstate',()=>navigate(location.pathname+location.search,true));
 window.addEventListener('rag:navigate',(event)=>navigate(event.detail));
 
 
@@ -172,10 +174,11 @@ async function refreshStatistics(){
   }catch(error){toast(error.message);}
 }
 $('refresh-statistics').addEventListener('click',refreshStatistics);
-navigate(location.pathname,true);
+navigate(location.pathname+location.search,true);
 async function init(){
   try{
     state.token=(await api('/api/session')).token;
+    serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();});
     await loadSettings();

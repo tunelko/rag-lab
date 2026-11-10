@@ -9,8 +9,10 @@ export class UploadQueue {
   constructor({api, token, completed, changed}) {
     this.api=api; this.token=token; this.completed=completed; this.changed=changed;
     this.entries=[]; this.running=false; this.paused=false; this.uploads=0; this.maxTotal=0; this.samples=[]; this.ignored=new Set(); this.notified=new Set(); this.batch=null; this.documents=[]; this.pollTimer=null;
+    this.cancelledBatches=new Set();
     try {
       const saved=JSON.parse(sessionStorage.getItem(STORE)||'{}');
+      this.cancelledBatches=new Set(saved.cancelledBatches||[]);
       this.entries=(saved.entries||[]).map((entry)=>{
         if (['queued','uploading'].includes(entry.state) && !entry.jobId) return {...entry,state:'interrupted',error:errorData({code:'NETWORK',message:'La subida se interrumpió al recargar. Vuelve a añadir el archivo.'})};
         return entry;
@@ -26,7 +28,7 @@ export class UploadQueue {
     $('upload-button').addEventListener('click',()=>this.start());
     $('pause-queue').addEventListener('click',()=>{this.paused=!this.paused;this.schedule();this.emit();});
     $('clear-queue').addEventListener('click',()=>{this.entries.filter((entry)=>['indexed','cancelled'].includes(entry.state)).forEach((entry)=>{if(entry.jobId)this.ignored.add(entry.jobId);});this.entries=this.entries.filter((entry)=>!['indexed','cancelled'].includes(entry.state));this.emit();toast('Completados eliminados de la cola');});
-    $('cancel-pending').addEventListener('click',()=>{const entries=this.entries.filter((entry)=>['queued','uploading'].includes(entry.state));if(entries.length>3&&!confirm(`¿Cancelar los ${entries.length} archivos pendientes?`))return;entries.forEach((entry)=>this.cancel(entry));});
+    $('cancel-pending').addEventListener('click',()=>this.cancelAll());
     $('auto-index').addEventListener('change',()=>this.emit());
     this.render(); this.poll();
   }
@@ -79,6 +81,31 @@ export class UploadQueue {
     const body=new FormData();body.append('files',entry.file);body.append('auto_index',String(entry.autoIndex));body.append('batch_id',entry.batchId);xhr.send(body);this.emit();
   }
   fail(entry,error){entry.state='error';entry.error=errorData(error);announce(`${entry.name} con error`);this.emit();this.finishCheck();}
+  async cancelAll(){
+    if(this.cancelling)return;
+    this.cancelling=true;this.paused=true;this.emit();
+    for(const entry of this.entries.filter(entry=>activeStates.has(entry.state)))if(entry.batchId)this.cancelledBatches.add(entry.batchId);
+    this.cancelWatchUntil=Date.now()+15000;
+    let finishingWrite=false;
+    try{
+      for(const entry of this.entries.filter(entry=>['queued','uploading'].includes(entry.state)))await this.cancel(entry);
+      for(let pass=0;pass<3;pass++){
+        if(pass)await new Promise(resolve=>setTimeout(resolve,250));
+        const result=await this.api('/api/jobs?active=1');this.serverJobs=result.jobs||[];
+        const jobs=this.serverJobs.filter(job=>job.kind==='index').sort((a,b)=>(a.status==='queued'?0:1)-(b.status==='queued'?0:1));
+        for(const job of jobs){
+          if(job.batch_id)this.cancelledBatches.add(job.batch_id);
+          if(job.status==='running'&&job.stage==='indexing'){finishingWrite=true;continue;}
+          const cancelled=await this.api(`/api/jobs/${job.id}`,{method:'DELETE'});
+          Object.assign(job,cancelled);
+          const entry=this.entries.find(item=>item.jobId===job.id);if(entry)this.applyJob(entry,cancelled);
+        }
+      }
+      toast(finishingWrite?'Pendientes cancelados. La escritura del índice actual terminará antes de detenerse.':'Cancelación solicitada. Se conservan los archivos y la caché.');
+      this.ensurePoll();
+    }catch(error){toast(error.message);}
+    finally{this.cancelling=false;this.emit();}
+  }
   async cancel(entry){
     if(entry.state==='queued'){entry.state='cancelled';this.emit();this.finishCheck();return;}
     if(entry.state==='uploading'){entry.xhr?.abort();return;}
@@ -111,10 +138,14 @@ export class UploadQueue {
   async poll(){
     clearTimeout(this.pollTimer);this.pollTimer=null;if(this.polling)return;this.polling=true;
     try{
-      const result=await this.api('/api/jobs?active=1');const jobs=[...(result.jobs||[]),...(result.recent||[])];
+      const result=await this.api('/api/jobs?active=1');this.serverJobs=result.jobs||[];const jobs=[...this.serverJobs,...(result.recent||[])];
       for(const job of jobs){
         if(job.kind!=='index'||!job.document_name||this.ignored.has(job.id))continue;
+        if(this.cancelledBatches.has(job.batch_id)&&['queued','running'].includes(job.status)&&!job.cancel_requested&&job.stage!=='indexing'){
+          try{Object.assign(job,await this.api(`/api/jobs/${job.id}`,{method:'DELETE'}));}catch(error){toast(error.message);}
+        }
         let entry=this.entries.find((item)=>item.jobId===job.id);
+        if(!entry&&this.cancelledBatches.has(job.batch_id))continue;
         if(!entry&&['queued','running','processing'].includes(job.status)){
           entry={uid:crypto.randomUUID(),name:job.document_name,size:job.bytes||1,upload:100,process:job.progress||0,state:'uploaded',jobId:job.id,batchId:job.batch_id||job.id,serverName:job.document_name,autoIndex:true};this.entries.push(entry);
           if(!this.running){this.batch={id:entry.batchId,ids:[entry.uid],started:Date.parse(job.created_at)||Date.now(),finished:false};this.running=true;}else this.batch.ids.push(entry.uid);
@@ -122,10 +153,10 @@ export class UploadQueue {
         if(entry)this.applyJob(entry,job);
       }
       const known=new Set(jobs.map((job)=>job.id));
-      for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.message.includes('no está disponible'))this.fail(entry,{code:'NETWORK',detail:error.message});}}
+      for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.message.includes('no está disponible')){entry.state='cancelled';entry.cancelRequested=false;entry.error=null;entry.jobId=null;}}}
       this.emit();this.finishCheck();
     }catch(error){if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state)))toast('Se perdió la conexión con el servidor local.');}
-    finally{this.polling=false;if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state))||this.uploads)this.ensurePoll();}
+    finally{this.polling=false;if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state))||this.uploads||Date.now()<(this.cancelWatchUntil||0)||(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)))this.ensurePoll();}
   }
   currentEntries(){const fresh=this.entries.filter((entry)=>!entry.batchId);if(!this.running&&fresh.length)return fresh;return this.batch?this.entries.filter((entry)=>this.batch.ids.includes(entry.uid)):this.entries;}
   value(entry){if(['indexed','unindexed'].includes(entry.state))return 100;if(['uploaded','fragmenting','indexing'].includes(entry.state))return 40+.6*(entry.process||0);return .4*(entry.upload||0);}
@@ -137,7 +168,7 @@ export class UploadQueue {
     if(!this.running)return;const entries=this.currentEntries();
     if(entries.length&&entries.every((entry)=>terminal.has(entry.state))){this.running=false;this.batch.finished=true;this.emit();if(!this.notified.has(this.batch.id)){this.notified.add(this.batch.id);const result=this.result();this.save();if(result.successes.length||result.failures.length)this.completed(result);else toast('Cola cancelada');}}
   }
-  save(){const entries=this.entries.map(({file,xhr,samples,...entry})=>entry);sessionStorage.setItem(STORE,JSON.stringify({entries,ignored:[...this.ignored],notified:[...this.notified],batch:this.batch,maxTotal:this.maxTotal}));}
+  save(){const entries=this.entries.map(({file,xhr,samples,...entry})=>entry);sessionStorage.setItem(STORE,JSON.stringify({entries,ignored:[...this.ignored],notified:[...this.notified],cancelledBatches:[...this.cancelledBatches],batch:this.batch,maxTotal:this.maxTotal}));}
   emit(){this.save();if(!this.frame)this.frame=requestAnimationFrame(()=>{this.frame=null;this.render();this.save();this.changed?.();});}
   render(){
     $('queue-section').hidden=!this.entries.length;
@@ -182,7 +213,10 @@ export class UploadQueue {
     $('upload-button').disabled=!this.running&&!fresh.length;$('upload-button').setAttribute('aria-busy',String(this.running));
     $('upload-button').querySelector('span').textContent=this.running?`${this.paused?'En pausa':'Procesando'} ${current.filter((entry)=>terminal.has(entry.state)).length} de ${current.length}…`:`${$('auto-index').checked?'Subir e indexar':'Subir'} (${fresh.length})`;
     $('pause-queue').textContent=this.paused?'Reanudar':'Pausar';$('pause-queue').disabled=!this.running;
-    $('cancel-pending').disabled=!this.entries.some((entry)=>['queued','uploading'].includes(entry.state));$('clear-queue').disabled=!this.entries.some((entry)=>['indexed','cancelled'].includes(entry.state));
+    const localWork=this.entries.some(entry=>['queued','uploading'].includes(entry.state));
+    const serverWork=(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)&&!job.cancel_requested&&(job.status==='queued'||job.stage!=='indexing'));
+    $('cancel-pending').disabled=this.cancelling||(!localWork&&!serverWork);$('cancel-pending').textContent=this.cancelling?'Cancelando…':'Cancelar procesamiento';
+    $('clear-queue').disabled=!this.entries.some((entry)=>['indexed','cancelled'].includes(entry.state));
     const count=this.entries.filter((entry)=>activeStates.has(entry.state)).length;$('nav-badge').classList.toggle('queued',count>0);if(count)$('nav-badge').textContent=`${count} en cola`;
   }
 }

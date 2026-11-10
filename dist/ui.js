@@ -30,7 +30,7 @@ export function errorData(input = {}) {
   const [message, hint, retryable] = catalog[code] || catalog.UNEXPECTED;
   return {code, message: input.message || message, hint: input.hint || hint, detail: input.detail || '', retryable: input.retryable ?? retryable};
 }
-export async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Respuesta copiada'); } catch { toast('No se ha podido copiar. Selecciona el texto y usa Ctrl + C.'); } }
+export async function copyText(text, message = 'Respuesta copiada') { try { await navigator.clipboard.writeText(text); toast(message); } catch { toast('No se ha podido copiar. Selecciona el texto y usa Ctrl + C.'); } }
 
 export function renderText(container, text, citations = new Set(), prefix = 'src') {
   container.replaceChildren();
