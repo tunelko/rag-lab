@@ -504,7 +504,8 @@ def run_browser(url):
         assert page.locator(".sidebar").bounding_box()["y"] == 0
         expect(page.locator("#stat-docs")).not_to_be_visible()
         page.locator("#nav-statistics").click()
-        assert page.locator("#stat-chunks").bounding_box()["y"] > page.locator("#stat-docs").bounding_box()["y"]
+        # Read both positions in the same layout; telemetry can resize cards between calls.
+        page.wait_for_function("document.querySelector('#stat-chunks').getBoundingClientRect().top > document.querySelector('#stat-docs').getBoundingClientRect().top")
         page.locator("#nav-query").click()
         page.screenshot(path=str(reports / "redesign-consulta-mobile.png"), full_page=True)
         assert page.locator("#ask-button").evaluate("e=>getComputedStyle(e).transitionDuration") in {"0s", "0s, 0s"}
