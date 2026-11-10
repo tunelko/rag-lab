@@ -1,0 +1,44 @@
+[
+  {
+    "name": "marked",
+    "version": "18.2.0",
+    "source": "https://registry.npmjs.org/marked/-/marked-18.2.0.tgz",
+    "files": [
+      {
+        "file": "marked/marked.esm.js",
+        "sha256": "162194ea902a9d6eca6011bb42b5732991ca650e017d0375b76f4204810c6c14"
+      },
+      {
+        "file": "marked/marked.esm.js.map",
+        "sha256": "b6ca8281876e5f5ed8b27c716eb40a4c28fc79323f34294984aaf9f0a90bc1b3"
+      },
+      {
+        "file": "marked/LICENSE",
+        "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+      }
+    ]
+  },
+  {
+    "name": "dompurify",
+    "version": "3.4.17",
+    "source": "https://registry.npmjs.org/dompurify/-/dompurify-3.4.17.tgz",
+    "files": [
+      {
+        "file": "dompurify/purify.es.js",
+        "sha256": "60c5d5ccbb466de3de3ba863461a92bf134f8c156cef7992da43e0f659bc5cbd"
+      },
+      {
+        "file": "dompurify/purify.es.mjs.map",
+        "sha256": "2d8320d303936a66e9d2b881395a680bcf4de2974014ddf8b2893e248a0af973"
+      },
+      {
+        "file": "dompurify/LICENSE",
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "file": "dompurify/LICENSE-MPL",
+        "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+      }
+    ]
+  }
+]
