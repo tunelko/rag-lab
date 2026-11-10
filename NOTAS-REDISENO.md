@@ -48,6 +48,11 @@ cuando termine su cola. Sus tareas ya iniciadas conservan su instantánea de aju
   `settings_store.py` guarda preferencias de forma atómica. No ejecutan modelos al importar.
 - `dist/chat.js` gestiona conversación y fuentes por respuesta; `workspace.css`
   organiza las nuevas secciones sobre los tokens existentes. Sin npm, CDN ni hosting.
+- `dist/markdown.js` interpreta respuestas con Marked y sanea a un fragmento DOM
+  mediante DOMPurify. Las librerías, versiones y licencias están en `dist/vendor`.
+  Solo se insertan nodos saneados; las citas, botones de copia y tablas adaptables
+  se construyen con DOM seguro. El cambio es frontend y presenta también respuestas
+  anteriores del historial, sin solicitar nuevas inferencias ni reiniciar el servidor.
 - Pruebas de parsing/almacenamiento real con CPU e inferencias simuladas en
   `test_multimodal.py`; QA de navegador ampliada a las cuatro secciones y miniaturas.
 

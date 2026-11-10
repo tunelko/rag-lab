@@ -19,6 +19,10 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 - **Chat:** http://127.0.0.1:8765/ — conversación sin estadísticas ni ajustes.
   Cada respuesta tiene **Fuentes consultadas**, plegado de entrada. Pulsar una cita
   abre sus fuentes. El historial de hasta 30 turnos se conserva en esta pestaña.
+  Las respuestas se presentan como Markdown: títulos, listas, negrita, cursiva,
+  tablas, citas y bloques de código con botón de copia. La copia de la respuesta
+  completa conserva el Markdown original. Las citas `[1]` siguen abriendo sus fuentes;
+  las citas escritas dentro de bloques de código se mantienen como texto.
 - **Biblioteca:** http://127.0.0.1:8765/admin — subir e indexar documentos.
 - **Configuración general:** http://127.0.0.1:8765/configuracion — selección automática/manual del modelo,
   2/4/6/8 fragmentos, búsqueda sin generación, procesamiento visual y sus límites.
@@ -170,6 +174,14 @@ El informe `reports/redesign-qa.json` y sus capturas usan modelos y métricas
 **simulados para probar la aplicación**, no son benchmarks de la RTX 3080.
 La UI se comprueba en Edge a 1440 px y 390 px, sin peticiones externas del navegador.
 Se mantienen los tokens y tipografías locales del paquete de rediseño.
+El renderizado usa Marked 18.2.0 y DOMPurify 3.4.17, distribuidos localmente en
+`dist/vendor` con licencias y hashes en `manifest.json`. No utiliza CDN ni necesita
+npm para ejecutar la aplicación. Las distribuciones se verificaron con la integridad
+SHA-512 del registro oficial antes de copiarlas. El módulo de DOMPurify conserva sus
+bytes originales y se sirve con extensión `.js` para recibir el MIME JavaScript en Windows.
+El HTML crudo se muestra como texto, los enlaces se limitan a esquemas permitidos y las
+imágenes Markdown se presentan mediante su texto alternativo. Las figuras documentales
+siguen disponibles en Fuentes. Así se evita cargar recursos remotos al leer una respuesta.
 
 ## Entrar al entorno
 

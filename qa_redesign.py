@@ -17,6 +17,40 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parent
 
+MARKDOWN_RESPONSE = '''## Resumen técnico
+
+**Equipo revisado**, con *evidencia documental* [1].
+
+- Primer punto con una cita [1].
+- Segundo punto con `código inline`.
+
+| Componente | Cantidad |
+| :--- | ---: |
+| Puertos USB | 4 |
+| Ranuras | 2 |
+
+> Comprueba siempre la revisión de la placa.
+
+```python
+print("<script>literal</script>")
+# [1] se conserva como texto dentro del código
+```
+
+- [x] Manual revisado
+- [ ] Pendiente de contraste
+
+[Documentación](https://example.com/docs)
+
+[Enlace no permitido](javascript:alert(1))
+
+![Imagen remota no cargada](https://example.invalid/tracking.png)
+
+<script>window.__qaMarkdownXss = true</script>
+<img src="https://example.invalid/pixel.png" onerror="window.__qaMarkdownXss = true">
+
+Fuente desconocida [99].
+'''
+
 
 def fixture_server(port):
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -52,6 +86,8 @@ def fixture_server(port):
             attempted_errors.add("error")
             raise OSError("Synthetic Ollama failure for UI acceptance testing")
         pieces = ["La copia de seguridad se realiza ", "**cada viernes** [1]."]
+        if "__QA_MARKDOWN__" in question:
+            pieces = [MARKDOWN_RESPONSE[:170], MARKDOWN_RESPONSE[170:500], MARKDOWN_RESPONSE[500:]]
         if "__QA_SLOW__" in question:
             pieces = ["Texto parcial. "] * 300
         for piece in pieces:
@@ -63,6 +99,16 @@ def fixture_server(port):
         return "".join(pieces), {"model": model, "generation_tok_s": 80, "output_tokens": 18, "first_content_seconds": .08, "retrieval_seconds": .05}
 
     rag.generate_ollama = fake_generate
+    real_retrieve = rag.retrieve
+    def fixture_retrieve(config, question, embeddings, k):
+        # Thousands of identical synthetic text vectors can swamp HNSW's candidates.
+        # Scope this UI image test to its real indexed fixture, not ANN recall quality.
+        if question.startswith("qa-figure\n"):
+            rows = rag.open_store(config, embeddings).get(where={"file": "qa-figure.png"})
+            return [(rag.Document(page_content=text, metadata=metadata), 0.0)
+                    for text, metadata in zip(rows["documents"][:k], rows["metadatas"][:k])]
+        return real_retrieve(config, question, embeddings, k)
+    rag.retrieve = fixture_retrieve
     import multimodal
     multimodal.describe_image = lambda *args, **kwargs: "Captura de prueba con 4 puertos USB."
     sandbox = ROOT / "data" / "test-chroma"
@@ -267,6 +313,38 @@ def run_browser(url):
         check("Real-sample resource charts: fixed scales, history ranges, keyboard tooltips and pause/resume")
         page.screenshot(path=str(reports / "redesign-estadisticas.png"), full_page=True)
         check("Clean chat, persisted configuration/history, collapsed citations, copy, search-only, retry, stop and separate real metrics")
+
+        page.locator("#nav-query").click()
+        page.locator("#question").fill("__QA_MARKDOWN__")
+        page.locator("#ask-button").click()
+        answer=page.locator(".chat-turn .answer").last
+        expect(answer.locator("h3")).to_have_text("Resumen técnico")
+        expect(page.locator("#ask-button")).to_contain_text("Enviar")
+        expect(answer.locator("table")).to_have_count(1)
+        expect(answer.locator("blockquote")).to_contain_text("revisión de la placa")
+        expect(answer.locator(".markdown-task input:disabled")).to_have_count(2)
+        expect(answer.locator("pre code")).to_contain_text('<script>literal</script>')
+        expect(answer.locator("pre .citation")).to_have_count(0)
+        assert answer.locator(".citation").count()>=2
+        expect(answer.locator("script,img,iframe,svg,style,form")).to_have_count(0)
+        assert not page.evaluate("window.__qaMarkdownXss")
+        assert answer.locator("a[href^='javascript:']").count()==0
+        expect(answer).to_contain_text("[99]")
+        external_link=answer.get_by_role("link",name="Documentación",exact=True)
+        expect(external_link).to_have_attribute("rel","noopener noreferrer")
+        answer.get_by_role("button",name="Copiar bloque de código",exact=True).click()
+        assert '<script>literal</script>' in page.evaluate("navigator.clipboard.readText()")
+        answer.locator(".citation").first.click()
+        expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
+        page.locator(".chat-sources").last.locator("summary").click()
+        answer.evaluate("e=>{const thread=e.closest('.chat-thread');thread.scrollTop=e.offsetTop-thread.offsetTop;}")
+        page.screenshot(path=str(reports / "redesign-markdown.png"),full_page=True)
+        page.set_viewport_size({"width":390,"height":844})
+        assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+        answer.evaluate("e=>{const thread=e.closest('.chat-thread');thread.scrollTop=e.offsetTop-thread.offsetTop;}")
+        page.screenshot(path=str(reports / "redesign-markdown-mobile.png"),full_page=True)
+        page.set_viewport_size({"width":1440,"height":1100})
+        check("Local Markdown: streamed headings/lists/tables/code, code copying, source citations, disabled task lists and blocked HTML/remote images")
 
         page.locator("#nav-admin").click()
         clear_queue(page)
