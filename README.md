@@ -33,6 +33,11 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   uso de GPU, VRAM, temperatura, potencia y consumo por proceso de RAG/Ollama.
   Las lecturas de GPU usan únicamente consultas de `nvidia-smi`; no cargan modelos
   ni cambian el modo de cómputo. Los valores no disponibles aparecen como «—».
+  Las cuatro gráficas son compactas y permiten ampliar cada una con su botón de
+  maximizar; Escape devuelve el tamaño normal. Hay ventanas de 1, 5 y 15 minutos,
+  mínimos/media/máximos y detalle al pasar el cursor o usar las flechas. Pausar congela
+  la visualización mientras continúa la recogida de lecturas. El historial es real,
+  se conserva en memoria hasta 15 minutos y deja huecos si faltan datos de sensores.
 - **Consola:** http://127.0.0.1:8765/?vista=consola — salida y actividad del servidor
   actualizada cada segundo. Incluye stdout, stderr, logs Python y avisos de procesado
   visual/caché. Permite pausar la visualización, buscar, filtrar por nivel, copiar,

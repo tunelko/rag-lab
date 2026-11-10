@@ -71,10 +71,17 @@ def fixture_server(port):
     service = FixtureService(rag.Config(db=case / "db", collection="redesign_qa"), case / "documents")
     from settings_store import Preferences
     service.settings.save(Preferences(response_model="qa-local:latest"))
-    service.hardware.sample = lambda: {"time": "2026-11-10T10:00:00+00:00", "logical_cpus": 16, "cpu_percent": 12.5,
+    fake_hardware = {"time": "2026-11-10T10:00:00+00:00", "logical_cpus": 16, "cpu_percent": 12.5,
         "ram_used_bytes": 8 * 1024**3, "ram_total_bytes": 32 * 1024**3, "ram_percent": 25,
         "processes": [{"name": "qa-runner", "pid": 1, "role": "ollama", "cpu_percent": 6.25, "ram_bytes": 2 * 1024**3}],
         "gpu": {"devices": [{"name": "GPU simulada para QA", "utilization_percent": 87.5, "memory_used_bytes": 8 * 1024**3, "memory_total_bytes": 10 * 1024**3, "temperature_c": 70, "power_w": 280}]}}
+    from datetime import datetime, timedelta
+    end=datetime.fromisoformat(fake_hardware["time"])
+    fake_hardware["history"]=[{"time":(end-timedelta(seconds=(29-i)*2)).isoformat(),"cpu_percent":6+(i%5)*3,
+        "gpu_percent":70+(i%4)*5,"ram_used_bytes":(7+i/29)*1024**3,"ram_total_bytes":32*1024**3,
+        "vram_used_bytes":8*1024**3,"vram_total_bytes":10*1024**3} for i in range(30)]
+    fake_hardware["history"][-1].update(cpu_percent=12.5,gpu_percent=87.5)
+    service.hardware.sample = lambda: fake_hardware
     uvicorn.run(create_app(service), host="127.0.0.1", port=port, access_log=False)
 
 
@@ -235,6 +242,29 @@ def run_browser(url):
         expect(page.locator("#hardware-gpu")).to_have_text("87,5 %")
         expect(page.locator("#hardware-vram")).to_have_text("8,0 / 10,0 GiB")
         expect(page.locator("#hardware-processes")).to_contain_text("qa-runner")
+        expect(page.locator("#chart-cpu")).to_have_attribute("data-samples","30")
+        expect(page.locator("#chart-cpu .resource-line")).to_have_count(1)
+        assert 'NaN' not in page.locator("#chart-cpu .resource-line").get_attribute("d")
+        page.locator("#chart-cpu").focus();page.keyboard.press("ArrowLeft")
+        expect(page.locator("#tip-cpu")).to_be_visible()
+        expect(page.locator("#tip-cpu")).to_contain_text("CPU")
+        page.locator("#hardware-range [data-seconds='300']").click()
+        expect(page.locator("#chart-cpu-range")).to_have_text("Hace 5 min")
+        page.locator("#hardware-pause").click()
+        expect(page.locator("#hardware-status")).to_contain_text("pausada")
+        page.locator("#hardware-pause").click()
+        page.locator("#hardware-range [data-seconds='60']").click()
+        assert page.locator(".resource-card").first.bounding_box()["height"] < 300
+        page.get_by_role("button",name="Maximizar gráfica de GPU",exact=True).click()
+        expect(page.locator("#resource-dialog")).to_be_visible()
+        expect(page.locator("#resource-dialog-title")).to_have_text("Rendimiento de GPU")
+        assert page.locator("#resource-dialog #chart-gpu").bounding_box()["height"] > 200
+        page.keyboard.press("Escape")
+        expect(page.locator("#resource-dialog")).not_to_be_visible()
+        expect(page.get_by_role("button",name="Maximizar gráfica de GPU",exact=True)).to_be_focused()
+        page.locator("#chart-gpu").hover()
+        page.screenshot(path=str(reports / "redesign-graficas-rendimiento.png"),full_page=True)
+        check("Real-sample resource charts: fixed scales, history ranges, keyboard tooltips and pause/resume")
         page.screenshot(path=str(reports / "redesign-estadisticas.png"), full_page=True)
         check("Clean chat, persisted configuration/history, collapsed citations, copy, search-only, retry, stop and separate real metrics")
 

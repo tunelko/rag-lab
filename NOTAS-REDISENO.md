@@ -30,6 +30,10 @@ cuando termine su cola. Sus tareas ya iniciadas conservan su instantánea de aju
   de nvidia-smi, con caché de 2 segundos. La instancia anterior puede entregar estas
   lecturas a través del lector local, manteniendo la indexación en marcha. Porcentaje
   de CPU por proceso normalizado al total de procesadores lógicos del equipo.
+  Historial acotado a 15 minutos con muestras reales. Gráficas SVG locales compactas,
+  ampliación en diálogo nativo con restauración de foco, escalas fijas, pausado de
+  la visualización y navegación por teclado. El cambio de ventana y la ampliación
+  no incrementan las consultas a los sensores ni detienen la indexación.
 - `GET /api/figures/{sha256}`: imágenes PNG normalizadas, sin rutas arbitrarias.
 - `POST /api/query` mantiene sus parámetros y añade historial acotado. Si se omiten
   modelo/k/search_only, aplica las preferencias compartidas. Los clientes antiguos
