@@ -5,7 +5,7 @@ Python 3.13 x64, PyTorch 2.14.1 con CUDA 13.0, Transformers 5.22.2,
 bitsandbytes 0.50.2, Accelerate 1.15.0, LangChain 1.4.9 y ChromaDB 1.5.9.
 Las dependencias directas están fijadas; `requirements-lock.txt` registra todo el entorno.
 
-## Interfaz web local: consulta y administración
+## Interfaz web local: Consulta y Biblioteca
 
 Desde PowerShell, sin necesidad de activar el entorno:
 
@@ -17,7 +17,7 @@ Mantén esa consola abierta. Para cerrar el servidor, pulsa Ctrl+C.
 Si el puerto está ocupado, usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 
 - Consulta: **http://127.0.0.1:8765/**
-- Administración: **http://127.0.0.1:8765/admin**
+- Biblioteca: **http://127.0.0.1:8765/admin** (también `/biblioteca`)
 
 La vista principal es Consulta. Permite elegir un modelo LOCAL instalado en Ollama,
 preguntar, recibir el texto progresivamente y abrir las referencias `[1]`, `[2]`.
@@ -28,7 +28,7 @@ No se estima la velocidad contando palabras o fragmentos HTTP.
 
 Flujo inicial, completamente desde el navegador:
 
-1. En Administración, selecciona o arrastra PDF, TXT o Markdown.
+1. En Biblioteca, selecciona o arrastra PDF, TXT o Markdown.
 2. Pulsa **Subir e indexar**. La primera vez se descargan los embeddings y se cargan
    en CPU. La primera indexación tardará más por esa preparación.
 3. Cuando termine, entra en Consulta, escribe una pregunta y pulsa **Preguntar**.
@@ -39,18 +39,22 @@ El arranque del servidor no descarga modelos ni inicia inferencias. El botón
 **Actualizar índice** procesa archivos añadidos también desde el explorador de Windows.
 
 La aplicación guarda los documentos en `data\documents`. Acepta hasta 20 archivos
-por lote, 20 MB por archivo y 100 MB por lote. No sobrescribe archivos existentes:
+por lote, 20 MB por archivo, y sube dos archivos a la vez. No sobrescribe archivos existentes:
 si el contenido cambió, guarda una copia con otro nombre. Repetir el mismo nombre
 y contenido no crea otra copia.
 
-Consulta y Administración son vistas de una aplicación personal, NO cuentas o roles
+Consulta y Biblioteca son vistas de una aplicación personal, NO cuentas o roles
 autenticados. El servidor solo escucha en 127.0.0.1, valida Host/origen y exige un
 token de sesión en peticiones de escritura. No se publica en Internet ni en la LAN.
-Procesa una tarea a la vez para no solapar indexaciones y solicitudes de generación.
+Serializa el procesado del índice y las consultas, aunque permite nuevas subidas mientras
+trabaja. La cola ofrece progreso real, pausa, cancelación, reintento y recuperación tras
+recargar. Los resultados aparecen en diálogos accesibles; los errores de consulta, en línea.
 
 La UI se ha verificado con Edge en escritorio (1440x1080) y móvil (390x844).
-El informe `reports\web-qa.json` distingue las pruebas simuladas de las inferencias
+El informe `reports\redesign-qa.json` distingue las pruebas simuladas de las inferencias
 reales. Las capturas con respuestas contienen datos de prueba; no son benchmarks.
+El diseño sigue `rag-local-redesign/PROMPT.md`, sus tokens/fuentes locales y maquetas.
+Consulta `NOTAS-REDISENO.md` para el contrato aditivo de API, las decisiones y los límites.
 
 ## Entrar al entorno
 
@@ -193,9 +197,11 @@ El informe de detección y librerías queda en `reports\verification.json`.
 Pruebas de la web y del streaming, sin modelos reales:
 
 ```powershell
-python -m unittest -v test_rag test_web test_ollama_stream
-# Opcional: requiere requirements-dev.txt, Edge instalado y la web arrancada.
-python qa_web.py
+python -m unittest -v test_rag test_web test_ollama_stream test_redesign
+# Requiere requirements-dev.txt y Edge; inicia y cierra su servidor de pruebas aislado.
+python qa_redesign.py
+# Solo lectura contra tu servidor ya iniciado:
+python qa_web.py --url http://127.0.0.1:8765
 ```
 
 Para recrear las mismas versiones con Python 3.13 x64:
