@@ -125,7 +125,7 @@ export class UploadQueue {
   }
   applyJob(entry,job){
     const previous=entry.state;
-    entry.jobId=job.id;entry.process=job.progress??entry.process;entry.stageProgress=job.stage_progress??0;entry.chunks=job.chunks||0;entry.cancellable=job.cancellable;entry.cancelRequested=job.cancel_requested;
+    entry.jobId=job.id;entry.process=job.progress??entry.process;entry.stageProgress=job.stage_progress??0;entry.chunks=job.chunks||0;entry.cancellable=job.cancellable;entry.cancelRequested=['queued','running'].includes(job.status)&&Boolean(job.cancel_requested);
     entry.serverName=entry.serverName||job.document_name||entry.name;
     if(job.status==='done'){entry.state='indexed';entry.upload=100;entry.process=100;const own=(job.documents||[]).find((item)=>item.name===entry.serverName.split('/').pop());entry.chunks=own?.chunks??job.chunks??0;entry.skipped=own?.skipped||false;}
     else if(job.status==='error'){entry.state='error';entry.error=errorData(job.error_info||(typeof job.error==='object'?job.error:{message:job.error}));}
@@ -185,7 +185,7 @@ export class UploadQueue {
     $('upload-queue').replaceChildren();
     for(const entry of this.entries){
       const row=node('li','queue-row');row.dataset.state=entry.state;row.dataset.uploadProgress=String(entry.upload||0);row.dataset.totalProgress=String(this.value(entry));const type=fileType(entry.name);type.classList.add('queue-file-icon');row.append(type);
-      const body=node('div','queue-body');const line=node('div','queue-line');line.append(node('span','queue-name',entry.name),node('span',`status-pill ${phaseClass(entry.state)}`,entry.cancelRequested?'Cancelando…':labels[entry.state]));body.append(line);
+      const body=node('div','queue-body');const line=node('div','queue-line');line.append(node('span','queue-name',entry.name),node('span',`status-pill ${phaseClass(entry.state)}`,entry.cancelRequested&&activeStates.has(entry.state)?'Cancelando…':labels[entry.state]));body.append(line);
       if(!['error','rejected','cancelled','interrupted'].includes(entry.state)){
         if(['fragmenting','indexing','uploaded'].includes(entry.state)){const phases=node('div','file-phases queue-progress');phases.append(progress(100,'moss',`${entry.name}: subida`),progress(entry.state==='indexing'?100:entry.stageProgress||0,'ochre',`${entry.name}: fragmentos`),progress(entry.state==='indexing'?entry.stageProgress||0:0,'ochre',`${entry.name}: índice`));body.append(phases);}
         else{const bar=progress(this.value(entry),entry.state==='uploading'?'clay':'',`Progreso total de ${entry.name}`);bar.classList.add('queue-progress');body.append(bar);}

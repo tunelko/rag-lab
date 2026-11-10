@@ -399,6 +399,7 @@ def run_browser(url):
         else:
             raise AssertionError("Cancellation left pending indexing jobs")
         expect(page.locator(".queue-row[data-state=cancelled]")).not_to_have_count(0)
+        expect(page.locator(".queue-row[data-state=cancelled] .status-pill", has_text="Cancelando")).to_have_count(0)
         expect(page.locator(".queue-row[data-state=uploading],.queue-row[data-state=uploaded],.queue-row[data-state=fragmenting],.queue-row[data-state=indexing]")).to_have_count(0)
         expect(page.locator("#cancel-pending")).to_be_disabled()
         dialog_close(page)
