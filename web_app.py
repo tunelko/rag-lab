@@ -288,7 +288,7 @@ class RagService(JobRuntime):
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
         if model not in available["models"]:
             raise ValueError("Selecciona un modelo local instalado en Ollama.")
-        visual_mode = "descriptions" if images else "text"
+        visual_mode = "descriptions" if any(document.metadata.get("asset_id") for document, _ in hits[:len(sources)]) else "text"
         if settings.multimodal and images and "vision" in self.model_capabilities(model):
             messages[-1]["images"] = [base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images]
             messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(f"imagen {i}: fuente [{citation}]" for i, citation in enumerate(images.values(), 1))
