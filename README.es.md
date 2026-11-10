@@ -68,6 +68,8 @@ Para controlar el servidor en segundo plano, desde el directorio del proyecto:
 ```
 
 En Linux: `bash web.sh start|status|restart|stop` (elige una acción).
+Ambos lanzadores admiten también `--start`, `--stop`, `--restart`, `--status` y `--help`.
+En Windows también funcionan `-Restart` y los demás switches; `-h` muestra la ayuda.
 Usa el puerto de `.env`; puedes cambiarlo con `-Port 8766` en Windows o
 `--port 8766` en Linux. Registros en `reports/rag-server-runtime*.log`.
 Si hay tareas activas, stop/restart pide terminarlas o cancelarlas primero.
@@ -95,8 +97,9 @@ descripciones se reutilizan desde caché. La ingesta visual puede tardar segundo
 por página. La cola es secuencial: las preguntas esperan durante la indexación.
 Contrasta los detalles delicados con los originales.
 
-Los recuentos y listados consultan el registro real del índice. Las preguntas sobre
-todos los documentos recuperan evidencia de cada archivo con un presupuesto de
+Los recuentos y listados consultan el registro real del índice. Las listas generales
+como «Dame la lista de cpus admitidas» y las preguntas sobre todos los documentos
+recuperan evidencia de cada archivo con un presupuesto de
 contexto compartido; 2/4/6/8 fragmentos se aplica a consultas concretas. [Detalles](docs/RETRIEVAL.md).
 
 ## Organización y entornos

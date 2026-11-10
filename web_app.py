@@ -32,6 +32,7 @@ from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve
+from global_answers import GlobalAnswer
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -277,8 +278,8 @@ class RagService(JobRuntime):
                 raise ValueError('El contexto no incluye todos los documentos. Se ha detenido la respuesta global para evitar omisiones.')
             messages[0]['content'] += (
                 f' Esta consulta global aporta evidencia de {represented} documentos distintos. '
-                'Escribe una tabla con EXACTAMENTE una fila por documento, identificada por su nombre de archivo '
-                'y su cita. No agrupes documentos, ni siquiera versiones en distintos idiomas. '
+                'Responde para EXACTAMENTE cada documento, sin agrupar ni siquiera versiones en distintos idiomas. '
+                'Redacta también las celdas en español, traduciendo las fuentes y conservando nombres técnicos. '
                 'Solo indica el nombre de una entidad si aparece en esa fuente; si no, conserva el nombre del archivo. '
                 'No transfieras el nombre ni las especificaciones de un documento a otro. '
                 'Para documentos sin el dato solicitado en sus fragmentos, indícalo expresamente. '
@@ -341,8 +342,16 @@ class RagService(JobRuntime):
         self.update(job_id, phase="Generando respuesta con Ollama", model=model,
                     metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing})
 
+        structured = GlobalAnswer(sources) if intent.mode == 'global' else None
+        if structured:
+            messages[-1]['content'] += structured.instruction()
+
         def on_chunk(piece):
             self.check_cancel(job_id)
+            if structured:
+                partial = structured.feed(piece)
+                self.update(job_id, answer=partial, phase=f'Generando tabla · {len(structured.rows)}/{len(sources)} documentos')
+                return
             with self.lock:
                 self.jobs[job_id]["answer"] += piece
 
@@ -350,9 +359,13 @@ class RagService(JobRuntime):
         try:
             generation_options = {
                 'context_length': int(os.getenv('RAG_OLLAMA_GLOBAL_CONTEXT', '8192')),
-                'max_output_tokens': int(os.getenv('RAG_GLOBAL_MAX_NEW_TOKENS', '1536')),
+                'max_output_tokens': int(os.getenv('RAG_GLOBAL_MAX_NEW_TOKENS', '2048')),
+                'response_format': structured.schema,
             } if intent.mode == 'global' else {}
             answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id), **generation_options)
+            if structured:
+                answer = structured.finish(answer)
+                metrics.update(answer_documents=len(structured.rows), answer_coverage_complete=True)
         except InterruptedError:
             raise
         except OSError as exc:

@@ -198,7 +198,19 @@ def retrieve(config: Config, question: str, embeddings, k: int):
     if not (config.db / f"{config.collection}-manifest.json").exists():
         raise ValueError("No index exists for this collection. Run ingest first.")
     load_state(config)
-    return open_store(config, embeddings).similarity_search_with_score(question, k=k)
+    store = open_store(config, embeddings)
+    window = max(16, k * 4)
+    while True:
+        hits = store.similarity_search_with_score(question, k=window)
+        useful = [(document, distance) for document, distance in hits if usable_evidence(document.page_content)]
+        if len(useful) >= k or len(hits) < window or window >= 512:
+            return useful[:k]
+        window = min(window * 2, 512)
+
+
+def usable_evidence(text):
+    """Punctuation-only captions such as '---' are not evidence for a question."""
+    return any(character.isalnum() for character in text)
 
 
 def build_messages(question: str, hits, max_chars: int):
@@ -227,7 +239,7 @@ def build_messages(question: str, hits, max_chars: int):
     return [{"role": "system", "content": system}, {"role": "user", "content": user}], sources
 
 
-def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None):
+def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None, response_format=None):
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
     options = {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}
     if max_output_tokens is not None:
@@ -242,6 +254,7 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
         options["num_ctx"] = int(os.getenv("RAG_OLLAMA_VISION_CONTEXT", "8192"))
     body = json.dumps({"model": model, "messages": messages, "stream": on_chunk is not None,
                        "think": False,
+                       **({'format': response_format} if response_format is not None else {}),
                        "options": options}).encode()
     request = urllib.request.Request(endpoint, data=body, headers={"Content-Type": "application/json"})
     started = time.perf_counter()

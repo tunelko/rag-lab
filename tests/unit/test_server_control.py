@@ -6,6 +6,7 @@ from pathlib import Path
 import socket
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -60,7 +61,7 @@ class ServerControlTests(unittest.TestCase):
         control.start(self.root, self.port, timeout=10)
         self.assertEqual(control.matching_processes(self.root, self.port)[0][0].pid, original[0][0].pid)
         self.assertEqual(control.main(['status', '--root', str(self.root), '--port', str(self.port)]), 0)
-        self.assertEqual(control.main(['restart', '--root', str(self.root), '--port', str(self.port)]), 0)
+        self.assertEqual(control.main(['--restart', '--root', str(self.root), '--port', str(self.port)]), 0)
         restarted = control.matching_processes(self.root, self.port)
         self.assertNotEqual(restarted[0][0].pid, original[0][0].pid)
         self.assertEqual((self.root / 'shutdown.txt').read_text(), 'clean')
@@ -95,3 +96,14 @@ class ServerControlTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(control.default_port(self.root), 9876)
         self.assertEqual(control.main(['status', '--root', str(self.root), '--port', '80']), 1)
+
+    def test_relative_app_directory_uses_the_servers_working_directory(self):
+        def process(pid, directory):
+            return SimpleNamespace(pid=pid, info={'name':'python'}, ppid=lambda:999,
+                cwd=lambda:str(directory), cmdline=lambda:[sys.executable,'-m','uvicorn',
+                    'web_app:app','--app-dir','.','--port',str(self.port)])
+        other=process(123, self.root/'another-checkout')
+        own=process(456, self.root)
+        with patch.object(control.psutil,'process_iter',return_value=[other,own]):
+            found=control.matching_processes(self.root,self.port)
+        self.assertEqual([item.pid for item,_ in found],[456])

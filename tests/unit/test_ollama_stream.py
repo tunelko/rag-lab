@@ -49,6 +49,13 @@ class OllamaStreamTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rag.generate_ollama([], 'test', max_output_tokens=100000)
 
+    def test_structured_schema_is_sent_to_the_local_api(self):
+        body=b'{"message":{"content":"{}"},"eval_count":1}'
+        schema={'type':'object','properties':{'1':{'type':'string'}},'required':['1']}
+        with patch('rag.urllib.request.urlopen',return_value=io.BytesIO(body)) as request:
+            rag.generate_ollama([], 'test', response_format=schema)
+        self.assertEqual(json.loads(request.call_args.args[0].data)['format'],schema)
+
     def test_truncated_stream_is_not_reported_as_complete(self):
         with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
             with self.assertRaises(RuntimeError):

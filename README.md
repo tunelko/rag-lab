@@ -68,6 +68,8 @@ To manage the server in the background, use the project directory:
 ```
 
 On Linux: `bash web.sh start|status|restart|stop` (choose one action).
+Both launchers also accept `--start`, `--stop`, `--restart`, `--status` and `--help`.
+Windows also accepts PowerShell switches such as `-Restart` and `-h` for help.
 The port comes from `.env`; override with `-Port 8766` on Windows or `--port 8766`
 on Linux. Logs are in `reports/rag-server-runtime*.log`. Stop/restart refuse active
 jobs; cancel or finish them first. These commands leave Ollama and documents alone.
@@ -93,8 +95,9 @@ Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descrip
 are cached. Visual indexing can take seconds per page. Jobs share a sequential
 queue; questions wait during indexing. Check original sources for critical details.
 
-Library counts/listings read the actual index register. Questions explicitly about
-all documents retrieve evidence from every indexed file with a shared context budget;
+Library counts/listings read the actual index register. General list requests,
+such as “Dame la lista de cpus admitidas”, and questions about all documents retrieve
+evidence from every indexed file with a shared context budget;
 the 2/4/6/8 fragment setting applies to focused questions. [Retrieval details](docs/RETRIEVAL.md).
 
 ## Layout and environments

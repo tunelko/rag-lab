@@ -12,7 +12,7 @@ import rag
 from model_routing import normalize
 
 
-CATALOG_WORDS = set(('y el la los las de del en un una por favor me puedes dime indica indicame '
+CATALOG_WORDS = set(('y el la los las de del en un una por favor me puedes dime dame muestrame indica indicame has he hemos '
     'que cuales cuantos cuantas numero cantidad total lista listado listar enumera enumerar '
     'nombres nombre documentos documento archivos archivo manual manuales biblioteca '
     'tienes tiene tenemos tengo hay estan esta son se indexado indexada indexados indexadas '
@@ -22,8 +22,12 @@ CATALOG_WORDS = set(('y el la los las de del en un una por favor me puedes dime 
     'do you have are is there currently available').split())
 GLOBAL = re.compile(r'\b(?:tod[oa]s?|all)\b.{0,60}\b(?:documentos?|archivos?|manuales?|biblioteca|documents?|files?|manuals?|library)\b'
                     r'|\b(?:cada|each)\b.{0,45}\b(?:documento|archivo|manual|placa|equipo|document|file|motherboard|device)\b')
+LIST_REQUEST = re.compile(r'\b(?:lista|listado|listame|enumera|enumerar|enumerate|list|listing)\b')
+FOCUSED_SELECTOR = re.compile(r'\b(?:est[ea]|es[ea]|dich[oa]|this|that)\s+(?:misma?\s+)?'
+    r'(?:placa|manual|documento|archivo|equipo|dispositivo|board|motherboard|manual|document|file|device)\b'
+    r'|\b[a-z]{1,6}[0-9]{2,5}[a-z0-9-]*\b|\.(?:pdf|txt|md)\b|["\u201c\u201d]')
 ALIASES = {word: canonical for canonical, words in {
-    'cpu': 'cpu processor processors procesador procesadores',
+    'cpu': 'cpu cpus processor processors procesador procesadores',
     'support': 'support supports supported compatible compatibles compatibility compatibilidad soporta soportan soportadas soportados soportado soportada soporte admite admiten admitidos admitidas',
     'memory': 'memory memoria memorias ram', 'storage': 'storage almacenamiento',
     'port': 'port ports puerto puertos', 'connector': 'connector connectors conector conectores',
@@ -39,8 +43,11 @@ def tokens(text):
 def best_evidence(texts, semantic_scores, topic, metadata=None):
     """Prefer literal field phrases; otherwise fuse cosine and BM25 rankings."""
     terms = list(dict.fromkeys(tokens(topic)))
+    valid = [index for index, text in enumerate(texts) if rag.usable_evidence(text)]
+    if not valid:
+        raise ValueError('El documento no contiene fragmentos con texto útil para responder; revisa su extracción.')
     if not terms:
-        return int(np.argmax(semantic_scores))
+        return max(valid, key=lambda index: semantic_scores[index])
     counts = [Counter(tokens(text)) for text in texts]
     lengths = np.asarray([sum(count.values()) for count in counts], dtype=np.float64)
     average = max(float(lengths.mean()), 1)
@@ -61,14 +68,16 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
     # Exact, canonicalized multiword fields such as "CPU support" are explicit evidence.
     # Long questions use fused rankings rather than requiring an entire sentence verbatim.
     phrase = ' '.join(terms)
+    phrases = [phrase, ' '.join(reversed(terms))] if len(terms) == 2 else [phrase]
     exact = [index for index, text in enumerate(texts)
-             if 1 < len(terms) <= 4 and (' ' + phrase + ' ') in (' ' + ' '.join(tokens(text)) + ' ')]
+             if 1 < len(terms) <= 4 and any((' ' + item + ' ') in (' ' + ' '.join(tokens(text)) + ' ') for item in phrases)]
     field = re.compile(r'^\s*[|#*`\s]*' + re.escape(terms[0]) + r'(?:\s*[*`]*\s*\||[*`\s]*$)', re.MULTILINE | re.IGNORECASE)
     fields = [index for index, text in enumerate(texts) if 1 < len(terms) <= 4 and field.search(normalize(text))
               and all(counts[index][term] for term in terms)]
     native_fields = [index for index in fields if metadata and metadata[index].get('item_type') in ('text', 'table')]
     native = [index for index in exact if metadata and metadata[index].get('item_type') in ('text', 'table')]
-    candidates = native_fields or fields or native or exact or range(len(texts))
+    complete = [index for index in valid if all(counts[index][term] for term in terms)]
+    candidates = native_fields or fields or native or exact or complete or valid
     return max(candidates, key=lambda index: fused[index])
 
 
@@ -89,7 +98,7 @@ def query_intent(question):
             return Intent('catalog_count')
         if words & {'que', 'cuales', 'lista', 'listado', 'listar', 'enumera', 'enumerar', 'nombres', 'which', 'what', 'list', 'names'}:
             return Intent('catalog_list')
-    if GLOBAL.search(text):
+    if GLOBAL.search(text) or (LIST_REQUEST.search(text) and not FOCUSED_SELECTOR.search(text)):
         return Intent('global', topic_query(question))
     return Intent('focused', question.strip())
 
@@ -100,9 +109,11 @@ def topic_query(question):
     text = re.sub(r'^(?:de |en |entre |from |in |across )?(?:tod[oa]s?|all)(?: los| las| the)? '
                   r'(?:documentos|archivos|manuales|documents|files|manuals)(?: indexad[oa]s| indexed)?\s*[,;:]?\s*', '', text)
     text = re.sub(r'\b(?:por|de|para|for|of) (?:cada|each)\b.*$', '', text)
+    text = re.sub(r'^(?:por favor\s+)?(?:dame|dime|muestrame|indicame|give me|show me)\s+', '', text)
+    text = re.sub(r'^(?:(?:la|el|una?|the|a)\s+)?(?:lista|listado|listado completo|list|listing)\s+(?:de|of)\s+', '', text)
     text = re.sub(r'^(?:enumera|enumerar|lista|listar|compara|comparar|dime|list|compare|enumerate)\s+', '', text)
     text = re.sub(r'^(?:el|la|los|las|the)\s+', '', text)
-    return text.strip(' ,;:.?¿¡!') or question.strip()
+    return re.sub(r'\bcpus\b', 'cpu', text.strip(' ,;:.?¿¡!')) or question.strip()
 
 
 def catalog_answer(documents, mode):

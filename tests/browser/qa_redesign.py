@@ -80,12 +80,15 @@ def fixture_server(port):
 
     attempted_errors = set()
 
-    def fake_generate(messages, model, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None):
+    def fake_generate(messages, model, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None, response_format=None):
         question = messages[-1]["content"]
         if "__QA_ERROR__" in question and "error" not in attempted_errors:
             attempted_errors.add("error")
             raise OSError("Synthetic Ollama failure for UI acceptance testing")
         pieces = ["La copia de seguridad se realiza ", "**cada viernes** [1]."]
+        if response_format:
+            payload = json.dumps({key: 'Datos disponibles en esta fuente.' for key in response_format['required']})
+            pieces = [payload[start:start+40] for start in range(0,len(payload),40)]
         if "__QA_MARKDOWN__" in question:
             pieces = [MARKDOWN_RESPONSE[:170], MARKDOWN_RESPONSE[170:500], MARKDOWN_RESPONSE[500:]]
         if "__QA_SLOW__" in question:
@@ -494,7 +497,7 @@ def run_browser(url):
         inventory = page.request.get(url + '/api/statistics').json()['recent'][0]['metrics']
         assert inventory['backend'] == 'catalog', inventory
         previous_turns = page.locator('.chat-turn').count()
-        page.locator('#question').fill('De todos los documentos indexados, enumera las CPU soportadas por cada placa.')
+        page.locator('#question').fill('Dame la lista de cpus admitidas')
         page.locator('#ask-button').click()
         expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
         expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')

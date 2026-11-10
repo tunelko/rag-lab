@@ -28,6 +28,8 @@ data/visual/
 # Source material copied locally at the project root, outside the application.
 /[0-9]*/
 /MSIMotherboard*/
+/Gigabyte*/
+/gigabyte-*/
 /manuals-plus-*/
 /mb_manual*/
 /xbox-360-motherboard-developments/

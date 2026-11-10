@@ -46,6 +46,11 @@ def argument(command, name):
         return None
 
 
+def process_path(process, value):
+    path = Path(value)
+    return (path if path.is_absolute() else Path(process.cwd()) / path).resolve()
+
+
 def matching_processes(root, port):
     """Ignore reused PIDs, unrelated Python apps and servers from other checkouts."""
     matched = []
@@ -57,11 +62,11 @@ def matching_processes(root, port):
             command = process.cmdline()
             if argument(command, '--port') != str(port):
                 continue
-            managed = (len(command) > 2 and Path(command[1]).resolve() == CONTROLLER
+            managed = (len(command) > 2 and process_path(process, command[1]) == CONTROLLER
                        and command[2] == '_run' and argument(command, '--root')
-                       and Path(argument(command, '--root')).resolve() == root)
+                       and process_path(process, argument(command, '--root')) == root)
             legacy = ('web_app:app' in command and argument(command, '--app-dir')
-                      and Path(argument(command, '--app-dir')).resolve() == root)
+                      and process_path(process, argument(command, '--app-dir')) == root)
             if managed or legacy:
                 matched.append((process, bool(managed)))
                 parents.add(process.ppid())
@@ -209,6 +214,9 @@ def run_server(root, port):
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in ('--start', '--stop', '--restart', '--status'):
+        argv[0] = argv[0][2:]
     parser = argparse.ArgumentParser(description='Control del servidor RAG local; no modifica Ollama.')
     parser.add_argument('action', nargs='?', default='start', choices=('start', 'stop', 'restart', 'status', '_run'))
     parser.add_argument('--port', type=int, help='Puerto; por defecto RAG_WEB_PORT en .env o 8765.')

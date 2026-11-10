@@ -1,5 +1,6 @@
 """Library scope and inventory regression checks without model execution."""
 import unittest
+import json
 from unittest.mock import patch
 from types import SimpleNamespace
 
@@ -19,6 +20,11 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(query_intent(text).mode, 'global')
         self.assertEqual(topic_query(text), 'cpu soportadas')
         self.assertEqual(query_intent('¿Cuántos procesadores admite esta placa?').mode, 'focused')
+        for text in ('Dame la lista de cpus admitidas', 'Lista de procesadores compatibles', 'List supported CPUs'):
+            self.assertEqual(query_intent(text).mode, 'global', text)
+        self.assertEqual(topic_query('Dame la lista de cpus admitidas'), 'cpu admitidas')
+        for text in ('Dame la lista de cpus admitidas por esta placa', 'Lista de CPU de la B250M', 'Lista de puertos del manual.pdf'):
+            self.assertEqual(query_intent(text).mode, 'focused', text)
 
     def test_inventory_counts_all_files_and_excludes_pending(self):
         documents = [{'name': f'manual-{n}.pdf', 'indexed': True, 'chunks': 100} for n in range(17)]
@@ -37,6 +43,11 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(best_evidence(texts, np.array([.99, .7, .9]), 'cpu soportadas', metadata), 1)
         japanese = ['CPU socket installation instructions', 'CPU\nIntel Core 14/13/12 サポート']
         self.assertEqual(best_evidence(japanese, np.array([.99, .7]), 'cpu soportadas', [{'item_type': 'text'}]*2), 1)
+        self.assertEqual(best_evidence(['---', 'CPU\nSupports generation 12.'], np.array([.99,.7]), 'cpus admitidas'),1)
+        with self.assertRaises(ValueError):
+            best_evidence(['---','***'],np.array([.99,.7]),'cpus admitidas')
+        self.assertEqual(best_evidence(['Antes de instalar el procesador conserve su cubierta.',
+            'Procesador: Soporte para procesadores Intel Core de 14/13/12 generaciones.'],np.array([.99,.7]),'cpu admitidas'),1)
 
     def test_global_retrieval_covers_every_document_with_a_bounded_context(self):
         documents = [{'name':f'board-{n}.txt', 'indexed':True} for n in range(9)]
@@ -88,15 +99,18 @@ class CatalogApiTests(unittest.TestCase):
                 data={'auto_index':'false'})
         response=self.client.post('/api/admin/index',headers=self.headers)
         self.wait(response.json()['job_id'])
-        def generate(messages,model,on_chunk=None,cancelled=None,context_length=None,max_output_tokens=None):
+        def generate(messages,model,on_chunk=None,cancelled=None,context_length=None,max_output_tokens=None,response_format=None):
             self.assertEqual(context_length,8192)
-            self.assertEqual(max_output_tokens,1536)
+            self.assertEqual(max_output_tokens,2048)
             self.assertEqual(sum(f'board-{n}.txt' in messages[-1]['content'] for n in range(6)),6)
-            return 'Tabla con fuentes [1] [2] [3] [4] [5] [6].', {'model':model}
+            return json.dumps({key:'CPU soportadas en esta fuente.' for key in response_format['required']}), {'model':model}
         with patch('rag.generate_ollama',side_effect=generate):
             response=self.client.post('/api/query',headers=self.headers,json={
-                'question':'De todos los documentos, enumera las CPU soportadas por cada placa.','k':2})
+                'question':'Dame la lista de cpus admitidas','k':2})
             job=self.wait(response.json()['job_id'])
         self.assertEqual(len(job['sources']),6)
         self.assertEqual(job['metrics']['documents_retrieved'],6)
         self.assertTrue(job['metrics']['coverage_complete'])
+        self.assertTrue(job['metrics']['answer_coverage_complete'])
+        for number in range(1,7):
+            self.assertIn(f'[{number}]',job['answer'])
