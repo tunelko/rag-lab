@@ -1,5 +1,32 @@
 # Rediseño de RAG Local — reconocimiento y ejecución
 
+## Ampliación solicitada después del rediseño (10-11-2026)
+
+Las nuevas instrucciones del usuario sustituyen la distribución original: Chat limpio,
+fuentes plegables, Configuración general y Estadísticas separadas. También autorizan
+extender la ingesta y la generación a documentos multimodales. Las restricciones de
+paleta, fuentes locales, accesibilidad y ejecución local del paquete se mantienen.
+
+- Nuevas rutas SPA: `/configuracion`, `/estadisticas`; las anteriores siguen funcionando.
+- `GET/PUT /api/settings`: preferencias persistentes y validación de modelos locales.
+- `GET /api/statistics`: estadísticas derivadas de tareas reales conservadas en memoria.
+- `GET /api/figures/{sha256}`: imágenes PNG normalizadas, sin rutas arbitrarias.
+- `POST /api/query` mantiene sus parámetros y añade historial acotado. Si se omiten
+  modelo/k/search_only, aplica las preferencias compartidas. Los clientes antiguos
+  pueden seguir especificándolos. Las fuentes añaden tipo y referencias visuales.
+- `rag.ingest` añade lector, extensiones y política opcionales; el lector original
+  sigue siendo el predeterminado. La política evita omitir PDFs que ahora necesitan
+  extracción visual. Se conserva ChromaDB y el modelo/dimensión de embeddings.
+- `multimodal.py` implementa extracción PDF/imágenes e importación MinerU v1/v2;
+  `settings_store.py` guarda preferencias de forma atómica. No ejecutan modelos al importar.
+- `dist/chat.js` gestiona conversación y fuentes por respuesta; `workspace.css`
+  organiza las nuevas secciones sobre los tokens existentes. Sin npm, CDN ni hosting.
+- Pruebas de parsing/almacenamiento real con CPU e inferencias simuladas en
+  `test_multimodal.py`; QA de navegador ampliada a las cuatro secciones y miniaturas.
+
+La descripción del primer rediseño que sigue es un registro del estado de partida;
+el comportamiento actual y los límites multimodales están documentados en README.
+
 ## Material obligatorio leído
 
 - `rag-local-redesign/PROMPT.md`, `README.md` y `spec/comportamiento.md`, completos.

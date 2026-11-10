@@ -5,56 +5,109 @@ Python 3.13 x64, PyTorch 2.14.1 con CUDA 13.0, Transformers 5.22.2,
 bitsandbytes 0.50.2, Accelerate 1.15.0, LangChain 1.4.9 y ChromaDB 1.5.9.
 Las dependencias directas están fijadas; `requirements-lock.txt` registra todo el entorno.
 
-## Interfaz web local: Consulta y Biblioteca
+## Interfaz local: Chat, Biblioteca, Configuración y Estadísticas
 
-Desde PowerShell, sin necesidad de activar el entorno:
+Desde PowerShell, sin activar el entorno:
 
 ```powershell
 & 'D:\problemas_gpu\rag-lab\Start-Web.ps1'
 ```
 
-Mantén esa consola abierta. Para cerrar el servidor, pulsa Ctrl+C.
-Si el puerto está ocupado, usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
+Mantén esa consola abierta. Ctrl+C cierra el servidor. Si el puerto está ocupado,
+usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 
-- Consulta: **http://127.0.0.1:8765/**
-- Biblioteca: **http://127.0.0.1:8765/admin** (también `/biblioteca`)
+- **Chat:** http://127.0.0.1:8765/ — conversación sin estadísticas ni ajustes.
+  Cada respuesta tiene **Fuentes consultadas**, plegado de entrada. Pulsar una cita
+  abre sus fuentes. El historial de hasta 30 turnos se conserva en esta pestaña.
+- **Biblioteca:** http://127.0.0.1:8765/admin — subir e indexar documentos.
+- **Configuración general:** http://127.0.0.1:8765/configuracion — modelo de respuesta,
+  2/4/6/8 fragmentos, búsqueda sin generación, procesamiento visual y sus límites.
+  Un fragmento es un trozo del documento recuperado como evidencia para la pregunta.
+  Los ajustes se guardan en `data/settings.json`, compartidos entre navegadores locales.
+  **Guardar configuración** aplica los cambios a las consultas siguientes.
+- **Estadísticas:** http://127.0.0.1:8765/estadisticas — biblioteca, servicios,
+  tareas y tiempos/tokens de consultas recientes. Los datos de consultas se
+  conservan en memoria del servidor, hasta 200 tareas; no representan un histórico
+  permanente. Tokens/s proceden de las métricas nativas de Ollama, no de contar palabras.
 
-La vista principal es Consulta. Permite elegir un modelo LOCAL instalado en Ollama,
-preguntar, recibir el texto progresivamente y abrir las referencias `[1]`, `[2]`.
-También permite buscar fragmentos sin generar una respuesta. Muestra tokens/s,
-tokens de salida y tiempos a partir de las métricas nativas de Ollama al completar
-la generación; durante la respuesta muestra el texto y el tiempo transcurrido.
-No se estima la velocidad contando palabras o fragmentos HTTP.
+### Primeros documentos
 
-Flujo inicial, completamente desde el navegador:
+1. Revisa Configuración. Para procesar imágenes, activa el modo multimodal y elige
+   un **modelo visual instalado** (por ejemplo `qwen3.5:9b-q4_K_M`, detectado localmente).
+   Si quieres que la respuesta inspeccione también las imágenes originales,
+   selecciona un modelo con visión como **Modelo de respuesta**.
+2. En Biblioteca, añade PDF, TXT, Markdown, PNG/JPEG/WebP o un ZIP de exportación MinerU.
+3. Pulsa **Subir e indexar**. Los embeddings usan CPU; su primera preparación puede
+   descargar el modelo. Con el modo multimodal, las descripciones visuales se
+   solicitan a Ollama durante esta acción y pueden utilizar la GPU.
+4. En Chat, escribe la pregunta y pulsa **Enviar** o Ctrl+Enter.
 
-1. En Biblioteca, selecciona o arrastra PDF, TXT o Markdown.
-2. Pulsa **Subir e indexar**. La primera vez se descargan los embeddings y se cargan
-   en CPU. La primera indexación tardará más por esa preparación.
-3. Cuando termine, entra en Consulta, escribe una pregunta y pulsa **Preguntar**.
-   Esa acción envía la solicitud a Ollama, que utiliza la GPU según su configuración.
+El arranque y el guardado de ajustes no ejecutan inferencias ni descargan modelos.
+En este equipo se ha guardado una configuración inicial multimodal con
+`qwen3.5:9b-q4_K_M` para indexar y responder. Solo se ha verificado su instalación
+y capacidad declarada de visión, sin ejecutar el modelo. Puedes cambiarlo en Configuración.
+**Preparar modelo de búsqueda**, en Configuración, adelanta la descarga de embeddings CPU.
+No se instala MinerU completo ni se descarga ningún LLM automáticamente.
 
-El arranque del servidor no descarga modelos ni inicia inferencias. El botón
-**Preparar modelo de búsqueda** permite adelantar la descarga CPU sin documentos.
-**Actualizar índice** procesa archivos añadidos también desde el explorador de Windows.
+### Adaptación multimodal
 
-La aplicación guarda los documentos en `data\documents`. Acepta hasta 20 archivos
-por lote, 20 MB por archivo, y sube dos archivos a la vez. No sobrescribe archivos existentes:
-si el contenido cambió, guarda una copia con otro nombre. Repetir el mismo nombre
-y contenido no crea otra copia.
+Referencia conceptual: [artículo de Joaquín Videla](https://www.joaquinvidela.com/blog/multimodal-rag-base-documentos-figuras)
+y [skrvidz/multimodal-rag-base](https://github.com/skrvidz/multimodal-rag-base).
+Implementación propia sobre el laboratorio existente; no se ha copiado su aplicación.
 
-Consulta y Biblioteca son vistas de una aplicación personal, NO cuentas o roles
-autenticados. El servidor solo escucha en 127.0.0.1, valida Host/origen y exige un
-token de sesión en peticiones de escritura. No se publica en Internet ni en la LAN.
-Serializa el procesado del índice y las consultas, aunque permite nuevas subidas mientras
-trabaja. La cola ofrece progreso real, pausa, cancelación, reintento y recuperación tras
-recargar. Los resultados aparecen en diálogos accesibles; los errores de consulta, en línea.
+- **PDF:** PyMuPDF extrae texto y tablas en CPU. Las páginas con imágenes, gráficos
+  vectoriales o sin texto se conservan como vistas completas de página. No se
+  afirma detectar y recortar automáticamente cada figura de un PDF.
+- **Imágenes:** se normalizan y reducen a 1440 px como máximo por lado. Ollama
+  genera una descripción/transcripción que entra en el índice textual.
+- **MinerU ZIP:** un único `*_content_list_v2.json` o `*_content_list.json`
+  con sus imágenes relativas. El importador preserva texto, tablas y figuras,
+  convierte páginas de base 0 a páginas de base 1 y rechaza rutas fuera del ZIP.
+  No admite ZIP genéricos, extracción Office directa ni exportaciones solo Markdown.
+- **Recuperación:** embeddings textuales en ChromaDB; las descripciones permiten
+  encontrar imágenes, pero no hay embeddings visuales ni búsqueda por imagen.
+- **Respuesta:** un modelo con visión recibe hasta el límite configurado de imágenes
+  de las páginas recuperadas. Un modelo de texto recibe los fragmentos/descripciones.
+  La presencia de una miniatura en Fuentes no significa por sí sola que el modelo
+  haya visto sus píxeles: el modo real aparece en Estadísticas.
+- Descripciones automáticas/OCR pueden contener errores. Revisa la imagen y el original
+  al trabajar con cifras, diagramas o tablas complejas. La calidad y el ajuste en VRAM
+  no se han medido con inferencias reales durante esta adaptación.
+- Las páginas/figuras y sus descripciones se guardan en `data/visual`; la caché evita
+  repetir descripciones idénticas con el mismo modelo/parser. El manifiesto del índice
+  guarda referencias a figuras y la política de extracción.
+- Límite inicial: 24 vistas/figuras por documento, configurable hasta 100. Si se supera,
+  el documento termina con un error visible, sin confirmar una indexación parcial.
+  Cambiar el modelo visual o activar/desactivar el modo requiere **Actualizar índice**.
+  El CLI textual no sustituye un índice multimodal existente: usa la web para actualizarlo.
 
-La UI se ha verificado con Edge en escritorio (1440x1080) y móvil (390x844).
-El informe `reports\redesign-qa.json` distingue las pruebas simuladas de las inferencias
-reales. Las capturas con respuestas contienen datos de prueba; no son benchmarks.
-El diseño sigue `rag-local-redesign/PROMPT.md`, sus tokens/fuentes locales y maquetas.
-Consulta `NOTAS-REDISENO.md` para el contrato aditivo de API, las decisiones y los límites.
+Los documentos originales quedan en `data/documents`. Se aceptan 20 archivos por
+lote, 20 MB por archivo, dos subidas simultáneas y procesamiento secuencial.
+Los ZIP admiten hasta 2000 entradas y 100 MB descomprimidos, sin enlaces simbólicos.
+No se sobrescriben originales: los archivos cambiados se guardan con otro nombre.
+
+El servidor escucha en 127.0.0.1, valida Host/origen y exige token CSRF para escrituras.
+Es una aplicación personal con secciones, sin cuentas o roles autenticados. No se
+publica en la LAN ni Internet. Documentos, imágenes, embeddings y consultas se
+procesan en local; la primera descarga de dependencias/embeddings sí necesita Internet.
+No se utiliza Claude ni Qdrant, Docker o un servicio externo de análisis documental.
+
+La cola conserva progreso real, pausa, cancelación, reintentos y recuperación al
+recargar. La cancelación visual es cooperativa: puede esperar a que Ollama entregue
+el siguiente bloque. La escritura de lotes del índice no se interrumpe a mitad.
+El chat transmite al modelo los últimos tres pares de mensajes, acotados; recuperar
+evidencia sigue basándose en la pregunta actual. No implementa las herramientas
+iterativas del agente del repositorio de referencia.
+Las llamadas de este RAG desactivan el thinking de Ollama para priorizar respuestas
+visibles dentro del límite de salida. Las consultas con imágenes piden 8192 tokens
+de contexto; se puede ajustar con `RAG_OLLAMA_VISION_CONTEXT` en `.env`. Son opciones
+de cada petición del laboratorio, sin cambiar la configuración global de Ollama/OMP.
+El historial transmitido se limita además a 6000 caracteres en total.
+
+El informe `reports/redesign-qa.json` y sus capturas usan modelos y métricas
+**simulados para probar la aplicación**, no son benchmarks de la RTX 3080.
+La UI se comprueba en Edge a 1440 px y 390 px, sin peticiones externas del navegador.
+Se mantienen los tokens y tipografías locales del paquete de rediseño.
 
 ## Entrar al entorno
 

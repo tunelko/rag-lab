@@ -33,13 +33,16 @@ def fixture_server(port):
             return super().embed_documents(texts)
 
     class FixtureService(RagService):
+        def model_capabilities(self, model):
+            return ["vision"] if model == "qa-vision:latest" else []
+
         def get_embeddings(self, download=False):
             if self.embeddings is None:
                 self.embeddings = SlowVectors(size=32)
             return self.embeddings
 
         def ollama_status(self):
-            return {"connected": True, "models": ["qa-local:latest"], "default_model": "qa-local:latest", "loaded": []}
+            return {"connected": True, "models": ["qa-local:latest", "qa-vision:latest"], "default_model": "qa-local:latest", "loaded": []}
 
     attempted_errors = set()
 
@@ -60,10 +63,14 @@ def fixture_server(port):
         return "".join(pieces), {"model": model, "generation_tok_s": 80, "output_tokens": 18, "first_content_seconds": .08, "retrieval_seconds": .05}
 
     rag.generate_ollama = fake_generate
+    import multimodal
+    multimodal.describe_image = lambda *args, **kwargs: "Captura de prueba con 4 puertos USB."
     sandbox = ROOT / "data" / "test-chroma"
     sandbox.mkdir(parents=True, exist_ok=True)
     case = Path(tempfile.mkdtemp(prefix="redesign-browser-", dir=sandbox))
     service = FixtureService(rag.Config(db=case / "db", collection="redesign_qa"), case / "documents")
+    from settings_store import Preferences
+    service.settings.save(Preferences(response_model="qa-local:latest"))
     uvicorn.run(create_app(service), host="127.0.0.1", port=port, access_log=False)
 
 
@@ -156,45 +163,71 @@ def run_browser(url):
         page.screenshot(path=str(reports / "redesign-modal-exito.png"), full_page=True)
         dialog_close(page)
         page.locator("#auto-index").check()
+        page.locator("#nav-settings").click()
         page.locator("#prepare-button").click()
+        expect(page.locator("#toast")).to_contain_text("Modelo de búsqueda listo")
+        page.locator("#toast button").click()
         expect(page.locator("#dialog-title")).to_have_text("Modelo de búsqueda listo")
         assert page.evaluate("document.activeElement.textContent").startswith("Hacer una consulta")
         dialog_close(page)
         assert page.locator("#prepare-button").evaluate("element=>element===document.activeElement")
         check("Upload without indexing, explicit indexing, preparation and success modal focus restoration")
 
+        page.locator("#top-k [data-k='6']").click()
+        page.locator("#save-settings").click()
+        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        page.reload(wait_until="networkidle")
+        expect(page.locator("#top-k [data-k='6']")).to_have_attribute("aria-pressed", "true")
+        page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)
         page.locator("#nav-query").click()
+        expect(page.locator("#model")).not_to_be_visible()
+        expect(page.locator("#stat-docs")).not_to_be_visible()
         page.locator("#question").fill("¿Cuándo se realiza la copia de seguridad?")
         page.locator("#question").press("Control+Enter")
-        expect(page.locator("#answer-status")).to_have_text("Completada")
-        expect(page.locator("#answer")).to_contain_text("cada viernes")
-        expect(page.locator("#answer .citation")).to_have_count(1)
-        page.locator("#answer .citation").click()
-        expect(page.locator("#src-1")).to_be_visible()
-        assert page.locator("#sources mark").count() > 0
-        page.locator("#copy-answer").click()
+        expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false")
+        expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
+        assert not page.locator(".chat-sources").last.evaluate("e=>e.open")
+        page.locator(".chat-turn .citation").last.click()
+        expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
+        assert page.locator(".chat-sources mark").count() > 0
+        page.locator(".chat-actions button[aria-label='Copiar respuesta']").last.click()
         expect(page.locator("#toast")).to_contain_text("Respuesta copiada")
+        page.locator("#nav-settings").click()
         page.locator("#search-only").check()
+        page.locator("#save-settings").click()
+        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        page.locator("#nav-query").click()
+        page.locator("#question").fill("Busca copias de seguridad")
         page.locator("#ask-button").click()
-        expect(page.locator("#answer")).to_contain_text("fragmentos más relevantes")
+        expect(page.locator(".chat-turn .answer").last).to_contain_text("Fragmentos recuperados")
+        page.locator("#nav-settings").click()
         page.locator("#search-only").uncheck()
+        page.locator("#save-settings").click()
+        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        page.locator("#nav-query").click()
         page.locator("#question").fill("__QA_ERROR__")
         page.locator("#ask-button").click()
-        expect(page.locator("#query-error")).to_be_visible()
-        expect(page.locator("#query-error")).to_contain_text("Ollama no responde")
+        expect(page.locator(".chat-turn .chat-state").last).to_contain_text("Ollama no responde")
         assert not page.locator("#result-dialog").is_visible()
-        page.locator("#retry-query").click()
-        expect(page.locator("#answer-status")).to_have_text("Completada")
+        page.locator(".chat-actions button").filter(has_text="Reintentar").last.click()
+        expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
+        expect(page.locator("#ask-button")).to_contain_text("Enviar")
         page.locator("#question").fill("__QA_SLOW__")
         page.locator("#ask-button").click()
         expect(page.locator("#ask-button")).to_contain_text("Detener")
         page.locator("#ask-button").click()
-        expect(page.locator("#answer-status")).to_have_text("Cancelada")
+        expect(page.locator(".chat-turn .chat-state").last).to_contain_text("Consulta detenida")
         page.locator("#question").fill("¿Cuándo se realiza la copia de seguridad?")
         page.locator("#ask-button").click()
-        expect(page.locator("#answer-status")).to_have_text("Completada")
+        expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
+        expect(page.locator("#ask-button")).to_contain_text("Enviar")
         page.screenshot(path=str(reports / "redesign-consulta-con-respuesta.png"), full_page=True)
-        check("Query shortcut, streamed text, citations, highlighting, copying, search-only, inline error/retry and stop")
+        page.reload(wait_until="networkidle")
+        expect(page.locator(".chat-turn")).to_have_count(5)
+        page.locator("#nav-statistics").click()
+        expect(page.locator("#query-statistics")).to_contain_text("80,00")
+        page.screenshot(path=str(reports / "redesign-estadisticas.png"), full_page=True)
+        check("Clean chat, persisted configuration/history, collapsed citations, copy, search-only, retry, stop and separate real metrics")
 
         page.locator("#nav-admin").click()
         clear_queue(page)
@@ -261,6 +294,38 @@ def run_browser(url):
         page.locator("[data-filter=all]").click()
         check("Literal hostile filenames, 20-document pagination, debounced search and status filters")
 
+        page.locator("#nav-settings").click()
+        page.locator("#multimodal").check()
+        page.locator("#vision-model").select_option("qa-vision:latest")
+        page.locator("#model").select_option("qa-vision:latest")
+        page.locator("#save-settings").click()
+        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        page.locator("#nav-admin").click()
+        clear_queue(page)
+        page.locator("#auto-index").check()
+        import io
+        from PIL import Image
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (120, 90), "white").save(image_buffer, format="PNG")
+        page.locator("#file-input").set_input_files(file("qa-figure.png", image_buffer.getvalue()))
+        page.locator("#upload-button").click()
+        expect(page.locator("#dialog-title")).to_have_text("Indexación completada")
+        dialog_close(page)
+        page.locator("#nav-query").click()
+        page.locator("#question").fill("qa-figure\nDescripción visual (puede contener errores de OCR):\nCaptura de prueba con 4 puertos USB.")
+        page.locator("#ask-button").click()
+        expect(page.locator("#ask-button")).to_contain_text("Enviar")
+        source_details = page.locator(".chat-sources").last
+        assert not source_details.evaluate("e=>e.open")
+        source_details.locator("summary").click()
+        expect(source_details.locator(".source-figure").first).to_be_visible()
+        assert source_details.locator(".source-figure").first.evaluate("e=>e.complete&&e.naturalWidth>0")
+        page.screenshot(path=str(reports / "redesign-fuentes-multimodales.png"), full_page=True)
+        page.locator("#nav-statistics").click()
+        expect(page.locator("#query-statistics")).to_contain_text("1 imágenes")
+        check("Image upload, local visual adapter, collapsed thumbnails and direct vision metrics with fake models")
+        page.locator("#nav-admin").click()
+
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)
         page.set_viewport_size({"width":390,"height":844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -268,7 +333,10 @@ def run_browser(url):
         page.locator("#nav-query").click()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         assert page.locator(".sidebar").bounding_box()["y"] == 0
+        expect(page.locator("#stat-docs")).not_to_be_visible()
+        page.locator("#nav-statistics").click()
         assert page.locator("#stat-chunks").bounding_box()["y"] > page.locator("#stat-docs").bounding_box()["y"]
+        page.locator("#nav-query").click()
         page.screenshot(path=str(reports / "redesign-consulta-mobile.png"), full_page=True)
         assert page.locator("#ask-button").evaluate("e=>getComputedStyle(e).transitionDuration") in {"0s", "0s, 0s"}
         assert not external, external
