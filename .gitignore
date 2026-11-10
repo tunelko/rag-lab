@@ -1,0 +1,11 @@
+.venv/
+.cache/
+.env
+data/documents/*
+!data/documents/.gitkeep
+data/chroma/
+data/test-chroma/
+reports/
+__pycache__/
+*.pyc
+install-*.json

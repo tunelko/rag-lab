@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>RAG Local · Consulta</title>
+<link rel="stylesheet" href="../design/fonts.css">
+<link rel="stylesheet" href="../design/tokens.css">
+<style>
+body{margin:0;background:#F3EEE5}
+*{box-sizing:border-box}
+a{color:#8A3B1F}a:hover{color:#6E2E17}
+button,select,textarea,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid #A84B2A;outline-offset:2px}
+mark{background:#F5E7C8;color:inherit;border-radius:3px;padding:0 2px}
+textarea::placeholder{color:#73675A}
+</style>
+</head>
+<body>
+
+<div style="display: flex; flex-wrap: wrap; min-height: 100vh; background: #F3EEE5; color: #2A241E; font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.5;">
+
+  <aside style="flex: 1 1 248px; background: #2B3025; color: #EFE8DA; padding: 28px 18px 24px; display: flex; flex-direction: column; gap: 28px;">
+    <a href="consulta.html" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #EFE8DA; padding: 0 6px;">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect x="3" y="6" width="26" height="5" rx="2.5" fill="#E7B98F"></rect><rect x="3" y="14.5" width="20" height="5" rx="2.5" fill="#C7D3A6"></rect><rect x="3" y="23" width="12" height="5" rx="2.5" fill="#EFE8DA"></rect></svg>
+      <span style="display: flex; flex-direction: column; line-height: 1.15;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 650; letter-spacing: -0.01em;">RAG Local</span>
+        <span style="font-size: 12px; color: #B9B19F;">Tu espacio de conocimiento</span>
+      </span>
+    </a>
+
+    <nav aria-label="Principal" style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #B9B19F; padding: 0 10px 8px;">Espacio de trabajo</span>
+      <a href="consulta.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; background: #3B4232; color: #FFF8EC; text-decoration: none; font-weight: 600;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E7B98F" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+        <span style="flex-grow: 1;">Consulta</span>
+        <span style="width: 6px; height: 6px; border-radius: 3px; background: #E7B98F;"></span>
+      </a>
+      <a href="biblioteca.html" style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; color: #E3DBCB; text-decoration: none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4v16M10 4v16M15 5l4 14"></path></svg>
+        <span style="flex-grow: 1;">Biblioteca</span>
+        <span style="font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #3B4232; color: #EFE8DA;">12</span>
+      </a>
+    </nav>
+
+    <section aria-label="Resumen de la biblioteca" style="background: #343A2D; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 12px;">
+      <span style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #B9B19F;">Tu biblioteca</span>
+      <div style="display: flex; align-items: baseline; gap: 8px;">
+        <span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 30px; font-weight: 600; line-height: 1;">12</span>
+        <span style="color: #D9D1C0;">documentos</span>
+      </div>
+      <div style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: #2B3025;" aria-hidden="true">
+        <span style="width: 83%; background: #9DBB7A;"></span>
+        <span style="width: 9%; background: #E2B464;"></span>
+        <span style="width: 8%; background: #E58C7A;"></span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: #D9D1C0;">
+        <span>10 indexados · 1 pendiente · 1 con error</span>
+        <span style="color: #B9B19F;">Última indexación hace 5 min</span>
+      </div>
+    </section>
+
+    <div style="flex-grow: 1;"></div>
+
+    <section aria-label="Estado del sistema" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 10px 0; border-top: 1px solid #3F4636; font-size: 13px;">
+      <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 4px; background: #9DBB7A;"></span><span style="flex-grow: 1;">Ollama</span><span style="color: #B9B19F;">Conectado</span></div>
+      <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 4px; background: #9DBB7A;"></span><span style="flex-grow: 1;">Embeddings</span><span style="color: #B9B19F;">CPU</span></div>
+      <div style="display: flex; align-items: center; gap: 10px;"><span style="width: 8px; height: 8px; border-radius: 4px; background: #E2B464;"></span><span style="flex-grow: 1;">Servidor</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #B9B19F;">127.0.0.1:8765</span></div>
+    </section>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column;">
+    <header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; padding: 12px 40px; border-bottom: 1px solid #E4DACB; background: #F7F3EC;">
+      <nav aria-label="Ruta" style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #5C5248;">
+        <span>Laboratorio</span>
+        <span aria-hidden="true" style="color: #A89C8C;">/</span>
+        <span style="color: #2A241E; font-weight: 600;">Consulta</span>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 999px; background: #E3EAD6; color: #3F5A2B; font-size: 13px; font-weight: 600;"><span style="width: 7px; height: 7px; border-radius: 4px; background: #4E6A36;"></span>En tu equipo · sin conexión externa</span>
+        <button type="button" aria-label="Actualizar estado" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid #E4DACB; background: #FCFAF6; cursor: pointer;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.3-4.9L4 8"></path><path d="M4 3v5h5"></path><path d="M4 13a8 8 0 0 0 14.3 4.9L20 16"></path><path d="M20 21v-5h-5"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <main style="width: 100%; max-width: 1280px; padding: 40px 40px 56px; display: flex; flex-direction: column; gap: 28px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #8A3B1F;">Pregunta · encuentra · comprende</span>
+        <h1 style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 42px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.1;">Tu conocimiento, conectado.</h1>
+        <p style="margin: 0; font-size: 16px; color: #5C5248; max-width: 620px;">Pregunta a tus documentos y sigue cada respuesta hasta el fragmento exacto del que sale.</p>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 16px;">
+        <div style="flex: 1 1 220px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 18px;">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #F3DED3; color: #8A3B1F; display: grid; place-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg></span>
+          <div style="display: flex; flex-direction: column;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 600; line-height: 1.1;">12</span><span style="font-size: 13px; color: #5C5248;">Documentos en la biblioteca</span></div>
+        </div>
+        <div style="flex: 1 1 220px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 18px;">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #F5E7C8; color: #7A5410; display: grid; place-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"></path><path d="M3 13l9 5 9-5"></path></svg></span>
+          <div style="display: flex; flex-direction: column;"><span style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 600; line-height: 1.1;">1.284</span><span style="font-size: 13px; color: #5C5248;">Fragmentos indexados</span></div>
+        </div>
+        <div style="flex: 1 1 260px; display: flex; align-items: center; gap: 14px; padding: 18px 20px; background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 18px;">
+          <span style="width: 44px; height: 44px; border-radius: 12px; background: #E3EAD6; color: #3F5A2B; display: grid; place-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"></rect><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path></svg></span>
+          <div style="display: flex; flex-direction: column; min-width: 0;"><span style="font-weight: 600; font-size: 16px;">Ollama conectado</span><span style="font-size: 13px; color: #5C5248;">El modelo se carga al consultar</span></div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start;">
+        <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px;">
+
+          <section aria-labelledby="composer-title" style="background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 22px; padding: 24px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 1px 2px rgba(60,40,20,0.05), 0 12px 32px rgba(60,40,20,0.06);">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+              <label id="composer-title" for="question" style="font-family: 'Bricolage Grotesque', sans-serif; font-size: 21px; font-weight: 600; letter-spacing: -0.01em;">¿Qué quieres saber?</label>
+              <span style="font-size: 13px; color: #73675A;"><kbd style="font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 2px 6px; border: 1px solid #D3C6B2; border-radius: 6px; background: #F8F3EA;">Ctrl</kbd> + <kbd style="font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 2px 6px; border: 1px solid #D3C6B2; border-radius: 6px; background: #F8F3EA;">Enter</kbd> para consultar</span>
+            </div>
+            <textarea id="question" rows="4" placeholder="Por ejemplo: ¿cuáles son las conclusiones principales y en qué documentos aparecen?" style="width: 100%; min-height: 128px; resize: vertical; padding: 16px 18px; border-radius: 16px; border: 1.5px solid #A84B2A; background: #FFFDF9; font-size: 16px; line-height: 1.55; box-shadow: 0 0 0 4px #F3DED3; outline: none;">¿Qué procedimiento se sigue para las copias de seguridad y cada cuánto se ejecutan?</textarea>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+              <span style="font-size: 13px; color: #73675A; margin-right: 4px;">Sugerencias</span>
+              <button type="button" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #E4DACB; background: #F8F3EA; font-size: 13px; cursor: pointer;">Resumir puntos clave</button>
+              <button type="button" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #E4DACB; background: #F8F3EA; font-size: 13px; cursor: pointer;">Comparar información</button>
+              <button type="button" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #E4DACB; background: #F8F3EA; font-size: 13px; cursor: pointer;">Encontrar procedimientos</button>
+              <button type="button" style="min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #E4DACB; background: #F8F3EA; font-size: 13px; cursor: pointer;">Listar fechas y plazos</button>
+            </div>
+            <div style="height: 1px; background: #EDE5D8;"></div>
+            <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;">
+              <div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 6px; min-width: 0;">
+                <label for="model" style="font-size: 13px; font-weight: 600; color: #5C5248;">Modelo de respuesta</label>
+                <select id="model" style="height: 46px; padding: 0 14px; border-radius: 12px; border: 1px solid #D3C6B2; background: #FFFDF9; font-family: 'JetBrains Mono', monospace; font-size: 13px;"><option>gemma-4-12b-redteam-blackice:latest</option></select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <span id="frag-label" style="font-size: 13px; font-weight: 600; color: #5C5248;">Fragmentos</span>
+                <div role="group" aria-labelledby="frag-label" style="display: flex; height: 46px; padding: 4px; gap: 4px; border-radius: 12px; background: #EFE7DA;">
+                  <button type="button" aria-pressed="false" style="width: 44px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 600; color: #5C5248;">2</button>
+                  <button type="button" aria-pressed="true" style="width: 44px; border: 0; border-radius: 9px; background: #FCFAF6; cursor: pointer; font-weight: 700; color: #2A241E; box-shadow: 0 1px 3px rgba(60,40,20,0.12);">4</button>
+                  <button type="button" aria-pressed="false" style="width: 44px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 600; color: #5C5248;">6</button>
+                  <button type="button" aria-pressed="false" style="width: 44px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 600; color: #5C5248;">8</button>
+                </div>
+              </div>
+              <button type="button" role="switch" aria-checked="false" style="display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 4px; border: 0; background: transparent; cursor: pointer; font-size: 14px; color: #2A241E;">
+                <span style="width: 40px; height: 24px; border-radius: 12px; background: #D3C6B2; padding: 3px; display: flex;"><span style="width: 18px; height: 18px; border-radius: 9px; background: #FFFDF9; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></span></span>
+                Solo buscar fragmentos
+              </button>
+              <button type="button" style="margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 48px; padding: 0 22px; border: 0; border-radius: 14px; background: #A84B2A; color: #FFF8F2; font-weight: 600; font-size: 15px; cursor: pointer; box-shadow: 0 6px 16px rgba(168,75,42,0.25);">
+                Preguntar
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+              </button>
+            </div>
+          </section>
+
+          <section aria-labelledby="answer-title" style="background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 22px; padding: 24px 26px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px;">
+              <h2 id="answer-title" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 20px; font-weight: 600;">Respuesta</h2>
+              <span style="font-size: 12px; padding: 3px 10px; border-radius: 999px; background: #E3EAD6; color: #3F5A2B; font-weight: 600;">Completada</span>
+              <span style="font-size: 12px; color: #73675A;">gemma-4-12b · 4 fragmentos · 3,4 s</span>
+              <span style="flex-grow: 1;"></span>
+              <button type="button" aria-label="Copiar respuesta" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid #E4DACB; background: transparent; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V6a2 2 0 0 1 2-2h9"></path></svg></button>
+              <button type="button" aria-label="Regenerar respuesta" style="width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; border: 1px solid #E4DACB; background: transparent; cursor: pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"></path><path d="M4 3.5v5h5"></path></svg></button>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #F3EEE5; color: #5C5248; font-size: 14px;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px;"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"></path></svg>
+              <span>¿Qué procedimiento se sigue para las copias de seguridad y cada cuánto se ejecutan?</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 14px; font-size: 16px; line-height: 1.7; color: #2A241E; max-width: 72ch;">
+              <p style="margin: 0;">Las copias de seguridad se ejecutan cada noche a las 02:00 mediante una tarea programada que vuelca la base de datos y comprime el directorio de documentos <a href="#src-1" style="display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 7px; background: #F3DED3; color: #8A3B1F; font-size: 12px; font-weight: 700; text-decoration: none; vertical-align: 2px;">1</a>. Antes de cada ejecución se comprueba el espacio libre en el volumen de destino y, si queda por debajo del 15 %, la tarea se detiene y avisa al responsable <a href="#src-2" style="display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 7px; background: #F3DED3; color: #8A3B1F; font-size: 12px; font-weight: 700; text-decoration: none; vertical-align: 2px;">2</a>.</p>
+              <p style="margin: 0;">Los domingos se hace además una copia completa que se conserva cuatro semanas; el resto de días la copia es incremental <a href="#src-1" style="display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 7px; background: #F3DED3; color: #8A3B1F; font-size: 12px; font-weight: 700; text-decoration: none; vertical-align: 2px;">1</a> <a href="#src-3" style="display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 7px; background: #F3DED3; color: #8A3B1F; font-size: 12px; font-weight: 700; text-decoration: none; vertical-align: 2px;">3</a>. La restauración se prueba una vez al mes en un entorno aislado, siguiendo la lista de verificación del procedimiento <a href="#src-4" style="display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 7px; background: #F3DED3; color: #8A3B1F; font-size: 12px; font-weight: 700; text-decoration: none; vertical-align: 2px;">4</a>.</p>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid #EDE5D8; font-size: 13px; color: #73675A;">
+              <span style="display: inline-flex; align-items: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4E6A36" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Basada en 4 fragmentos de 3 documentos</span>
+              <span aria-hidden="true">·</span>
+              <span>Generada en local. Revisa las fuentes antes de usarla.</span>
+            </div>
+          </section>
+        </div>
+
+        <aside aria-labelledby="sources-title" style="flex: 1 1 340px; min-width: 0; background: #FCFAF6; border: 1px solid #E4DACB; border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <h2 id="sources-title" style="margin: 0; font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 600; flex-grow: 1;">Fuentes consultadas</h2>
+            <span style="font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #EFE7DA;">4</span>
+          </div>
+          <p style="margin: -8px 0 0; font-size: 13px; color: #73675A;">El contexto que el modelo ha leído, ordenado por relevancia.</p>
+
+          <article id="src-1" style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; background: #F8F3EA; border: 1px solid #EDE5D8;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 24px; height: 24px; border-radius: 8px; background: #A84B2A; color: #FFF8F2; display: grid; place-items: center; font-size: 12px; font-weight: 700;">1</span>
+              <span style="font-weight: 600; font-size: 14px; flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">procedimiento-copias.pdf</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #F3DED3; color: #8A3B1F;">PDF</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #5C5248;">
+              <span>pág. 3 · fragmento 38</span><span style="flex-grow: 1;"></span>
+              <span style="width: 64px; height: 6px; border-radius: 3px; background: #E4DACB; overflow: hidden;"><span style="display: block; width: 92%; height: 100%; background: #4E6A36;"></span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">0,92</span>
+            </div>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #3D352D;">«…la tarea programada se lanza <mark>cada noche a las 02:00</mark>, vuelca la base de datos y comprime el directorio de documentos en el volumen de copias…»</p>
+            <a href="#src-1" style="font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">Abrir en el documento <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9"></path><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"></path></svg></a>
+          </article>
+
+          <article id="src-2" style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; border: 1px solid #EDE5D8;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 24px; height: 24px; border-radius: 8px; background: #EFE7DA; color: #2A241E; display: grid; place-items: center; font-size: 12px; font-weight: 700;">2</span>
+              <span style="font-weight: 600; font-size: 14px; flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">guia-operaciones.md</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #E3EAD6; color: #3F5A2B;">MD</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #5C5248;">
+              <span>sección 4.2 · fragmento 112</span><span style="flex-grow: 1;"></span>
+              <span style="width: 64px; height: 6px; border-radius: 3px; background: #E4DACB; overflow: hidden;"><span style="display: block; width: 87%; height: 100%; background: #4E6A36;"></span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">0,87</span>
+            </div>
+            <p style="margin: 0; font-size: 13.5px; line-height: 1.55; color: #3D352D;">«…si el espacio libre en destino es <mark>inferior al 15 %</mark>, el script aborta la ejecución y notifica al responsable…»</p>
+          </article>
+
+          <article id="src-3" style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; border: 1px solid #EDE5D8;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 24px; height: 24px; border-radius: 8px; background: #EFE7DA; color: #2A241E; display: grid; place-items: center; font-size: 12px; font-weight: 700;">3</span>
+              <span style="font-weight: 600; font-size: 14px; flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">procedimiento-copias.pdf</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #F3DED3; color: #8A3B1F;">PDF</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #5C5248;">
+              <span>pág. 5 · fragmento 41</span><span style="flex-grow: 1;"></span>
+              <span style="width: 64px; height: 6px; border-radius: 3px; background: #E4DACB; overflow: hidden;"><span style="display: block; width: 81%; height: 100%; background: #6B8A4A;"></span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">0,81</span>
+            </div>
+          </article>
+
+          <article id="src-4" style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 16px; border: 1px solid #EDE5D8;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 24px; height: 24px; border-radius: 8px; background: #EFE7DA; color: #2A241E; display: grid; place-items: center; font-size: 12px; font-weight: 700;">4</span>
+              <span style="font-weight: 600; font-size: 14px; flex-grow: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">checklist-restauracion.txt</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: #F5E7C8; color: #7A5410;">TXT</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #5C5248;">
+              <span>líneas 12–30 · fragmento 7</span><span style="flex-grow: 1;"></span>
+              <span style="width: 64px; height: 6px; border-radius: 3px; background: #E4DACB; overflow: hidden;"><span style="display: block; width: 74%; height: 100%; background: #C08A2E;"></span></span>
+              <span style="font-family: 'JetBrains Mono', monospace; font-weight: 500;">0,74</span>
+            </div>
+          </article>
+
+          <p style="margin: 0; padding-top: 4px; font-size: 12px; color: #73675A; display: flex; align-items: center; gap: 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Cada cita de la respuesta enlaza con su fragmento.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>
