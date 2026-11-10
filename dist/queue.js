@@ -131,7 +131,7 @@ export class UploadQueue {
   value(entry){if(['indexed','unindexed'].includes(entry.state))return 100;if(['uploaded','fragmenting','indexing'].includes(entry.state))return 40+.6*(entry.process||0);return .4*(entry.upload||0);}
   result(){
     const entries=this.currentEntries();
-    return {kind:'batch',successes:entries.filter((entry)=>['indexed','unindexed'].includes(entry.state)).map((entry)=>({name:entry.name,chunks:entry.chunks||0})),failures:entries.filter((entry)=>['error','rejected','interrupted'].includes(entry.state)).map((entry)=>({name:entry.name,error:entry.error,retry:()=>this.retry(entry),remove:()=>this.remove(entry)})),unindexed:entries.some((entry)=>entry.state==='unindexed'),duration:(Date.now()-(this.batch?.started||Date.now()))/1000,retryAll:()=>entries.filter((entry)=>entry.error?.retryable).forEach((entry)=>this.retry(entry))};
+    return {kind:'batch',successes:entries.filter((entry)=>['indexed','unindexed'].includes(entry.state)).map((entry)=>({name:entry.name,chunks:entry.chunks||0,skipped:entry.skipped})),failures:entries.filter((entry)=>['error','rejected','interrupted'].includes(entry.state)).map((entry)=>({name:entry.name,error:entry.error,retry:()=>this.retry(entry),remove:()=>this.remove(entry)})),unindexed:entries.some((entry)=>entry.state==='unindexed'),duration:(Date.now()-(this.batch?.started||Date.now()))/1000,retryAll:()=>entries.filter((entry)=>entry.error?.retryable).forEach((entry)=>this.retry(entry))};
   }
   finishCheck(){
     if(!this.running)return;const entries=this.currentEntries();
@@ -153,16 +153,16 @@ export class UploadQueue {
     const focused=document.activeElement?.closest('[data-queue-action]');const focusKey=focused?.dataset.queueAction;
     $('upload-queue').replaceChildren();
     for(const entry of this.entries){
-      const row=node('li','queue-row');row.dataset.state=entry.state;const type=fileType(entry.name);type.classList.add('queue-file-icon');row.append(type);
+      const row=node('li','queue-row');row.dataset.state=entry.state;row.dataset.uploadProgress=String(entry.upload||0);row.dataset.totalProgress=String(this.value(entry));const type=fileType(entry.name);type.classList.add('queue-file-icon');row.append(type);
       const body=node('div','queue-body');const line=node('div','queue-line');line.append(node('span','queue-name',entry.name),node('span',`status-pill ${phaseClass(entry.state)}`,entry.cancelRequested?'Cancelando…':labels[entry.state]));body.append(line);
       if(!['error','rejected','cancelled','interrupted'].includes(entry.state)){
         if(['fragmenting','indexing','uploaded'].includes(entry.state)){const phases=node('div','file-phases queue-progress');phases.append(progress(100,'moss',`${entry.name}: subida`),progress(entry.state==='indexing'?100:entry.stageProgress||0,'ochre',`${entry.name}: fragmentos`),progress(entry.state==='indexing'?entry.stageProgress||0:0,'ochre',`${entry.name}: índice`));body.append(phases);}
-        else{const bar=progress(['indexed','unindexed'].includes(entry.state)?100:entry.upload||0,entry.state==='uploading'?'clay':'',entry.name);bar.classList.add('queue-progress');body.append(bar);}
+        else{const bar=progress(this.value(entry),entry.state==='uploading'?'clay':'',`Progreso total de ${entry.name}`);bar.classList.add('queue-progress');body.append(bar);}
       }
       let meta=`${size(entry.size)} · esperando turno (${this.entries.filter((item)=>item.state==='queued').indexOf(entry)+1}.º)`;
       if(entry.state==='uploading'){
         const samples=entry.samples||[];const first=samples[0];const seconds=first?(performance.now()-first.time)/1000:0;const speed=seconds>0?((entry.loaded||0)-first.bytes)/seconds:0;
-        meta=`${size(entry.loaded||0)} de ${size(entry.size)}${speed>0?` · ${size(speed)}/s`:''}${seconds>=2&&speed>0?` · ≈ ${Math.ceil((entry.size-(entry.loaded||0))/speed)} s`:' · Calculando…'}`;
+        meta=`${size(entry.loaded||0)} de ${size(entry.size)} · subida ${number(entry.upload||0)} %${speed>0?` · ${size(speed)}/s`:''}${seconds>=2&&speed>0?` · ≈ ${Math.ceil((entry.size-(entry.loaded||0))/speed)} s`:' · Calculando…'}`;
       }else if(entry.state==='indexed')meta=`${size(entry.size)} · ${number(entry.chunks||0)} fragmentos`;
       else if(entry.state==='unindexed')meta=`${size(entry.size)} · subido sin indexar`;
       else if(['fragmenting','indexing'].includes(entry.state))meta=`${size(entry.size)} · Paso ${entry.state==='fragmenting'?2:3} de 3: subida ✓ · fragmentos · índice`;

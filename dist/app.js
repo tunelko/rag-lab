@@ -3,6 +3,7 @@ import {UploadQueue} from './queue.js';
 
 const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
 let queue;
+state.lastIndex=Number(sessionStorage.getItem('rag-local-last-index')||0);
 async function api(path,options={}){
   const headers={...(options.headers||{})};if(options.method&&options.method!=='GET')headers['X-RAG-Token']=state.token;
   let response,result;
@@ -45,6 +46,8 @@ function statusView(status){
   segments($('library-bar'),[100*indexed/(status.document_count||1),100*pending/(status.document_count||1),100*failed/(status.document_count||1)]);
   $('library-bar').setAttribute('aria-label',`${indexed} indexados, ${pending} pendientes y ${failed} con error`);
   $('sidebar-summary-text').textContent=`${indexed} indexados · ${pending} pendientes · ${failed} con error`;
+  if(state.lastIndex)$('last-index').textContent=`Última indexación ${relativeTime(new Date(state.lastIndex).toISOString())}`;
+  else if(status.chunk_count)$('last-index').textContent='Fragmentos guardados en disco';
   if(!queue?.entries.some((entry)=>['queued','uploading','uploaded','fragmenting','indexing'].includes(entry.state))){$('nav-badge').textContent=status.document_count;$('nav-badge').classList.remove('queued');}
   const select=$('model');const models=status.ollama.models||[];const previous=select.value||localStorage.getItem('rag-local-model')||status.ollama.default_model;
   if(JSON.stringify([...select.options].map((option)=>option.value))!==JSON.stringify(models)){
@@ -99,9 +102,9 @@ function renderProcess(){
 }
 function completed(result,opener=$('upload-button')){
   state.lastResult=result;$('queue-result-button').hidden=false;
-  for(const item of result.successes||[])state.newDocuments.add(item.name);
+  for(const item of result.successes||[])if(item.chunks>0&&!item.skipped)state.newDocuments.add(item.name);
   sessionStorage.setItem('rag-local-new-documents',JSON.stringify([...state.newDocuments]));
-  $('last-index').textContent='Última indexación ahora';
+  if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped)){state.lastIndex=Date.now();sessionStorage.setItem('rag-local-last-index',String(state.lastIndex));$('last-index').textContent='Última indexación ahora';}
   if(state.view==='library')showResult(result,opener);else toast('Indexación terminada · Ver resultado',()=>showResult(result,opener));
   refreshStatus();
 }
@@ -113,7 +116,7 @@ async function startOperation(path,kind,payload={}){
       const job=await api(`/api/jobs/${job_id}`);if(state.status){state.status.jobs=[job];renderProcess();}
       if(['done','error','cancelled'].includes(job.status)){
         if(job.status==='cancelled'){toast('Trabajo cancelado');break;}
-        const records=job.documents||[];const successes=records.filter((item)=>!item.error_info).map((item)=>({name:item.name,chunks:item.chunks||0}));
+        const records=job.documents||[];const successes=records.filter((item)=>!item.error_info).map((item)=>({name:item.name,chunks:item.chunks||0,skipped:item.skipped}));
         const failures=records.filter((item)=>item.error_info).map((item)=>({name:item.name,error:item.error_info,retry:()=>startOperation('/api/admin/index','index',{file:item.name})}));
         if(job.status==='error'&&!failures.length)failures.push({name:kind==='prepare'?'Modelo de búsqueda':payload.file||'Actualización del índice',error:job.error_info||{message:job.error},retry:()=>startOperation(path,kind,payload)});
         completed({kind,successes,failures,summary:job.summary,duration:job.elapsed_seconds||0},opener);break;

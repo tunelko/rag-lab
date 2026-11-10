@@ -1,5 +1,5 @@
 export const $ = (id) => document.getElementById(id);
-export const number = (value, digits = 0) => new Intl.NumberFormat('es-ES', {minimumFractionDigits: digits, maximumFractionDigits: digits}).format(value);
+export const number = (value, digits = 0) => new Intl.NumberFormat('es-ES', {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
 export const size = (value) => value < 1024 * 1024 ? `${number(value / 1024, 1)} KB` : `${number(value / 1024 / 1024, 1)} MB`;
 export const duration = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 export const normalize = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -38,7 +38,7 @@ export function renderText(container, text, citations = new Set()) {
     const match = part.match(/^\[(\d+)\]$/);
     if (match && citations.has(Number(match[1]))) {
       const link = node('a', 'citation', match[1]); link.href = `#src-${match[1]}`; link.setAttribute('aria-label', `Ver fuente ${match[1]}`); container.append(link);
-    } else if (part.startsWith('**') && part.endsWith('**')) container.append(node('strong', '', part.slice(2, -2)));
+    } else if (part.startsWith('**') && part.endsWith('**')) { const strong = node('strong'); renderText(strong, part.slice(2, -2), citations); container.append(strong); }
     else if (part.startsWith('`') && part.endsWith('`')) container.append(node('code', '', part.slice(1, -1)));
     else container.append(document.createTextNode(part));
   }
@@ -91,12 +91,12 @@ export function showResult(result, opener = document.activeElement) {
   $('dialog-title').textContent = title;
   $('dialog-description').textContent = failed ? (successes.length ? `El resto del lote (${successes.length} documentos) está en tu biblioteca. Revisa estos y vuelve a intentarlo.` : 'No se ha añadido ningún documento de este lote.') : result.kind === 'prepare' ? 'Los embeddings están descargados y cargados en CPU.' : result.kind === 'index' ? `${result.summary?.indexed_files || 0} documentos actualizados · ${result.summary?.skipped_files || 0} sin cambios omitidos.` : result.unindexed ? `${successes.length} documentos se han subido. Puedes indexarlos cuando quieras.` : `${successes.length} documentos nuevos ya forman parte de tu biblioteca. Puedes consultarlos desde ahora.`;
   $('dialog-stats').replaceChildren(); $('dialog-stats').hidden = failed || result.kind === 'prepare';
-  if (!failed && result.kind !== 'prepare') for (const [value, label] of [[successes.length, 'documentos'], [successes.reduce((sum, item) => sum + (item.chunks || 0), 0), 'fragmentos nuevos'], [duration(result.duration || 0), 'min de proceso']]) { const stat = node('div', 'dialog-stat'); stat.append(node('strong', '', typeof value === 'number' ? number(value) : value), node('span', '', label)); $('dialog-stats').append(stat); }
+  if (!failed && result.kind !== 'prepare') for (const [value, label] of [[result.kind === 'index' ? result.summary?.indexed_files || 0 : successes.length, 'documentos'], [successes.reduce((sum, item) => sum + (item.skipped ? 0 : item.chunks || 0), 0), 'fragmentos nuevos'], [duration(result.duration || 0), 'min de proceso']]) { const stat = node('div', 'dialog-stat'); stat.append(node('strong', '', typeof value === 'number' ? number(value) : value), node('span', '', label)); $('dialog-stats').append(stat); }
   $('dialog-list').replaceChildren();
   if (failed) {
     for (const item of failures) {
       const card = node('article', 'dialog-error-card'); card.append(node('strong', '', item.name), node('p', 'error-reason', item.error.message), node('p', 'error-hint', item.error.hint));
-      if (item.retry && item.error.retryable) card.append(button('Reintentar', 'button error-outline', () => { dialog.close(); item.retry(); }));
+      if (item.retry && item.error.retryable && item.error.code !== 'NO_TEXT') card.append(button('Reintentar', 'button error-outline', () => { dialog.close(); item.retry(); }));
       else if (item.remove) card.append(button('Quitar', 'button secondary', () => { dialog.close(); item.remove(); }));
       $('dialog-list').append(card);
     }

@@ -71,11 +71,14 @@ class RagService(JobRuntime):
         if not documents:
             raise ValueError("Añade documentos PDF, TXT o Markdown antes de indexar.")
         rag.load_state(self.config)
+        self.update(job_id, document_names=[document["name"] for document in documents])
         self.update(job_id, phase="Cargando embeddings en CPU")
         self.update(job_id, stage="chunking", stage_progress=0, progress=0)
         try:
             embeddings = self.get_embeddings(download=True)
         except Exception as exc:
+            self.update(job_id, documents=[{"name": document["name"], "chunks": 0,
+                "error_info": {"code": "EMBEDDINGS_NOT_READY", "message": "El modelo de búsqueda no está preparado.", "detail": str(exc)}} for document in documents])
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         finished = set()
         outcomes = {}
@@ -121,9 +124,10 @@ class RagService(JobRuntime):
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             name = path.relative_to(self.documents).as_posix()
             ready = indexed.get("sha256") == digest and bool(indexed.get("ids"))
-            related = [job for job in jobs if job.get("document_name") == name or job.get("current_document") == path.name]
+            related = [job for job in jobs if job.get("document_name") == name or job.get("current_document") == path.name or name in job.get("document_names", [])]
             latest = related[-1] if related else {}
-            error = latest.get("error_info") if latest.get("status") == "error" else None
+            outcome = next((item for item in latest.get("documents", []) if item.get("name") in {name, path.name}), None)
+            error = (outcome.get("error_info") if outcome else latest.get("error_info")) if latest.get("status") == "error" else None
             if indexed.get("sha256") == digest and not indexed.get("ids"):
                 error = {"code": "NO_TEXT", "message": "Necesita OCR" if path.suffix.lower() == ".pdf" else "Sin texto extraíble", "detail": "No se han obtenido fragmentos."}
             processing = latest.get("status") in {"queued", "running"}
@@ -174,6 +178,8 @@ class RagService(JobRuntime):
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars)
         for source, (document, _) in zip(sources, hits):
             source["text"] = document.page_content
+            if "chunk" in document.metadata:
+                source["chunk"] = int(document.metadata["chunk"]) + 1
             path = Path(source.pop("source")).resolve()
             source["url"] = "/api/source?file=" + quote(path.relative_to(self.documents).as_posix(), safe="") if path.is_relative_to(self.documents) else None
         retrieval_seconds = round(time.perf_counter() - started, 2)
@@ -298,7 +304,8 @@ def create_app(service=None):
             name = file.filename or ""
             if Path(name).suffix.lower() not in ALLOWED:
                 return JSONResponse({"detail": "Formato no compatible.", "error_info": {"code": "UNSUPPORTED_TYPE", "message": f"Formato no compatible ({Path(name).suffix}).", "detail": "PDF, TXT o Markdown."}}, status_code=422)
-            if Path(name).name != name or ".." in name or any(char in name for char in '\\/:*?"<>|') or name.endswith((".", " ")):
+            reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+            if Path(name).name != name or ".." in name or any(ord(char) < 32 or char in '\\/:*?"<>|' for char in name) or name.endswith((".", " ")) or name.split('.')[0].upper() in reserved:
                 return JSONResponse({"detail": "Nombre de archivo no válido.", "error_info": {"code": "INVALID_NAME", "message": "El nombre contiene caracteres o rutas no válidos.", "detail": name}}, status_code=422)
         saved = []
         total = 0
