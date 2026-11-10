@@ -44,6 +44,11 @@ of marking the answer complete. Metrics also include `answer_documents` and
 `answer_coverage_complete`. This validates structural coverage, not factual truth.
 
 This uses Ollama's [local structured outputs](https://docs.ollama.com/capabilities/structured-outputs).
+CPU-support lists additionally compare explicit numbers and socket claims with each
+source. On a detected mismatch, or a false absence of named CPU families, that row
+shows a literal source excerpt. `answer_grounding_fallbacks` records the count.
+This is a conservative check, not a general proof of factual entailment; translations
+or reformulations can also fall back to the original excerpt.
 The model must identify missing details and keep source identities separate. A manual listing CPU
 families does not become an exhaustive list
 of individual supported processor SKUs. Original sources remain the authority.

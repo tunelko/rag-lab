@@ -31,7 +31,7 @@ from model_routing import select_model
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
-from library_queries import query_intent, catalog_answer, global_retrieve
+from library_queries import query_intent, catalog_answer, global_retrieve, tokens
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 
@@ -357,7 +357,7 @@ class RagService(JobRuntime):
         self.update(job_id, phase="Generando respuesta con Ollama", model=model,
                     metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing})
 
-        structured = GlobalAnswer(sources) if intent.mode == 'global' else None
+        structured = GlobalAnswer(sources,cpu_guard={'cpu','support'}.issubset(tokens(intent.topic))) if intent.mode == 'global' else None
         if structured:
             messages[-1]['content'] += structured.instruction()
 
@@ -381,6 +381,7 @@ class RagService(JobRuntime):
             if structured:
                 answer = structured.finish(answer)
                 metrics.update(answer_documents=len(structured.rows), answer_coverage_complete=True)
+                metrics['answer_grounding_fallbacks']=len(structured.grounding_fallbacks)
         except InterruptedError:
             raise
         except OSError as exc:
