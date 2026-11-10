@@ -9,7 +9,9 @@ param(
     [switch]$Start,
     [switch]$Stop,
     [switch]$Restart,
-    [switch]$Status
+    [switch]$Status,
+    [Alias('when-idle')]
+    [switch]$WhenIdle
 )
 $ErrorActionPreference = 'Stop'
 $Action = $Action.TrimStart('-').ToLowerInvariant()
@@ -24,6 +26,7 @@ Sin accion: start. Arranca en segundo plano; no necesitas mantener la consola ab
 Lee RAG_WEB_PORT de .env (8765 por defecto). -Port permite elegir otro puerto.
 Registros: reports/rag-server-runtime.log y reports/rag-server-runtime-errors.log
 Stop/restart requiere que no haya tareas activas. Solo gestiona el servidor RAG.
+Con --when-idle (o -WhenIdle), stop/restart espera a que termine la cola.
 '@
     exit 0
 }
@@ -40,5 +43,6 @@ if (-not (Test-Path -LiteralPath $pythonExe)) { throw 'Run Configurar.ps1 first 
 $env:PYTHONUTF8 = '1'
 $controllerArguments = @((Join-Path $PSScriptRoot 'server_control.py'), $Action)
 if ($PSBoundParameters.ContainsKey('Port')) { $controllerArguments += @('--port', "$Port") }
+if ($WhenIdle) { $controllerArguments += '--when-idle' }
 & $pythonExe @controllerArguments
 exit $LASTEXITCODE

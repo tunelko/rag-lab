@@ -50,6 +50,15 @@ class JobRuntime:
                 raise HTTPException(404, "La tarea ya no está disponible.")
             return copy.deepcopy(self.jobs[job_id])
 
+    def record_job(self, job):
+        """Optional history sink; subclasses keep it independent from job execution."""
+
+    def _record_job(self, job):
+        try:
+            self.record_job(job)
+        except Exception:
+            logging.getLogger('rag.history').exception('No se han podido guardar las estadísticas de la tarea.')
+
     def update(self, job_id, **changes):
         with self.lock:
             old = self.jobs[job_id]
@@ -61,6 +70,8 @@ class JobRuntime:
                 self.activity = self.activity[-6:]
             old.update(changes)
             old["updated_at"] = now()
+            if 'status' in changes:
+                self._record_job(old)
 
     def start(self, kind, work, **metadata):
         with self.lock:
@@ -77,6 +88,7 @@ class JobRuntime:
                 "metrics": {}, "cancel_requested": False, "cancellable": True, **metadata}
             self.cancels[job_id] = threading.Event()
             self.enqueued_at[job_id] = time.perf_counter()
+            self._record_job(self.jobs[job_id])
             self.executor.submit(self._run, job_id, work)
             return {"job_id": job_id}
 

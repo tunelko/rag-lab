@@ -31,3 +31,4 @@ class WindowsLauncherTests(unittest.TestCase):
                     with self.subTest(option=option):
                         result=invoke(option,'-Port','9876')
                         self.assertEqual(json.loads(result.stdout),[action,'--port','9876'])
+            self.assertEqual(json.loads(invoke('--restart','--when-idle').stdout),['restart','--when-idle'])

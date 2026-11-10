@@ -6,6 +6,8 @@ from pathlib import Path
 import socket
 import sys
 import tempfile
+import threading
+import time
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -107,3 +109,22 @@ class ServerControlTests(unittest.TestCase):
         with patch.object(control.psutil,'process_iter',return_value=[other,own]):
             found=control.matching_processes(self.root,self.port)
         self.assertEqual([item.pid for item,_ in found],[456])
+
+    def test_deferred_restart_waits_until_the_current_work_is_finished(self):
+        control.start(self.root,self.port,timeout=10)
+        original=control.matching_processes(self.root,self.port)[0][0].pid
+        (self.root/'busy.txt').write_text('working')
+        result=[]
+        waiter=threading.Thread(target=lambda:result.append(control.main(['restart','--when-idle','--root',str(self.root),'--port',str(self.port)])))
+        waiter.start()
+        try:
+            time.sleep(.15)
+            self.assertEqual(control.matching_processes(self.root,self.port)[0][0].pid,original)
+            (self.root/'busy.txt').unlink()
+            waiter.join(timeout=12)
+            self.assertFalse(waiter.is_alive())
+            self.assertEqual(result,[0])
+            self.assertNotEqual(control.matching_processes(self.root,self.port)[0][0].pid,original)
+        finally:
+            (self.root/'busy.txt').unlink(missing_ok=True)
+            waiter.join(timeout=12)

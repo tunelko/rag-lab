@@ -33,6 +33,7 @@ from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve
 from global_answers import GlobalAnswer
+from statistics_store import StatisticsStore, RETENTION
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -69,9 +70,18 @@ class RagService(JobRuntime):
         self.visual_root = self.config.db.parent / "visual"
         self.capabilities_cache = {}
         self.console = ConsoleBuffer()
-        self.hardware = HardwareMonitor()
+        self.statistics_archive = StatisticsStore(self.config.db.parent / 'statistics.sqlite3')
+        self.hardware = HardwareMonitor(archive=self.statistics_archive)
         self.fingerprints = FileFingerprints()
         super().__init__()
+
+    def record_job(self, job):
+        self.statistics_archive.save_job(job)
+
+    def close(self):
+        super().close()
+        self.hardware.stop()
+        self.statistics_archive.close()
 
     def get_embeddings(self, download=False):
         if self.embeddings is None:
@@ -229,18 +239,14 @@ class RagService(JobRuntime):
         return {"settings": value.model_dump(), "models": [{"name": name, "vision": "vision" in self.model_capabilities(name)} for name in available["models"]],
                 "connected": available["connected"]}
 
-    def statistics(self):
-        jobs = [job for job in self.list_jobs()["jobs"] if job["kind"] == "query"]
-        done = [job for job in jobs if job["status"] == "done"]
+    def statistics(self, seconds=RETENTION, page=1, per_page=50, ingestion_page=1):
         files = rag.load_state(self.config)["files"]
-        return {"scope": "Consultas recientes en memoria (hasta 200 tareas). El tiempo de ejecución y la espera en cola se muestran por separado.",
-                "queries": len(jobs), "completed": len(done), "errors": sum(job["status"] == "error" for job in jobs),
-                "output_tokens": sum(job.get("metrics", {}).get("output_tokens", 0) for job in done),
+        label='1 día' if seconds==86400 else f'{seconds//86400} días'
+        return {"scope": f'Histórico local en disco · últimos {label}. Ejecución y espera en cola por separado.',
+                **self.statistics_archive.queries(seconds,page=page,per_page=per_page),
+                'ingestions':self.statistics_archive.ingestions(seconds,page=ingestion_page,per_page=per_page),
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
-                "diagnostics": {"fingerprints": self.fingerprints.snapshot()},
-                "recent": [{"question": job.get("question", ""), "status": job["status"], "created_at": job["created_at"],
-                            "elapsed_seconds": job.get("elapsed_seconds"), "queue_seconds": job.get("queue_seconds"),
-                            "metrics": job.get("metrics", {})} for job in reversed(jobs[-30:])]}
+                "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
     def query(self, job_id, query):
         started = time.perf_counter()
@@ -378,11 +384,15 @@ class RagService(JobRuntime):
 
 
 def create_app(service=None):
+    background_monitor = service is None
     service = service or RagService()
     token = secrets.token_urlsafe(32)
 
     @asynccontextmanager
     async def lifespan(app):
+        service.statistics_archive.mark_interrupted()
+        if background_monitor:
+            service.hardware.start()
         with ConsoleCapture(service.console):
             try:
                 yield
@@ -428,8 +438,8 @@ def create_app(service=None):
         return service.console.snapshot(after, limit)
 
     @app.get("/api/telemetry")
-    def telemetry():
-        return service.hardware.sample()
+    def telemetry(history_seconds: int = QueryParameter(default=900, ge=60, le=RETENTION)):
+        return service.hardware.snapshot(history_seconds)
 
     @app.get("/api/settings")
     def settings():
@@ -445,8 +455,10 @@ def create_app(service=None):
         return {"settings": service.settings.save(body).model_dump()}
 
     @app.get("/api/statistics")
-    def statistics():
-        return service.statistics()
+    def statistics(history_seconds: int = QueryParameter(default=RETENTION, ge=86400, le=RETENTION),
+                   page: int = QueryParameter(default=1, ge=1), per_page: int = QueryParameter(default=50, ge=1, le=200),
+                   ingestion_page: int = QueryParameter(default=1, ge=1)):
+        return service.statistics(history_seconds,page,per_page,ingestion_page)
 
     @app.get("/api/figures/{asset}")
     def figure(asset: str):

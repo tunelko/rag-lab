@@ -119,6 +119,18 @@ def stop(root, port, timeout=30):
     jobs = active_jobs(port)
     if jobs:
         raise RuntimeError(f'Hay {len(jobs)} tareas activas. Cancela o espera su finalizacion antes de stop/restart.')
+    # Capture old in-memory metrics once when upgrading a server without durable history.
+    # Fixture/other app roots are not migrated into this project's private database.
+    if root==ROOT:
+        from statistics_store import StatisticsStore
+        from tools.history_bridge import capture
+        archive=StatisticsStore(root/'data/statistics.sqlite3')
+        try:
+            capture(f'http://127.0.0.1:{port}',archive,seed=True)
+        finally:
+            archive.close()
+        if active_jobs(port):
+            raise RuntimeError('Hay tareas activas nuevas; no se ha detenido el servidor.')
     state_path, stop_path = paths(root, port)
     for process, managed in processes:
         if managed:
@@ -139,6 +151,24 @@ def stop(root, port, timeout=30):
     stop_path.unlink(missing_ok=True)
     state_path.unlink(missing_ok=True)
     print(f'Servidor detenido (puerto {port}).')
+
+
+def wait_for_idle(root, port, interval=2):
+    original={(process.pid,process.create_time()) for process,_ in matching_processes(root,port)}
+    last=None
+    while original:
+        current={(process.pid,process.create_time()) for process,_ in matching_processes(root,port)}
+        if current!=original:
+            print('El servidor original ha cambiado; se cancela el reinicio diferido.',flush=True)
+            return False
+        jobs=active_jobs(port)
+        if not jobs: return True
+        state=tuple((job['id'],job.get('status')) for job in jobs)
+        if state!=last:
+            print(f'Esperando a que terminen {len(jobs)} tareas; el indexado continua.',flush=True)
+            last=state
+        time.sleep(interval)
+    return True
 
 
 def python_executable(root):
@@ -220,6 +250,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Control del servidor RAG local; no modifica Ollama.')
     parser.add_argument('action', nargs='?', default='start', choices=('start', 'stop', 'restart', 'status', '_run'))
     parser.add_argument('--port', type=int, help='Puerto; por defecto RAG_WEB_PORT en .env o 8765.')
+    parser.add_argument('--when-idle',action='store_true',help='Esperar a que termine la cola antes de stop/restart.')
     parser.add_argument('--root', type=Path, default=ROOT, help=argparse.SUPPRESS)
     arguments = parser.parse_args(argv)
     root = arguments.root.resolve()
@@ -227,6 +258,10 @@ def main(argv=None):
         port = arguments.port if arguments.port is not None else default_port(root)
         if not 1024 <= port <= 65535:
             raise ValueError('El puerto debe estar entre 1024 y 65535.')
+        if arguments.when_idle and arguments.action not in ('stop','restart'):
+            raise ValueError('--when-idle solo se usa con stop/restart.')
+        if arguments.when_idle and not wait_for_idle(root,port):
+            return 0
         if arguments.action == '_run':
             run_server(root, port)
         elif arguments.action == 'status':

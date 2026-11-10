@@ -91,6 +91,10 @@ verify the original source. Start with a short PDF before indexing large batches
 - **Inspect:** Library shows jobs, Statistics offers resource graphs and timings,
   and Console shows server output. Chat renders Markdown and code.
 
+Statistics keeps [seven days of local history](docs/STATISTICS.md), including day/week
+charts and query/indexing records. A [CPU-only visual audit](docs/VISUAL_AUDIT.md)
+evaluates page selection and human labels before changing multimodal ingestion.
+
 Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descriptions
 are cached. Visual indexing can take seconds per page. Jobs share a sequential
 queue; questions wait during indexing. Check original sources for critical details.

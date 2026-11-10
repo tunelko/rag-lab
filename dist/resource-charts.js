@@ -61,13 +61,14 @@ export class ResourceChart {
   show(index){
     const point=this.series.values[index];this.index=index;this.cross.setAttribute('visibility','visible');
     this.cursor.setAttribute('x1',point.x);this.cursor.setAttribute('x2',point.x);this.dot.setAttribute('cx',point.x);this.dot.setAttribute('cy',point.y);
-    this.tooltip.textContent=`${new Date(point.epoch).toLocaleTimeString('es-ES')} · ${this.label}: ${this.format(point.value)}`;
+    this.tooltip.textContent=`${this.seconds>=86400?new Date(point.epoch).toLocaleString('es-ES'):new Date(point.epoch).toLocaleTimeString('es-ES')} · ${this.label}: ${this.format(point.value)}`;
     const fraction=this.svg.getBoundingClientRect().width/(this.root.getBoundingClientRect().width||1);
     this.tooltip.style.left=`${Math.max(3,Math.min(60,point.x/640*fraction*100))}%`;this.tooltip.hidden=false;
   }
-  draw(history,end,seconds,max){
+  draw(history,end,seconds,max,gap=10000,summary=null){
+    this.seconds=seconds;
     const selected=this.index==null?null:this.series?.values[this.index]?.epoch;
-    this.hide();this.series=chartSeries(history,this.key,end-seconds*1000,end,max);this.root.dataset.samples=this.series.values.length;
+    this.hide();this.series=chartSeries(history,this.key,end-seconds*1000,end,max,gap);if(summary)Object.assign(this.series,summary);this.root.dataset.samples=this.series.values.length;
     this.paths.replaceChildren();
     for(const segment of this.series.segments){
       const d=segment.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
@@ -77,7 +78,7 @@ export class ResourceChart {
     this.axis.replaceChildren();for(const value of [max,max/2,0])this.axis.append(node('span','',max>0?this.format(value):'—'));
     const empty=document.getElementById(`chart-${this.key}-empty`);empty.hidden=this.series.values.length>0;
     for(const [id,value] of [['min',this.series.min],['mean',this.series.mean],['max',this.series.max]])document.getElementById(`chart-${this.key}-${id}`).textContent=this.format(value);
-    document.getElementById(`chart-${this.key}-range`).textContent=seconds===60?'Hace 1 min':`Hace ${seconds/60} min`;
+    document.getElementById(`chart-${this.key}-range`).textContent=({60:'Hace 1 min',3600:'Hace 1 hora',86400:'Hace 1 día',604800:'Hace 1 semana'})[seconds]||`Hace ${seconds/60} min`;
     this.root.setAttribute('aria-label',`${this.label}. ${this.series.values.length} lecturas reales. Mínimo ${this.format(this.series.min)}, media ${this.format(this.series.mean)}, máximo ${this.format(this.series.max)}. Usa las flechas para recorrer las lecturas.`);
     if(selected!=null){const index=this.series.values.findIndex(point=>point.epoch===selected);if(index>=0)this.show(index);}
   }

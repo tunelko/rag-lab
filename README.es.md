@@ -92,6 +92,10 @@ el original. Prueba después un PDF corto antes de indexar lotes grandes.
 - **Seguimiento:** Biblioteca muestra trabajos, Estadísticas aporta gráficas y tiempos,
   y Consola recoge la salida del servidor. El chat muestra Markdown y código.
 
+Estadísticas conserva [siete días de histórico local](docs/STATISTICS.md), con vistas
+por día/semana y registros de consultas e indexado. La [auditoría visual sin modelos](docs/VISUAL_AUDIT.md)
+permite evaluar páginas y etiquetas manuales antes de cambiar la ingesta multimodal.
+
 Admite PDF, TXT, Markdown, PNG/JPEG/WebP y exportaciones MinerU compatibles. Las
 descripciones se reutilizan desde caché. La ingesta visual puede tardar segundos
 por página. La cola es secuencial: las preguntas esperan durante la indexación.

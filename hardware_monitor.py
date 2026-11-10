@@ -3,6 +3,7 @@ import csv
 from collections import deque
 from datetime import datetime, timezone
 import io
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,7 @@ import threading
 import time
 
 import psutil
+from server_control import process_path
 
 ROOT = Path(__file__).resolve().parent
 
@@ -47,13 +49,52 @@ def gpu_snapshot():
 
 
 class HardwareMonitor:
-    def __init__(self, interval=2, gpu_reader=gpu_snapshot):
+    def __init__(self, interval=2, gpu_reader=gpu_snapshot, archive=None):
         self.interval, self.gpu_reader = interval, gpu_reader
         self.lock = threading.RLock()
         self.previous = {}
         self.last = None
         self.last_at = 0
         self.history = deque(maxlen=512)
+        self.archive = archive
+        self.stopped = threading.Event()
+        self.thread = None
+
+    def start(self, collector_interval=10):
+        if self.thread is not None:
+            return
+        def collect():
+            while not self.stopped.is_set():
+                try:
+                    self.sample()
+                except Exception:
+                    logging.getLogger('rag.telemetry').exception('No se ha podido registrar una lectura de hardware.')
+                self.stopped.wait(collector_interval)
+        self.thread=threading.Thread(target=collect,name='rag-telemetry',daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.stopped.set()
+        if self.thread is not None:
+            self.thread.join(timeout=12)
+
+    def snapshot(self, seconds=900):
+        result=dict(self.sample())
+        live_history=result.get('history',list(self.history))
+        if self.archive and result.get('time'):
+            result.update(self.archive.history(seconds,end=datetime.fromisoformat(result['time']).timestamp()))
+            if seconds<=900:
+                points={point['time']:point for point in result['history']}
+                points.update({point['time']:point for point in live_history})
+                result['history']=[point for _,point in sorted(points.items())
+                    if datetime.fromisoformat(point['time']).timestamp()>=datetime.fromisoformat(result['time']).timestamp()-seconds]
+                result['history_gap_seconds']=30
+                result['history_sample_count']=len(result['history'])
+                result.pop('history_summary',None)
+            elif not any(point['time']==result['time'] for point in result['history']):
+                result['history_sample_count']+=1
+                result['current_break_before']=bool(result['history'] and datetime.fromisoformat(result['time']).timestamp()-datetime.fromisoformat(result['history'][-1]['time']).timestamp()>90)
+        return result
 
     def sample(self):
         with self.lock:
@@ -70,9 +111,14 @@ class HardwareMonitor:
                 try:
                     name = (item.info["name"] or "").lower()
                     role = "ollama" if name in {"ollama.exe", "ollama", "llama-server.exe", "llama-server"} else None
-                    if name in {"python.exe", "python", "python3"}:
+                    if name.startswith('python'):
                         args = item.cmdline()
-                        if "web_app:app" in args and "--app-dir" in args and Path(args[args.index("--app-dir") + 1]).resolve() == ROOT:
+                        legacy = ("web_app:app" in args and "--app-dir" in args
+                            and process_path(item,args[args.index("--app-dir")+1])==ROOT)
+                        managed = (len(args)>2 and process_path(item,args[1])==ROOT/'server_control.py'
+                            and args[2]=='_run' and '--root' in args
+                            and process_path(item,args[args.index('--root')+1])==ROOT)
+                        if legacy or managed:
                             role = "rag"
                     if not role:
                         continue
@@ -95,6 +141,8 @@ class HardwareMonitor:
                 "gpu_percent": gpu.get("utilization_percent"), "ram_used_bytes": ram.used,
                 "ram_total_bytes": ram.total, "vram_used_bytes": gpu.get("memory_used_bytes"),
                 "vram_total_bytes": gpu.get("memory_total_bytes")})
+            if self.archive:
+                self.archive.save_sample(self.history[-1])
             cutoff = datetime.now(timezone.utc).timestamp() - 900
             while self.history and datetime.fromisoformat(self.history[0]["time"]).timestamp() < cutoff:
                 self.history.popleft()

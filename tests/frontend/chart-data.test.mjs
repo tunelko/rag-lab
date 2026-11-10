@@ -28,3 +28,16 @@ test('an unavailable sensor is a gap, not zero load',()=>{
   const points=mergeHistory([],{...data,gpu:{devices:[]}});const series=chartSeries(points,'gpu',epoch-60000,epoch,100);
   assert.equal(series.values.length,0);assert.equal(series.mean,null);
 });
+
+test('a weekly archive retains old measured points across page reloads',()=>{
+  const old={time:new Date(epoch-6*86400000).toISOString(),cpu_percent:35};
+  const points=mergeHistory([],{...data,history_seconds:604800,history:[old]});
+  assert.equal(points.length,2);assert.equal(points[0].cpu_percent,35);
+});
+
+test('archive gaps propagate through point thinning',()=>{
+  const points=[{epoch:epoch-60000,cpu_percent:12,gpu_percent:20},
+    {epoch,cpu_percent:30,gpu_percent:40,break_before_keys:['gpu']}];
+  assert.equal(chartSeries(points,'cpu',epoch-90000,epoch,100,90000).segments.length,1);
+  assert.equal(chartSeries(points,'gpu',epoch-90000,epoch,100,90000).segments.length,2);
+});

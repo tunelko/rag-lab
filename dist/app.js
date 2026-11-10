@@ -172,25 +172,45 @@ $('settings-form').addEventListener('submit',async event=>{
     preferences=result.settings;$('settings-message').textContent='Configuración guardada';toast('Configuración guardada');
   }catch(error){$('settings-message').textContent=error.message;}finally{$('save-settings').disabled=false;}
 });
+let statisticsWindow=604800,statisticsPage=1,ingestionPage=1;
 async function refreshStatistics(){
+  const requestedWindow=statisticsWindow,requestedPage=statisticsPage,requestedIngestionPage=ingestionPage;
   try{
-    const stats=await api('/api/statistics');$('statistics-scope').textContent=stats.scope;
+    const stats=await api(`/api/statistics?history_seconds=${requestedWindow}&page=${requestedPage}&ingestion_page=${requestedIngestionPage}`);
+    if(requestedWindow!==statisticsWindow||requestedPage!==statisticsPage||requestedIngestionPage!==ingestionPage)return;
+    statisticsPage=stats.page||1;$('statistics-scope').textContent=stats.scope;
+    $('statistics-page').textContent=`Página ${statisticsPage} de ${stats.pages||1} · ${stats.queries} consultas`;
+    $('statistics-previous').disabled=statisticsPage<=1;$('statistics-next').disabled=statisticsPage>=(stats.pages||1);
     $('statistics-totals').textContent=stats.queries+' consultas · '+stats.completed+' completadas · '+stats.errors+' errores · '+number(stats.output_tokens)+' tokens de salida';
     $('visual-count').textContent=number(stats.visuals)+' vistas o figuras conservadas en el índice.';
+    const ingestions=stats.ingestions||{total:0,page:1,pages:1,recent:[]};ingestionPage=ingestions.page;
+    $('ingestion-history-info').textContent='Mismo intervalo que las consultas. Se guardan las duraciones reales y la espera en cola, sin recalcular valores anteriores.';
+    $('ingestion-page').textContent=`Página ${ingestionPage} de ${ingestions.pages} · ${ingestions.total} tareas`;
+    $('ingestion-previous').disabled=ingestionPage<=1;$('ingestion-next').disabled=ingestionPage>=ingestions.pages;
+    $('ingestion-statistics').replaceChildren();
+    for(const item of ingestions.recent){const row=node('tr');const names=item.document_names||[];const name=item.document_name||(names.length===1?names[0]:names.length?`${names.length} documentos`:'Indexación');
+      for(const value of [name,item.elapsed_seconds==null?'—':duration(item.elapsed_seconds),item.queue_seconds==null?'—':duration(item.queue_seconds),number(item.chunks||0),{done:'Completada',error:'Error',running:'En curso',queued:'En cola',cancelled:'Detenida',interrupted:'Interrumpida'}[item.status]||item.status])row.append(node('td','',value));
+      if(names.length)row.children[0].title=names.join('\n');if(item.created_at)row.children[0].append(node('p','routing-reason',new Date(item.created_at).toLocaleString('es-ES')));$('ingestion-statistics').append(row);}
     $('query-statistics').replaceChildren();
     for(const item of stats.recent){
       const metrics=item.metrics||{};const row=node('tr');
-      for(const value of [item.question,metrics.model||'—',item.elapsed_seconds==null?'—':number(item.elapsed_seconds,1)+' s',metrics.generation_tok_s==null?'—':number(metrics.generation_tok_s,2),metrics.output_tokens??'—',metrics.visual_mode==='images'?metrics.images_used+' imágenes':metrics.visual_mode==='descriptions'?'Descripciones':'Texto',{done:'Completada',error:'Error',running:'En curso',queued:'En cola',cancelled:'Detenida'}[item.status]||item.status])row.append(node('td','',value));
+      for(const value of [item.question,metrics.model||'—',item.elapsed_seconds==null?'—':number(item.elapsed_seconds,1)+' s',metrics.generation_tok_s==null?'—':number(metrics.generation_tok_s,2),metrics.output_tokens??'—',metrics.visual_mode==='images'?metrics.images_used+' imágenes':metrics.visual_mode==='descriptions'?'Descripciones':'Texto',{done:'Completada',error:'Error',running:'En curso',queued:'En cola',cancelled:'Detenida',interrupted:'Interrumpida'}[item.status]||item.status])row.append(node('td','',value));
+      if(item.created_at)row.children[0].append(node('p','routing-reason',new Date(item.created_at).toLocaleString('es-ES')));
       const timeCell=row.children[2];if(item.queue_seconds>=1)timeCell.append(node('p','routing-reason','Espera en cola: '+duration(item.queue_seconds)));
       if(metrics.vector_search_seconds!=null)timeCell.title=`Embeddings: ${number(metrics.embedding_setup_seconds||0,3)} s · Búsqueda: ${number(metrics.vector_search_seconds,3)} s · Fuentes: ${number(metrics.source_preparation_seconds||0,3)} s · Selección/preparación: ${number(metrics.routing_seconds||0,3)} s · Generación: ${number(metrics.generation_wall_seconds||0,3)} s`;
       const modelCell=row.children[1];if(metrics.routing_reason){modelCell.append(node('p','routing-reason',`${{automatic:'Automática',search_only:'Solo búsqueda',catalog:'Registro del índice'}[metrics.routing_mode]||'Manual'} · ${metrics.routing_reason}`));}
       if(metrics.retrieval_mode==='global')modelCell.append(node('p','routing-reason',`Biblioteca completa: ${metrics.documents_retrieved}/${metrics.documents_indexed} documentos`));
       $('query-statistics').append(row);
     }
-    if(!stats.recent.length){const row=node('tr');const cell=node('td','','Todavía no hay consultas en este arranque del servidor.');cell.colSpan=7;row.append(cell);$('query-statistics').append(row);}
+    if(!stats.recent.length){const row=node('tr');const cell=node('td','','No hay consultas guardadas en este intervalo.');cell.colSpan=7;row.append(cell);$('query-statistics').append(row);}
   }catch(error){toast(error.message);}
 }
 $('refresh-statistics').addEventListener('click',refreshStatistics);
+$('statistics-history-range').addEventListener('click',event=>{const control=event.target.closest('[data-history-seconds]');if(!control)return;statisticsWindow=Number(control.dataset.historySeconds);statisticsPage=1;ingestionPage=1;$('statistics-history-range').querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button===control)));refreshStatistics();});
+$('statistics-previous').addEventListener('click',()=>{statisticsPage=Math.max(1,statisticsPage-1);refreshStatistics();});
+$('statistics-next').addEventListener('click',()=>{statisticsPage++;refreshStatistics();});
+$('ingestion-previous').addEventListener('click',()=>{ingestionPage=Math.max(1,ingestionPage-1);refreshStatistics();});
+$('ingestion-next').addEventListener('click',()=>{ingestionPage++;refreshStatistics();});
 navigate(location.pathname+location.search,true);
 async function init(){
   try{
