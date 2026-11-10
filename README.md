@@ -1,5 +1,7 @@
 # RAG Local · Windows y Linux
 
+[![CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml)
+
 Consulta documental local con chat, fuentes verificables, PDF/figuras, ChromaDB,
 embeddings CPU y generación con Ollama. Incluye un asistente de terminal inspirado
 en OMP: paneles divididos, navegación con teclado, selección de modelos, revisión
@@ -8,7 +10,12 @@ de cambios y registro de instalación. No necesita OMP ni Node.
 ## Empezar con el asistente
 
 Requiere Python **3.13 x64**, Windows o Linux x86_64 y Ollama para generar respuestas.
-Abre una terminal en la carpeta del proyecto:
+Clona el repositorio y abre una terminal en su carpeta:
+
+```text
+git clone https://github.com/tunelko/rag-lab.git
+cd rag-lab
+```
 
 ```powershell
 # Windows
@@ -33,7 +40,8 @@ Para comprobar el equipo sin modificar archivos ni instalar paquetes usa
 La [guía paso a paso](docs/INSTALACION.md) explica cada pantalla y los requisitos.
 [Preparación del repositorio](docs/REPOSITORIO.md) describe las exclusiones y la
 futura publicación. Documentos, modelos, índices y configuración privada no se
-incluyen en Git. El repositorio permanece local hasta elegir un remoto.
+incluyen en Git. Repositorio: [tunelko/rag-lab](https://github.com/tunelko/rag-lab).
+[Desarrollo, CI y diagnóstico](docs/DESARROLLO.md) explica las comprobaciones automáticas.
 
 La instalación de desarrollo original usa Python 3.13 x64, PyTorch 2.14.1 CUDA 13.0,
 Transformers 5.22.2 y ChromaDB 1.5.9. Las dependencias directas están fijadas;
@@ -67,6 +75,8 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   tareas y tiempos/tokens de consultas recientes. Los datos de consultas se
   conservan en memoria del servidor, hasta 200 tareas; no representan un histórico
   permanente. Tokens/s proceden de las métricas nativas de Ollama, no de contar palabras.
+  El tiempo de ejecución se separa de la espera en cola; al pasar el cursor por
+  el tiempo se muestran embeddings, búsqueda, preparación de fuentes y generación.
   **Carga del equipo en tiempo real** añade lecturas cada 2 segundos de CPU, RAM,
   uso de GPU, VRAM, temperatura, potencia y consumo por proceso de RAG/Ollama.
   Las lecturas de GPU usan únicamente consultas de `nvidia-smi`; no cargan modelos
@@ -349,6 +359,11 @@ el modelo y el contexto. No se carga ningún modelo HF durante la instalación.
 Los 10 GB de VRAM son físicos; la memoria compartida de Windows no equivale a VRAM.
 
 ## Pruebas y reinstalación
+
+GitHub Actions ejecuta la regresión Python (incluido el asistente) y las pruebas
+de JavaScript en Windows/Linux con Python 3.13, Node 24 y PyTorch CPU. Linux añade
+QA de navegador con Edge, corpus aislado y modelos simulados. Se ejecuta en cada
+push/PR y puede lanzarse manualmente; no necesita tokens personales ni GPU.
 
 ```powershell
 python -m unittest -v test_rag

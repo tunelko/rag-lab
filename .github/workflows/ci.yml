@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  offline-tests:
+    name: Python 3.13 / ${{ matrix.os }} / CPU
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CUDA_VISIBLE_DEVICES: ''
+      HF_HUB_OFFLINE: '1'
+      TRANSFORMERS_OFFLINE: '1'
+      HF_HUB_DISABLE_TELEMETRY: '1'
+      ANONYMIZED_TELEMETRY: 'False'
+      OMP_NUM_THREADS: '2'
+      PYTHONUTF8: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements-local.txt
+            requirements-web.txt
+            requirements-wizard.txt
+            requirements-dev.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Install CPU dependencies
+        run: |
+          python -m pip install --only-binary=:all: 'torch==2.14.1+cpu' --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install --only-binary=:all: -r requirements-local.txt -r requirements-wizard.txt -r requirements-dev.txt
+          python -m pip check
+      - name: Python regression tests (fake vectors, models and sensors)
+        run: |
+          mkdir -p reports
+          python -m unittest discover -v 2>&1 | tee reports/unit-tests.log
+      - name: Frontend tests and launcher syntax
+        run: |
+          node --test test_chart_data.mjs
+          for module in dist/*.js; do node --check "$module"; done
+          bash -n configurar.sh
+      - name: Install Edge for browser QA
+        if: runner.os == 'Linux'
+        run: python -m playwright install --with-deps msedge
+      - name: Browser regression tests (isolated corpus, no inference)
+        if: runner.os == 'Linux'
+        run: python qa_redesign.py 2>&1 | tee reports/browser-tests.log
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: reports/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,8 +1,8 @@
 # Repositorio local y futura publicación
 
-El proyecto ya tiene historial Git. Mientras se prueba el asistente, no necesita
-ningún remoto ni una cuenta de GitHub. Se conserva el historial existente y no
-se envía nada a servicios externos.
+Repositorio: [tunelko/rag-lab](https://github.com/tunelko/rag-lab), con remoto HTTPS
+sin credenciales en la URL. Se conserva el historial existente. El código puede
+probarse en local antes de enviar nuevos commits.
 
 ## Qué se versiona
 
@@ -38,8 +38,8 @@ Para comprobar una exclusión concreta:
 git check-ignore -v .env data/settings.json data/documents/ejemplo.pdf
 ```
 
-Antes de publicar, decide nombre, plataforma, visibilidad y licencia del código
-propio. Por ahora no se asigna una licencia a tu trabajo. Marked, DOMPurify,
+El repositorio de GitHub es público. La licencia del código propio está pendiente
+de elección; por ahora no se asigna una licencia a tu trabajo. Marked, DOMPurify,
 Textual y las fuentes conservan sus propias licencias; la aplicación no incluye
 pesos de modelos ni derechos sobre los documentos que cada usuario añada.
 
@@ -61,17 +61,19 @@ Los tests usan directorios temporales y servicios falsos. Comprueban la navegaci
 guardado, recuperación ante fallo y bloqueo con trabajos activos. No instalan
 dependencias del RAG, descargan modelos ni llaman a Ollama.
 
-## Cuando se elija el remoto
+## Actualizar el remoto
 
-Desde esta misma carpeta se añadirá la URL real:
+Desde esta misma carpeta puedes comprobar el remoto y enviar commits revisados:
 
 ```text
-git remote add origin URL_DEL_REPOSITORIO
-git push -u origin HEAD
+git remote -v
+git push origin main
 ```
 
-Son instrucciones para ese momento: no se han ejecutado. No hace falta recrear
-el repositorio ni hacer `git init` de nuevo.
+La autenticación se resuelve mediante el gestor de credenciales o GitHub CLI.
+No añadas tokens a `.env`, scripts, comandos de remoto ni archivos de CI. Actions
+usa su credencial efímera con permisos de lectura; no requiere tu token personal.
+No hace falta recrear el repositorio ni hacer `git init` de nuevo.
 
 Para crear un ZIP solo con archivos del commit, después de revisar su contenido:
 
