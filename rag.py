@@ -104,7 +104,7 @@ def read_documents(path: Path):
     return [Document(page_content=path.read_text(encoding="utf-8-sig"), metadata={"page": 0})]
 
 
-def ingest(config: Config, source: Path, embeddings):
+def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=None, cancelled=None):
     source = source.resolve()
     if not source.is_dir():
         raise ValueError(f"Document directory does not exist: {source}")
@@ -115,21 +115,32 @@ def ingest(config: Config, source: Path, embeddings):
     )
     store = open_store(config, embeddings)
     summary = {"indexed_files": 0, "skipped_files": 0, "chunks": 0, "errors": 0}
-    for path in sorted(source.rglob("*")):
+    selected = sorted(paths) if paths is not None else sorted(source.rglob("*"))
+    for path in selected:
         if not path.is_file() or path.suffix.lower() not in {".txt", ".md", ".markdown", ".pdf"}:
             continue
         # Do not follow a symlink that escapes the document directory.
         if not path.resolve().is_relative_to(source):
             continue
+        if cancelled and cancelled():
+            raise InterruptedError("Ingesta cancelada antes de modificar el índice.")
         key = str(path.resolve())
         fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
         previous = state["files"].get(key, {})
         if previous.get("sha256") == fingerprint:
             summary["skipped_files"] += 1
+            if observer:
+                observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(previous.get("ids", [])), skipped=True)
             continue
         try:
+            if observer:
+                observer(stage="chunking", stage_progress=0, document=path.name, chunks=0)
             chunks = splitter.split_documents(read_documents(path))
             chunks = [chunk for chunk in chunks if chunk.page_content.strip()]
+            if observer:
+                observer(stage="chunking", stage_progress=100, document=path.name, chunks=len(chunks))
+            if cancelled and cancelled():
+                raise InterruptedError("Ingesta cancelada antes de modificar el índice.")
             ids = []
             for index, chunk in enumerate(chunks):
                 chunk.metadata.update({"source": key, "file": path.relative_to(source).as_posix(),
@@ -137,7 +148,11 @@ def ingest(config: Config, source: Path, embeddings):
                 ids.append(hashlib.sha256(f"{key}:{fingerprint}:{index}".encode()).hexdigest())
             # Upsert new chunks BEFORE removing obsolete ones. Retry remains idempotent.
             for start in range(0, len(chunks), 64):
+                if observer:
+                    observer(stage="indexing", stage_progress=100 * start / len(chunks), document=path.name, chunks=len(chunks))
                 store.add_documents(chunks[start:start + 64], ids=ids[start:start + 64])
+                if observer:
+                    observer(stage="indexing", stage_progress=100 * min(start + 64, len(chunks)) / len(chunks), document=path.name, chunks=len(chunks))
             stale = sorted(set(previous.get("ids", [])) - set(ids))
             if stale:
                 store.delete(ids=stale)
@@ -145,9 +160,15 @@ def ingest(config: Config, source: Path, embeddings):
             save_state(config, state)
             summary["indexed_files"] += 1
             summary["chunks"] += len(chunks)
+            if observer:
+                observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(chunks), complete=True)
             print(f"{path.name}: {len(chunks)} chunks" + (" (no extractable text; OCR may be required)" if not chunks else ""))
+        except InterruptedError:
+            raise
         except Exception as exc:
             summary["errors"] += 1
+            if observer:
+                observer(stage="error", stage_progress=0, document=path.name, error=str(exc))
             print(f"ERROR {path.name}: {exc}", file=sys.stderr)
     print(json.dumps(summary, ensure_ascii=False))
     return summary
@@ -186,7 +207,7 @@ def build_messages(question: str, hits, max_chars: int):
     return [{"role": "system", "content": system}, {"role": "user", "content": user}], sources
 
 
-def generate_ollama(messages, model: str, on_chunk=None):
+def generate_ollama(messages, model: str, on_chunk=None, cancelled=None):
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
     body = json.dumps({"model": model, "messages": messages, "stream": on_chunk is not None,
                        "options": {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}}).encode()
@@ -201,6 +222,8 @@ def generate_ollama(messages, model: str, on_chunk=None):
             pieces = []
             result = None
             for line in response:
+                if cancelled and cancelled():
+                    raise InterruptedError("Generación cancelada.")
                 if not line.strip():
                     continue
                 item = json.loads(line)

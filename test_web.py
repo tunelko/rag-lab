@@ -65,7 +65,7 @@ class WebTests(unittest.TestCase):
         self.assertEqual(status["document_count"], 1)
         self.assertEqual(status["chunk_count"], 1)
 
-        def mock_generate(messages, model, on_chunk=None):
+        def mock_generate(messages, model, on_chunk=None, cancelled=None):
             self.assertIn("cada viernes", messages[1]["content"])
             on_chunk("Se realiza cada ")
             on_chunk("viernes [1].")
