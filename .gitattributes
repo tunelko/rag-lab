@@ -14,6 +14,8 @@
 *.woff2 binary
 *.png binary
 *.map -diff
+# Third-party distributions must preserve their original bytes and recorded hashes.
+/dist/vendor/** -text
 
 # Historical design material is kept in Git but omitted from source archives.
 rag-local-redesign/ export-ignore
