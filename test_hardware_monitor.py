@@ -37,6 +37,16 @@ class HardwareTests(unittest.TestCase):
             self.assertIs(monitor.sample(), first)
         self.assertEqual(gpu.call_count, 1)
 
+    def test_real_history_preserves_missing_sensor_samples(self):
+        gpu = Mock(side_effect=[{"devices":[{"utilization_percent":80}]},{"devices":[]}])
+        with patch("hardware_monitor.psutil.cpu_percent", return_value=42), patch("hardware_monitor.psutil.virtual_memory", return_value=SimpleNamespace(used=8 * 1024**3,total=16 * 1024**3,percent=50)), patch("hardware_monitor.psutil.process_iter", return_value=[]):
+            monitor=hardware_monitor.HardwareMonitor(gpu_reader=gpu)
+            monitor.sample();monitor.last_at-=3
+            result=monitor.sample()
+        self.assertEqual(len(result["history"]),2)
+        self.assertEqual(result["history"][0]["gpu_percent"],80)
+        self.assertIsNone(result["history"][1]["gpu_percent"])
+
 
 class HardwareApiTests(unittest.TestCase):
     setUp = test_web.WebTests.setUp

@@ -1,5 +1,6 @@
 """Read-only host/GPU telemetry. Never initializes CUDA or runs a model."""
 import csv
+from collections import deque
 from datetime import datetime, timezone
 import io
 import os
@@ -52,6 +53,7 @@ class HardwareMonitor:
         self.previous = {}
         self.last = None
         self.last_at = 0
+        self.history = deque(maxlen=512)
 
     def sample(self):
         with self.lock:
@@ -88,5 +90,15 @@ class HardwareMonitor:
                          "cpu_percent": cpu, "logical_cpus": logical,
                          "ram_used_bytes": ram.used, "ram_total_bytes": ram.total,
                          "ram_percent": ram.percent, "processes": processes, "gpu": self.gpu_reader()}
+            gpu = next(iter(self.last["gpu"].get("devices", [])), {})
+            self.history.append({"time": self.last["time"], "cpu_percent": cpu,
+                "gpu_percent": gpu.get("utilization_percent"), "ram_used_bytes": ram.used,
+                "ram_total_bytes": ram.total, "vram_used_bytes": gpu.get("memory_used_bytes"),
+                "vram_total_bytes": gpu.get("memory_total_bytes")})
+            cutoff = datetime.now(timezone.utc).timestamp() - 900
+            while self.history and datetime.fromisoformat(self.history[0]["time"]).timestamp() < cutoff:
+                self.history.popleft()
+            self.last["history"] = list(self.history)
+            self.last["history_seconds"] = 900
             self.last_at = now
             return self.last
