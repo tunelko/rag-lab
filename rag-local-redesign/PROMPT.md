@@ -1,4 +1,4 @@
-# Prompt para Codex — Rediseño integral de la interfaz de RAG Local
+# Guía de implementación — Rediseño integral de la interfaz de RAG Local
 
 ## Rol y objetivo
 

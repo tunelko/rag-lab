@@ -1,7 +1,7 @@
-# RAG Local — Paquete de rediseño para Codex
+# RAG Local — Paquete de rediseño
 
 1. Descomprime este paquete en la raíz del repositorio de RAG Local (o en una carpeta `docs/redesign/`).
-2. Entrega a Codex el contenido de **`PROMPT.md`** como instrucción, indicándole la ruta del paquete.
+2. Usa **`PROMPT.md`** como guía de implementación, indicando la ruta del paquete.
 3. Abre `mockups/*.html` en el navegador para ver el objetivo visual (funcionan sin conexión).
 
 ```

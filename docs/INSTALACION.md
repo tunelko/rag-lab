@@ -1,5 +1,7 @@
 # Instalación y configuración con asistente
 
+[English installation guide](../README.md) · [Inicio rápido en español](../README.es.md)
+
 El mismo asistente de terminal funciona en Windows y Linux, con estética inspirada
 en OMP: pasos a la izquierda, configuración en el centro, ayuda a la derecha y
 registro de operaciones debajo. Usa Textual; no necesita OMP, Node ni un navegador.

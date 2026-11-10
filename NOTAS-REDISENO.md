@@ -165,8 +165,8 @@ frontend nuevas. La única conexión de la interfaz es su servidor 127.0.0.1. La
 explícita de un embedding todavía puede descargar sus pesos desde el backend, como antes;
 ningún documento se envía para indexarlo fuera del equipo.
 
-El historial local usa autor automático `Codex <codex@localhost>` por comando porque no
-había identidad Git configurada. No se modifica la configuración global de Git.
+La autoría del proyecto corresponde a `tunelko`. La identidad Git se configura
+solo en este repositorio, sin modificar la configuración global.
 
 ## Cómo probar
 
