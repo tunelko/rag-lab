@@ -17,7 +17,7 @@ from typing import Annotated, Literal
 from urllib.parse import quote, urlsplit
 import urllib.request
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Query as QueryParameter
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -28,6 +28,7 @@ from jobs_runtime import JobFailure, JobRuntime
 from settings_store import SettingsStore, Preferences
 import multimodal
 from model_routing import select_model
+from server_console import ConsoleBuffer, ConsoleCapture
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -63,6 +64,7 @@ class RagService(JobRuntime):
         self.settings = SettingsStore(self.config.db.parent / "settings.json")
         self.visual_root = self.config.db.parent / "visual"
         self.capabilities_cache = {}
+        self.console = ConsoleBuffer()
         super().__init__()
 
     def get_embeddings(self, download=False):
@@ -322,8 +324,11 @@ def create_app(service=None):
 
     @asynccontextmanager
     async def lifespan(app):
-        yield
-        service.close()
+        with ConsoleCapture(service.console):
+            try:
+                yield
+            finally:
+                service.close()
 
     app = FastAPI(title="RAG Local", docs_url=None, redoc_url=None, lifespan=lifespan)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
@@ -351,12 +356,17 @@ def create_app(service=None):
     @app.get("/biblioteca")
     @app.get("/configuracion")
     @app.get("/estadisticas")
+    @app.get("/consola")
     def page():
         return FileResponse(rag.ROOT / "dist" / "index.html")
 
     @app.get("/api/session")
     def session():
         return {"token": token}
+
+    @app.get("/api/console")
+    def console(after: int = QueryParameter(default=0, ge=0), limit: int = QueryParameter(default=200, ge=1, le=500)):
+        return service.console.snapshot(after, limit)
 
     @app.get("/api/settings")
     def settings():

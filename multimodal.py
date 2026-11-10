@@ -11,6 +11,7 @@ import hashlib
 from html.parser import HTMLParser
 import io
 import json
+import logging
 from pathlib import Path, PurePosixPath
 import stat
 import urllib.request
@@ -115,10 +116,13 @@ class VisualReader:
             path.write_bytes(raw)
         cache = self.root / f"{asset}-{hashlib.sha256((PARSER_VERSION + self.settings.vision_model).encode()).hexdigest()[:16]}.json"
         if cache.exists():
+            logging.getLogger("rag.vision").info("Vista %s · página %s · reutilizando descripción de caché", self.count, page)
             caption = json.loads(cache.read_text(encoding="utf-8"))["caption"]
         else:
+            logging.getLogger("rag.vision").info("Vista %s · página %s · solicitando descripción a %s", self.count, page, self.settings.vision_model)
             caption = self.describe(raw, self.settings.vision_model)
             self.check()
+            logging.getLogger("rag.vision").info("Vista %s · página %s · descripción completada", self.count, page)
             pending = cache.with_suffix(".pending")
             pending.write_text(json.dumps({"caption": caption}, ensure_ascii=False), encoding="utf-8")
             pending.replace(cache)

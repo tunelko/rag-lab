@@ -1,6 +1,7 @@
 """Additive job observation, structured errors and cooperative cancellation."""
 from concurrent.futures import ThreadPoolExecutor
 import copy
+import logging
 from datetime import datetime, timezone
 import secrets
 import threading
@@ -52,6 +53,9 @@ class JobRuntime:
         with self.lock:
             old = self.jobs[job_id]
             if changes.get("phase") and changes["phase"] != old.get("phase"):
+                logger = logging.getLogger("rag.jobs")
+                message = f"{old.get('document_name') or changes.get('current_document') or old.get('kind', 'tarea')} · {changes['phase']}"
+                logger.log(logging.ERROR if changes.get("status") == "error" else logging.INFO, message)
                 self.activity.append({"time": now(), "text": changes["phase"], "document": old.get("document_name", "")})
                 self.activity = self.activity[-6:]
             old.update(changes)

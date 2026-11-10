@@ -12,3 +12,5 @@ install-*.json
 data/settings.json
 data/settings.pending
 data/visual/
+dist/runtime-console.json
+dist/runtime-console.pending
