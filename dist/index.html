@@ -16,7 +16,8 @@
   <script src="/assets/app.js" type="module">
   </script>
   <link href="/assets/header.css" rel="stylesheet"/>
- </head>
+ <link rel="stylesheet" href="/assets/library.css"/>
+</head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
    <defs>
@@ -129,6 +130,18 @@
     <circle cx="12" cy="20" r=".5">
     </circle>
    </symbol>
+   <symbol id="i-folder" viewbox="0 0 24 24">
+    <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z">
+    </path>
+   </symbol>
+   <symbol id="i-more" viewbox="0 0 24 24">
+    <circle cx="5" cy="12" r="1">
+    </circle>
+    <circle cx="12" cy="12" r="1">
+    </circle>
+    <circle cx="19" cy="12" r="1">
+    </circle>
+   </symbol>
   </svg>
   <a class="skip" href="#main">
    <span data-i18n="sentinel.skip">
@@ -203,6 +216,7 @@
        </use>
       </svg>
       <span class="cmdk__label" data-i18n="header.command">
+       Preguntar, buscar o ir a…
       </span>
       <kbd class="kbd">
        Ctrl K
@@ -256,6 +270,7 @@
     <section aria-labelledby="system-title" class="syspop" id="system-popover" popover="auto">
      <header class="syspop__head">
       <h2 class="card-title" data-i18n="header.system" id="system-title">
+       Estado del sistema
       </h2>
       <button class="btn btn--secondary btn--icon" data-i18n-aria-label="header.close" popovertarget="system-popover" popovertargetaction="hide" type="button">
        <svg aria-hidden="true" class="icon">
@@ -288,6 +303,7 @@
         <progress id="system-vram-progress" max="100" value="0">
         </progress>
         <span class="syspop__hint" data-i18n="header.vram_hint">
+         Ollama reserva memoria al cargar un modelo. El detalle permite distinguir reserva y uso.
         </span>
        </dd>
       </div>
@@ -309,6 +325,7 @@
       </div>
       <div>
        <dt data-i18n="header.server">
+        Servidor
        </dt>
        <dd>
         <span id="server-address">
@@ -320,9 +337,16 @@
        </dd>
       </div>
      </dl>
-     <details class="syspop__pipeline" id="system-pipeline-detail"><summary data-i18n="header.pipeline">Estado del pipeline</summary><ol id="system-pipeline-stages"></ol></details>
+     <details class="syspop__pipeline" id="system-pipeline-detail">
+      <summary data-i18n="header.pipeline">
+       Estado del pipeline
+      </summary>
+      <ol id="system-pipeline-stages">
+      </ol>
+     </details>
      <footer class="syspop__foot">
       <a data-i18n="header.statistics" href="/estadisticas">
+       Ver en Estadísticas
       </a>
       <button aria-label="Actualizar estado" class="btn btn--secondary btn--icon" data-i18n-aria-label="sentinel.refresh_status" id="refresh-button">
        <svg aria-hidden="true" class="icon">
@@ -546,8 +570,8 @@
            </use>
           </svg>
          </button>
-         <span class="meta" id="question-help">
-          Ctrl + Enter
+         <span class="meta" data-i18n="ui.chat_keyboard_hint" id="question-help">
+          Enter: enviar · Ctrl+Enter: salto de línea
          </span>
          <button class="btn btn--primary" id="ask-button" type="submit">
           <svg aria-hidden="true" class="icon">
@@ -805,303 +829,322 @@
        </dd>
       </div>
      </dl>
-     <section aria-labelledby="topics-title" class="card topic-library">
-      <header class="card__head">
-       <h2 class="card-title" data-i18n="library.title" id="topics-title">
-        Temas de la biblioteca
-       </h2>
-       <span class="meta" data-i18n="library.hint">
-        Organiza tus documentos en armarios y cajones.
-       </span>
-       <button class="btn btn--secondary" data-i18n="library.new_cabinet" id="new-topic" type="button">
-        Nuevo armario
-       </button>
-      </header>
-      <div class="card__body">
-       <div class="topic-filters" id="topic-filters">
-       </div>
-       <div class="topic-grid" id="topic-tree">
-       </div>
-       <p class="meta" data-i18n="library.empty" id="topic-empty">
-        Crea un armario para empezar a organizar la biblioteca.
-       </p>
-       <form class="topic-form" hidden="" id="topic-form">
-        <label class="field" for="topic-name">
-         <span data-i18n="library.name">
-          Nombre
-         </span>
-         <input autocomplete="off" class="input" id="topic-name" maxlength="80" required=""/>
-        </label>
-        <label class="field" for="topic-parent">
-         <span data-i18n="library.location">
-          Ubicación
-         </span>
-         <select class="select" id="topic-parent">
-         </select>
-        </label>
-        <button class="btn btn--primary" data-i18n="library.save" id="save-topic" type="submit">
-         Guardar
-        </button>
-        <button class="btn btn--secondary" data-i18n="library.cancel" id="cancel-topic" type="button">
-         Cancelar
-        </button>
-       </form>
-       <p class="form-error" hidden="" id="topic-message" role="status">
-       </p>
-      </div>
-     </section>
-     <div class="split">
-      <section class="split__main card library-card">
+     <div class="library-workspace">
+      <section aria-labelledby="topics-title" class="card category-sidebar">
        <header class="card__head">
-        <h2 class="card-title">
-         <span data-i18n="sentinel.documents">
-          Documentos
-         </span>
+        <h2 class="card-title" data-i18n="library.title" id="topics-title">
+         Categorías
         </h2>
-        <span class="badge badge--neutral" id="library-count">
-         0
-        </span>
-        <span class="spacer">
-        </span>
-        <input aria-label="Buscar documentos por nombre" class="input document-search" data-i18n-aria-label="ui.search_documents_by_name_e6fb64" data-i18n-placeholder="ui.search_by_name_5ee9b1" id="document-search" placeholder="Buscar por nombre" type="search"/>
-        <div class="table-tabs">
-         <div aria-label="Filtrar documentos" class="tabs" data-i18n-aria-label="ui.filter_documents_73c562" id="document-filters">
-          <button aria-pressed="true" data-filter="all" type="button">
-           <span data-i18n="ui.all_0_65e3e5">
-            Todos · 0
-           </span>
-          </button>
-          <button aria-pressed="false" data-filter="indexed" type="button">
-           <span data-i18n="ui.indexed_0_548fa7">
-            Indexados · 0
-           </span>
-          </button>
-          <button aria-pressed="false" data-filter="processing" type="button">
-           <span data-i18n="ui.processing_0_f6dfde">
-            En proceso · 0
-           </span>
-          </button>
-          <button aria-pressed="false" data-filter="error" type="button">
-           <span data-i18n="ui.with_errors_0_42cb8f">
-            Con error · 0
-           </span>
-          </button>
-         </div>
-        </div>
-       </header>
-       <div class="library-organize">
-        <label class="composer__check">
-         <input id="select-visible-documents" type="checkbox"/>
-         <span data-i18n="library.select_page">
-          Seleccionar página
-         </span>
-        </label>
-        <span class="meta" id="selected-documents" role="status">
-        </span>
-        <label class="sr-only" data-i18n="library.move_destination" for="move-topic">
-         Destino de los documentos seleccionados
-        </label>
-        <select class="select" id="move-topic">
-        </select>
-        <button class="btn btn--secondary" data-i18n="library.move" disabled="" id="move-documents" type="button">
-         Mover
+        <button class="btn btn--secondary btn--icon" data-i18n-aria-label="library.new_category" data-i18n-title="library.new_category" id="new-topic" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-plus">
+          </use>
+         </svg>
         </button>
-       </div>
-       <div class="table-wrap">
-        <table class="table documents-table">
-         <thead>
-          <tr>
-           <th data-i18n="sentinel.documents">
-            Documentos
-           </th>
-           <th data-i18n="sentinel.size">
-            Tamaño
-           </th>
-           <th data-i18n="sentinel.chunks">
-            Fragmentos
-           </th>
-           <th data-i18n="sentinel.status">
-            Estado
-           </th>
-           <th data-i18n="sentinel.updated">
-            Actualizado
-           </th>
-           <th data-i18n="sentinel.actions">
-            Acciones
-           </th>
-          </tr>
-         </thead>
-         <tbody id="documents-table">
-         </tbody>
-        </table>
-       </div>
-       <p class="empty-state" id="library-empty">
-        <span data-i18n="ui.you_have_not_added_any_documents_yet_start_with_the_area_above_5c043e">
-         Todavía no has añadido documentos. Empieza por la zona de arriba.
+       </header>
+       <div class="card__body">
+        <span class="meta" data-i18n="library.hint">
+         Agrupa tus documentos por tema. Cada categoría puede contener subcategorías.
         </span>
-       </p>
-       <footer class="table-footer">
-        <p class="meta" id="table-caption">
-        </p>
-        <div class="pagination">
-         <button aria-label="Página anterior" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.previous_page_9bcad7" id="previous-page">
-          ‹
-         </button>
-         <span class="meta" id="page-label">
-          1 / 1
-         </span>
-         <button aria-label="Página siguiente" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.next_page_9dd6b3" id="next-page">
-          ›
-         </button>
+        <input class="input category-search" data-i18n-aria-label="library.search_categories" data-i18n-placeholder="library.search_categories" id="category-search" type="search"/>
+        <div class="topic-filters" id="topic-filters">
         </div>
-       </footer>
-      </section>
-      <aside class="split__aside">
-       <section class="card">
-        <header class="card__head">
-         <h2 class="card-title">
-          <span data-i18n="sentinel.ingestion">
-           Ingesta
+        <div class="category-tree" id="topic-tree">
+        </div>
+        <p class="meta" data-i18n="library.empty" id="topic-empty">
+         Crea tu primera categoría para organizar los documentos.
+        </p>
+        <form class="topic-form" hidden="" id="topic-form">
+         <h3 class="category-editor-title" id="topic-editor-title">
+         </h3>
+         <label class="field" for="topic-name">
+          <span data-i18n="library.name">
+           Nombre
           </span>
-         </h2>
-        </header>
-        <div class="card__body">
-         <div class="dropzone" id="drop-zone">
-          <input accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
-          <svg aria-hidden="true" class="icon">
-           <use href="#i-upload">
-           </use>
-          </svg>
-          <div>
-           <strong id="drop-title">
-            <span data-i18n="ui.drop_your_documents_here_403059">
-             Arrastra tus documentos aquí
-            </span>
-           </strong>
-           <p>
-            <span data-i18n="ui.up_to_20_mb_per_file_20_files_per_batch_keep_adding_files_while_t_24ae3c">
-             Hasta 20 MB por archivo · 20 archivos por lote. Puedes seguir añadiendo mientras se procesa la cola.
-            </span>
-           </p>
-          </div>
-          <button class="btn btn--secondary" id="select-files" type="button">
-           <span data-i18n="ui.select_files_13d9c9">
-            Seleccionar archivos
-           </span>
-          </button>
-         </div>
-         <label class="field" for="upload-topic">
-          <span data-i18n="library.upload_destination">
-           Guardar documentos nuevos en
+          <input autocomplete="off" class="input" id="topic-name" maxlength="80" required=""/>
+         </label>
+         <label class="field" for="topic-parent">
+          <span data-i18n="library.location">
+           Ubicación
           </span>
-          <select class="select" id="upload-topic">
+          <select class="select" id="topic-parent">
           </select>
          </label>
-         <section aria-label="Cola de subida" class="ingest-queue" data-i18n-aria-label="ui.upload_queue_9a0772" hidden="" id="queue-section">
-          <div class="queue-heading">
-           <h3>
-            <span data-i18n="ui.upload_queue_9a0772">
-             Cola de subida
-            </span>
-           </h3>
-           <span id="queue-caption">
-           </span>
-           <div class="queue-toolbar">
-            <button class="text-button" id="pause-queue" type="button">
-             <span data-i18n="ui.pause_cd25ee">
-              Pausar
+         <button class="btn btn--primary" data-i18n="library.save" id="save-topic" type="submit">
+          Guardar
+         </button>
+         <button class="btn btn--secondary" data-i18n="library.cancel" id="cancel-topic" type="button">
+          Cancelar
+         </button>
+        </form>
+        <p class="form-error" hidden="" id="topic-message" role="status">
+        </p>
+       </div>
+      </section>
+      <div class="library-content">
+       <div class="split">
+        <section class="split__main card library-card">
+         <header class="card__head">
+          <h2 class="card-title" id="library-location">
+           Documentos
+          </h2>
+          <span class="badge badge--neutral" id="library-count">
+           0
+          </span>
+          <span class="spacer">
+          </span>
+          <input aria-label="Buscar documentos por nombre" class="input document-search" data-i18n-aria-label="ui.search_documents_by_name_e6fb64" data-i18n-placeholder="ui.search_by_name_5ee9b1" id="document-search" placeholder="Buscar por nombre" type="search"/>
+          <div class="table-tabs">
+           <div aria-label="Filtrar documentos" class="tabs" data-i18n-aria-label="ui.filter_documents_73c562" id="document-filters">
+            <button aria-pressed="true" data-filter="all" type="button">
+             <span data-i18n="ui.all_0_65e3e5">
+              Todos · 0
              </span>
             </button>
-            <button class="text-button" id="clear-queue" type="button">
-             <span data-i18n="ui.clear_completed_8465ea">
-              Limpiar completados
+            <button aria-pressed="false" data-filter="indexed" type="button">
+             <span data-i18n="ui.indexed_0_548fa7">
+              Indexados · 0
+             </span>
+            </button>
+            <button aria-pressed="false" data-filter="processing" type="button">
+             <span data-i18n="ui.processing_0_f6dfde">
+              En proceso · 0
+             </span>
+            </button>
+            <button aria-pressed="false" data-filter="error" type="button">
+             <span data-i18n="ui.with_errors_0_42cb8f">
+              Con error · 0
              </span>
             </button>
            </div>
           </div>
-          <div class="batch-progress">
-           <div class="batch-meta">
-            <strong id="total-percent">
-             0 %
-            </strong>
-            <span>
-             <span data-i18n="ui.overall_batch_progress_78df57">
-              Progreso total del lote
-             </span>
-            </span>
-            <span id="total-eta">
-             <span data-i18n="ui.calculating_bef25b">
-              Calculando…
-             </span>
-            </span>
-           </div>
-           <div aria-label="Progreso total del lote" aria-valuemax="100" aria-valuemin="0" aria-valuenow="0" class="segmented-bar" data-i18n-aria-label="ui.overall_batch_progress_78df57" id="total-progress" role="progressbar">
-            <span class="segment moss">
-            </span>
-            <span class="segment ochre">
-            </span>
-            <span class="segment clay">
-            </span>
-           </div>
-           <div class="progress-legend">
-            <span>
-             <i class="status-dot moss">
-             </i>
-             <span data-i18n="ui.indexed_bb7f0d">
-              Indexado
-             </span>
-            </span>
-            <span>
-             <i class="status-dot ochre">
-             </i>
-             <span data-i18n="ui.splitting_into_chunks_726c36">
-              Fragmentando
-             </span>
-            </span>
-            <span>
-             <i class="status-dot clay">
-             </i>
-             <span data-i18n="ui.uploading_8f2161">
-              Subiendo
-             </span>
-            </span>
-           </div>
-          </div>
-          <ul class="upload-queue" id="upload-queue">
-          </ul>
-         </section>
-         <div class="ingest-actions">
-          <label class="toggle-field" for="auto-index">
-           <input checked="" id="auto-index" role="switch" type="checkbox"/>
-           <span aria-hidden="true" class="toggle">
-           </span>
-           <span data-i18n="sentinel.auto_index">
-            Indexar al terminar la subida
+         </header>
+         <div class="library-organize">
+          <label class="composer__check">
+           <input id="select-visible-documents" type="checkbox"/>
+           <span data-i18n="library.select_page">
+            Seleccionar página
            </span>
           </label>
-          <button aria-describedby="upload-reason" class="btn btn--primary" disabled="" id="upload-button" type="button">
-           <span>
-            <span data-i18n="ui.upload_and_index_0_48c190">
-             Subir e indexar (0)
-            </span>
-           </span>
-          </button>
-          <button class="btn btn--danger" disabled="" id="cancel-pending" type="button">
-           <span data-i18n="ui.cancel_processing_141faf">
-            Cancelar procesamiento
-           </span>
+          <span class="meta" id="selected-documents" role="status">
+          </span>
+          <label class="sr-only" data-i18n="library.move_destination" for="move-topic">
+           Destino de los documentos seleccionados
+          </label>
+          <select class="select" id="move-topic">
+          </select>
+          <button class="btn btn--secondary" data-i18n="library.move" disabled="" id="move-documents" type="button">
+           Mover
           </button>
          </div>
-         <p class="meta" id="upload-reason">
+         <div class="table-wrap">
+          <table class="table documents-table">
+           <thead>
+            <tr>
+             <th data-i18n="sentinel.documents">
+              Documentos
+             </th>
+             <th data-i18n="sentinel.size">
+              Tamaño
+             </th>
+             <th data-i18n="sentinel.chunks">
+              Fragmentos
+             </th>
+             <th data-i18n="sentinel.status">
+              Estado
+             </th>
+             <th data-i18n="sentinel.updated">
+              Actualizado
+             </th>
+             <th data-i18n="sentinel.actions">
+              Acciones
+             </th>
+            </tr>
+           </thead>
+           <tbody id="documents-table">
+           </tbody>
+          </table>
+         </div>
+         <p class="empty-state" id="library-empty">
+          <span data-i18n="ui.you_have_not_added_any_documents_yet_start_with_the_area_above_5c043e">
+           Todavía no has añadido documentos. Empieza por la zona de arriba.
+          </span>
          </p>
-        </div>
-       </section>
-       <button class="btn btn--secondary" hidden="" id="queue-result-button" type="button">
-        <span data-i18n="ui.view_result_2011cb">
-         Ver resultado
-        </span>
-       </button>
-      </aside>
+         <footer class="table-footer">
+          <p class="meta" id="table-caption">
+          </p>
+          <div class="pagination">
+           <button aria-label="Página anterior" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.previous_page_9bcad7" id="previous-page">
+            ‹
+           </button>
+           <span class="meta" id="page-label">
+            1 / 1
+           </span>
+           <button aria-label="Página siguiente" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.next_page_9dd6b3" id="next-page">
+            ›
+           </button>
+          </div>
+         </footer>
+        </section>
+        <aside class="split__aside">
+         <section class="card">
+          <header class="card__head">
+           <h2 class="card-title" data-i18n="library.add_documents">
+            Subir documentos
+           </h2>
+          </header>
+          <div class="card__body">
+           <section aria-labelledby="upload-destination-title" class="upload-destination">
+            <div class="upload-destination-title">
+             <svg aria-hidden="true" class="icon">
+              <use href="#i-folder">
+              </use>
+             </svg>
+             <h3 data-i18n="library.destination_title" id="upload-destination-title">
+              Destino de la subida
+             </h3>
+            </div>
+            <label class="field" for="upload-topic">
+             <span data-i18n="library.destination_label">
+              Categoría o subcategoría
+             </span>
+             <select class="select" id="upload-topic">
+             </select>
+            </label>
+            <p class="meta" id="upload-destination-hint">
+            </p>
+           </section>
+           <div class="dropzone" id="drop-zone">
+            <input accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
+            <svg aria-hidden="true" class="icon">
+             <use href="#i-upload">
+             </use>
+            </svg>
+            <div>
+             <strong id="drop-title">
+              <span data-i18n="ui.drop_your_documents_here_403059">
+               Arrastra tus documentos aquí
+              </span>
+             </strong>
+             <p>
+              <span data-i18n="ui.up_to_20_mb_per_file_20_files_per_batch_keep_adding_files_while_t_24ae3c">
+               Hasta 20 MB por archivo · 20 archivos por lote. Puedes seguir añadiendo mientras se procesa la cola.
+              </span>
+             </p>
+            </div>
+            <button class="btn btn--secondary" id="select-files" type="button">
+             <span data-i18n="ui.select_files_13d9c9">
+              Seleccionar archivos
+             </span>
+            </button>
+           </div>
+           <section aria-label="Cola de subida" class="ingest-queue" data-i18n-aria-label="ui.upload_queue_9a0772" hidden="" id="queue-section">
+            <div class="queue-heading">
+             <h3>
+              <span data-i18n="ui.upload_queue_9a0772">
+               Cola de subida
+              </span>
+             </h3>
+             <span id="queue-caption">
+             </span>
+             <div class="queue-toolbar">
+              <button class="text-button" id="pause-queue" type="button">
+               <span data-i18n="ui.pause_cd25ee">
+                Pausar
+               </span>
+              </button>
+              <button class="text-button" id="clear-queue" type="button">
+               <span data-i18n="ui.clear_completed_8465ea">
+                Limpiar completados
+               </span>
+              </button>
+             </div>
+            </div>
+            <div class="batch-progress">
+             <div class="batch-meta">
+              <strong id="total-percent">
+               0 %
+              </strong>
+              <span>
+               <span data-i18n="ui.overall_batch_progress_78df57">
+                Progreso total del lote
+               </span>
+              </span>
+              <span id="total-eta">
+               <span data-i18n="ui.calculating_bef25b">
+                Calculando…
+               </span>
+              </span>
+             </div>
+             <div aria-label="Progreso total del lote" aria-valuemax="100" aria-valuemin="0" aria-valuenow="0" class="segmented-bar" data-i18n-aria-label="ui.overall_batch_progress_78df57" id="total-progress" role="progressbar">
+              <span class="segment moss">
+              </span>
+              <span class="segment ochre">
+              </span>
+              <span class="segment clay">
+              </span>
+             </div>
+             <div class="progress-legend">
+              <span>
+               <i class="status-dot moss">
+               </i>
+               <span data-i18n="ui.indexed_bb7f0d">
+                Indexado
+               </span>
+              </span>
+              <span>
+               <i class="status-dot ochre">
+               </i>
+               <span data-i18n="ui.splitting_into_chunks_726c36">
+                Fragmentando
+               </span>
+              </span>
+              <span>
+               <i class="status-dot clay">
+               </i>
+               <span data-i18n="ui.uploading_8f2161">
+                Subiendo
+               </span>
+              </span>
+             </div>
+            </div>
+            <ul class="upload-queue" id="upload-queue">
+            </ul>
+           </section>
+           <div class="ingest-actions">
+            <label class="toggle-field" for="auto-index">
+             <input checked="" id="auto-index" role="switch" type="checkbox"/>
+             <span aria-hidden="true" class="toggle">
+             </span>
+             <span data-i18n="sentinel.auto_index">
+              Indexar al terminar la subida
+             </span>
+            </label>
+            <button aria-describedby="upload-reason" class="btn btn--primary" disabled="" id="upload-button" type="button">
+             <span>
+              <span data-i18n="ui.upload_and_index_0_48c190">
+               Subir e indexar (0)
+              </span>
+             </span>
+            </button>
+            <button class="btn btn--danger" disabled="" id="cancel-pending" type="button">
+             <span data-i18n="ui.cancel_processing_141faf">
+              Cancelar procesamiento
+             </span>
+            </button>
+           </div>
+           <p class="meta" id="upload-reason">
+           </p>
+          </div>
+         </section>
+         <button class="btn btn--secondary" hidden="" id="queue-result-button" type="button">
+          <span data-i18n="ui.view_result_2011cb">
+           Ver resultado
+          </span>
+         </button>
+        </aside>
+       </div>
+      </div>
      </div>
      <div aria-live="polite" class="sr-only" id="queue-announcements" role="status">
      </div>
@@ -2334,6 +2377,7 @@
   <dialog aria-labelledby="command-title" class="command-palette" id="command-palette">
    <form id="command-form">
     <label class="sr-only" data-i18n="header.command" for="command-query" id="command-title">
+     Preguntar, buscar o ir a…
     </label>
     <input autocomplete="off" class="input" data-i18n-placeholder="header.command" id="command-query" maxlength="6000" type="search"/>
     <button class="btn btn--secondary btn--icon" data-i18n-aria-label="header.close" id="command-close" type="button">

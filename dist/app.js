@@ -61,7 +61,7 @@ function statusView(status){
   });
   state.status=status;queue?.setDocuments(status.documents);settingsController?.setStatus(status);shell?.setStatus(status);topics?.setStatus(status);
   const indexed=status.documents.filter(doc=>doc.indexed).length,processing=status.documents.filter(doc=>doc.status==='processing').length,errors=status.documents.filter(doc=>doc.status==='error').length,pending=status.document_count-indexed-processing-errors;
-  for(const id of ['stat-docs','statistics-docs','library-count'])$(id).textContent=number(status.document_count);
+  for(const id of ['stat-docs','statistics-docs'])$(id).textContent=number(status.document_count);
   for(const id of ['stat-chunks','statistics-chunks'])$(id).textContent=number(status.chunk_count);
   $('library-collection').textContent=status.collection;$('library-visuals').textContent=number(status.visual_count||0);
   $('library-summary').textContent=s('library_summary',{indexed,processing,pending,errors});
@@ -84,8 +84,15 @@ function relativeTime(value){
 function renderDocuments(){
   const docs=state.status?.documents||[],matching=docs.filter(doc=>(!topics||topics.includes(doc))&&normalize(doc.name).includes(normalize(state.search))),status=doc=>doc.status||(doc.indexed?'indexed':'pending');
   const counts={all:matching.length,indexed:matching.filter(doc=>status(doc)==='indexed').length,processing:matching.filter(doc=>status(doc)==='processing').length,error:matching.filter(doc=>status(doc)==='error').length};
+  $('library-count').textContent=number(matching.length);
   for(const control of document.querySelectorAll('[data-filter]')){control.textContent=s('filter_'+control.dataset.filter)+' · '+number(counts[control.dataset.filter]);control.setAttribute('aria-pressed',String(state.filter===control.dataset.filter));}
   const filtered=matching.filter(doc=>state.filter==='all'||status(doc)===state.filter),pages=Math.max(1,Math.ceil(filtered.length/50));state.page=Math.min(state.page,pages);const visible=filtered.slice((state.page-1)*50,state.page*50),maximum=Math.max(1,...docs.map(doc=>doc.chunks||0));
+  const signature=JSON.stringify([visible,maximum,state.page,pages,filtered.length,s('documents'),[...state.newDocuments],topics?.topics.map(item=>[item.id,item.name,item.parent_id])]);
+  if(state.documentRenderSignature===signature){
+    for(const [index,row]of [...$('documents-table').children].entries()){const select=row.querySelector('.document-select');if(select)select.checked=topics.selected.has(visible[index].name);const updated=row.querySelector('.updated-time');if(updated)updated.textContent=relativeTime(visible[index].updated_at);}
+    topics?.selection(visible.map(doc=>doc.name));return;
+  }
+  state.documentRenderSignature=signature;
   $('documents-table').replaceChildren();
   for(const doc of visible){
     const row=node('tr','doc-state-'+status(doc)),name=node('td'),wrap=node('div','document-name'),link=node('a','',doc.name);link.href='/api/source?file='+encodeURIComponent(doc.name);link.title=doc.name;link.target='_blank';link.rel='noopener';wrap.append(fileType(doc.name),link);if(state.newDocuments.has(doc.name))wrap.append(node('span','new-badge',s('new')));name.append(wrap);

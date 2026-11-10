@@ -1,4 +1,4 @@
-"""Virtual cabinets and drawers, independent of PDFs, vector IDs and embeddings."""
+"""Local categories and subcategories, independent of PDFs, vectors and embeddings."""
 from contextlib import contextmanager
 from pathlib import Path
 import sqlite3
@@ -52,7 +52,7 @@ class TopicStore:
                 if parent_id:
                     parent = db.execute('SELECT parent_id FROM topics WHERE id=?', (parent_id,)).fetchone()
                     if parent is None or parent['parent_id'] is not None:
-                        raise TopicError('El cajón debe pertenecer a un armario existente.')
+                        raise TopicError('La subcategoría debe pertenecer a una categoría principal existente.')
                 db.execute('INSERT INTO topics VALUES (?,?,?,?)', (identifier, name, name.casefold(), parent_id))
         except sqlite3.IntegrityError as error:
             raise TopicError('Ya existe ese nombre en este nivel.') from error
@@ -63,7 +63,7 @@ class TopicStore:
         try:
             with self.connect() as db:
                 if not db.execute('UPDATE topics SET name=?, name_key=? WHERE id=?', (name, name.casefold(), identifier)).rowcount:
-                    raise TopicError('El tema ya no está disponible.')
+                    raise TopicError('La categoría ya no está disponible.')
         except sqlite3.IntegrityError as error:
             raise TopicError('Ya existe ese nombre en este nivel.') from error
 
@@ -71,15 +71,15 @@ class TopicStore:
         try:
             with self.connect() as db:
                 if not db.execute('DELETE FROM topics WHERE id=?', (identifier,)).rowcount:
-                    raise TopicError('El tema ya no está disponible.')
+                    raise TopicError('La categoría ya no está disponible.')
         except sqlite3.IntegrityError as error:
-            raise TopicError('Mueve primero los documentos y elimina los cajones vacíos de este armario.') from error
+            raise TopicError('Mueve primero los documentos y elimina las subcategorías vacías de esta categoría.') from error
 
     def assign(self, names, topic_id):
         with self.connect() as db:
             # Check the destination in the same transaction, including for empty batches.
             if topic_id and not db.execute('SELECT 1 FROM topics WHERE id=?', (topic_id,)).fetchone():
-                raise TopicError('El tema ya no está disponible.')
+                raise TopicError('La categoría ya no está disponible.')
             if topic_id:
                 db.executemany('INSERT INTO assignments VALUES (?,?) ON CONFLICT(name) DO UPDATE SET topic_id=excluded.topic_id',
                                [(name, topic_id) for name in names])
@@ -108,7 +108,7 @@ class TopicStore:
         topics = self.snapshot(documents)['topics']
         topic = next((item for item in topics if item['id'] == topic_id), None)
         if topic is None:
-            raise TopicError('El tema ya no está disponible.')
+            raise TopicError('La categoría ya no está disponible.')
         parent = next((item for item in topics if item['id'] == topic['parent_id']), None)
         ids = {topic_id, *(item['id'] for item in topics if item['parent_id'] == topic_id)}
         label = f"{parent['name']} / {topic['name']}" if parent else topic['name']

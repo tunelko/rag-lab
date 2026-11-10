@@ -1,13 +1,17 @@
-import {$, node, button, number, toast} from './ui.js';
+import {$, node, button, icon, number, toast} from './ui.js';
 import {t, serverText} from './i18n.js';
 
 const key='rag-local-source-topic',text=(name,values={})=>t(`library.${name}`,values);
 
 export class LibraryTopics {
   constructor(api,refresh,filterChanged) {
-    Object.assign(this,{api,refresh,filterChanged,filter:'',selected:new Set(),visible:[],topics:[],editId:null});
+    Object.assign(this,{api,refresh,filterChanged,filter:'',selected:new Set(),visible:[],topics:[],editId:null,collapsed:new Set()});
     try{$('chat-scope').dataset.choice=localStorage.getItem(key)||'';}catch{}
     $('new-topic').addEventListener('click',()=>this.edit());
+    $('category-search').addEventListener('input',()=>{this.signature=null;this.render();});
+    $('upload-topic').addEventListener('change',()=>this.destination());
+    document.addEventListener('click',event=>{for(const menu of document.querySelectorAll('.category-menu[open]'))if(!menu.contains(event.target))menu.open=false;});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')for(const menu of document.querySelectorAll('.category-menu[open]')){menu.open=false;menu.querySelector('summary').focus();}});
     $('cancel-topic').addEventListener('click',()=>this.hideEditor());
     $('topic-form').addEventListener('submit',event=>{event.preventDefault();this.save();});
     $('move-documents').addEventListener('click',()=>this.move());
@@ -30,24 +34,29 @@ export class LibraryTopics {
     const destinations=[['',text('unassigned')],...this.choices().map(item=>[item.id,this.path(item)])];for(const id of ['move-topic','upload-topic'])this.fillSelect(id,destinations);
     this.fillSelect('chat-scope',[['',text('all')],['unassigned',text('unassigned')],...this.choices().map(item=>[item.id,this.path(item)+' · '+number(item.document_count)])],$('chat-scope').dataset.choice||'');
     if(!$('topic-form').hidden&&!this.editId)this.fillSelect('topic-parent',[['',text('root')],...this.topics.filter(item=>!item.parent_id).map(item=>[item.id,item.name])]);
-    const signature=JSON.stringify([this.topics,this.unassigned,this.filter,text('all')]);if(this.signature===signature){this.selection();return;}this.signature=signature;
+    this.destination();
+    const signature=JSON.stringify([this.topics,this.unassigned,this.filter,text('all'),$('category-search').value,[...this.collapsed]]);if(this.signature===signature){this.selection();return;}this.signature=signature;
     const filters=$('topic-filters');filters.replaceChildren();
-    for(const [id,label] of [['',text('all')],['unassigned',text('unassigned')+' · '+number(this.unassigned)]]){const control=button(label,'btn btn--secondary',()=>this.selectFilter(id));control.dataset.topic=id;control.setAttribute('aria-pressed',String(this.filter===id));filters.append(control);}
+    for(const [id,label,count] of [['',text('all'),this.documents?.length||0],['unassigned',text('unassigned'),this.unassigned]]){const control=button('','category-choice',()=>this.selectFilter(id));control.dataset.topic=id;control.setAttribute('aria-pressed',String(this.filter===id));control.append(icon(id?'file':'library'),node('span','category-label',label),node('span','category-count',number(count)));filters.append(control);}
     const tree=$('topic-tree');tree.replaceChildren();
+    const search=$('category-search').value.toLocaleLowerCase().trim();
     for(const parent of this.topics.filter(item=>!item.parent_id)){
-      const cabinet=node('section','topic-cabinet'),heading=node('div','topic-heading');heading.append(this.topicButton(parent));
-      const add=button('+ '+text('drawer'),'btn btn--ghost',()=>this.edit(null,parent.id));add.title=text('new_drawer');heading.append(add);cabinet.append(heading,this.actions(parent));
-      const drawers=node('div','topic-drawers');for(const child of this.topics.filter(item=>item.parent_id===parent.id)){const row=node('div','topic-drawer');row.append(this.topicButton(child),this.actions(child));drawers.append(row);}cabinet.append(drawers);tree.append(cabinet);
+      const allChildren=this.topics.filter(item=>item.parent_id===parent.id),parentMatches=parent.name.toLocaleLowerCase().includes(search),children=allChildren.filter(item=>parentMatches||item.name.toLocaleLowerCase().includes(search));
+      if(search&&!parentMatches&&!children.length)continue;
+      const branch=node('section','category-branch'),heading=node('div','category-row');heading.append(this.topicButton(parent),this.actions(parent));branch.append(heading);
+      if(allChildren.length){const expanded=Boolean(search)||!this.collapsed.has(parent.id),toggle=button('','category-expand',()=>{expanded?this.collapsed.add(parent.id):this.collapsed.delete(parent.id);this.signature=null;this.render();});toggle.append(icon('chevron'));toggle.setAttribute('aria-label',text(expanded?'collapse':'expand',{name:parent.name}));toggle.setAttribute('aria-expanded',String(expanded));toggle.setAttribute('aria-controls','category-children-'+parent.id);heading.prepend(toggle);const list=node('div','category-children');list.id='category-children-'+parent.id;list.hidden=!expanded;for(const child of children){const row=node('div','category-row');row.append(this.topicButton(child),this.actions(child));list.append(row);}branch.append(list);}
+      tree.append(branch);
     }
-    $('topic-empty').hidden=Boolean(this.topics.length);this.selection();
+    $('topic-empty').hidden=Boolean(tree.children.length);$('topic-empty').textContent=text(search?'no_categories':'empty');this.selection();
   }
-  topicButton(topic){const control=button(topic.name,'btn btn--secondary topic-name',()=>this.selectFilter(topic.id));control.dataset.topic=topic.id;control.setAttribute('aria-pressed',String(this.filter===topic.id));control.append(node('span','num',number(topic.document_count)));control.title=text('scope_info',{count:topic.document_count,chunks:number(topic.chunk_count)});return control;}
-  actions(topic){const actions=node('div','topic-actions'),rename=button(text('rename'),'btn btn--ghost',()=>this.edit(topic)),remove=button(text('remove_empty'),'btn btn--ghost',()=>this.remove(topic));remove.disabled=topic.document_count>0||this.topics.some(item=>item.parent_id===topic.id);actions.append(rename,remove);return actions;}
-  selectFilter(id){this.filter=id;this.selected.clear();this.render();this.filterChanged();}
+  topicButton(topic){const control=button('','category-choice',()=>this.selectFilter(topic.id));control.dataset.topic=topic.id;control.setAttribute('aria-pressed',String(this.filter===topic.id));control.append(icon('folder'),node('span','category-label',topic.name),node('span','category-count',number(topic.document_count)));control.title=text('scope_info',{count:topic.document_count,chunks:number(topic.chunk_count)});return control;}
+  actions(topic){const menu=node('details','category-menu'),summary=node('summary'),items=node('div','category-menu-items');summary.setAttribute('aria-label',text('category_actions',{name:topic.name}));summary.append(icon('more'));menu.append(summary,items);const action=(caption,callback)=>{const control=button(caption,'category-action',()=>{menu.open=false;callback();});items.append(control);return control;};if(!topic.parent_id)action(text('new_subcategory'),()=>{this.collapsed.delete(topic.id);this.edit(null,topic.id);});action(text('rename'),()=>this.edit(topic));const remove=action(text('remove_empty'),()=>this.remove(topic));remove.disabled=topic.document_count>0||this.topics.some(item=>item.parent_id===topic.id);if(remove.disabled)remove.title=text('empty_only');return menu;}
+  selectFilter(id){this.filter=id;this.selected.clear();$('upload-topic').value=id==='unassigned'?'':id;$('upload-topic').dispatchEvent(new Event('change'));this.render();this.filterChanged();}
+  destination(){const topic=this.topics.find(item=>item.id===$('upload-topic').value),label=topic?this.path(topic):text('unassigned');$('upload-destination-hint').textContent=text(topic?'destination_hint':'uncategorized_hint',{name:label});$('library-location').textContent=this.filter==='unassigned'?text('unassigned'):this.path(this.topics.find(item=>item.id===this.filter)||{name:text('all')});}
   includes(document){if(!this.filter)return true;if(this.filter==='unassigned')return !document.topic_id;return document.topic_id===this.filter||this.topics.some(item=>item.id===document.topic_id&&item.parent_id===this.filter);}
   checkbox(name){const input=node('input','document-select');input.type='checkbox';input.checked=this.selected.has(name);input.setAttribute('aria-label',text('select_document',{name}));input.addEventListener('change',()=>{input.checked?this.selected.add(name):this.selected.delete(name);this.selection();});return input;}
   selection(visible=this.visible){this.visible=visible;$('selected-documents').textContent=text('selected',{count:this.selected.size});$('move-documents').disabled=!this.selected.size;const count=visible.filter(name=>this.selected.has(name)).length,all=$('select-visible-documents');all.checked=Boolean(visible.length)&&count===visible.length;all.indeterminate=count>0&&count<visible.length;all.disabled=!visible.length;}
-  edit(topic=null,parent=''){this.editId=topic?.id||null;$('topic-form').hidden=false;$('topic-message').hidden=true;$('topic-name').value=topic?.name||'';this.fillSelect('topic-parent',[['',text('root')],...this.topics.filter(item=>!item.parent_id).map(item=>[item.id,item.name])],topic?.parent_id||parent);$('topic-parent').disabled=Boolean(topic);$('topic-name').focus();}
+  edit(topic=null,parent=''){this.editId=topic?.id||null;for(const menu of document.querySelectorAll('.category-menu[open]'))menu.open=false;$('topic-form').hidden=false;$('topic-message').hidden=true;$('topic-editor-title').textContent=text(topic?'rename':parent?'new_subcategory':'new_category');$('topic-name').value=topic?.name||'';this.fillSelect('topic-parent',[['',text('root')],...this.topics.filter(item=>!item.parent_id).map(item=>[item.id,item.name])],topic?.parent_id||parent);$('topic-parent').disabled=Boolean(topic);$('topic-name').focus();}
   hideEditor(){this.editId=null;$('topic-form').hidden=true;$('topic-message').hidden=true;$('new-topic').focus();}
   error(error){$('topic-message').hidden=false;$('topic-message').textContent=serverText(error.message);}
   async save(){

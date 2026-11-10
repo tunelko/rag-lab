@@ -89,10 +89,12 @@ fuentes, que se cierra con Escape. El número de fragmentos y «Solo recuperaci�
 están en Configuración, con guardado automático. El selector con bandera está
 arriba a la derecha; fuentes tipográficas y traducciones se sirven localmente.
 
-En **Biblioteca**, organiza los documentos en **armarios** temáticos y **cajones**.
+En **Biblioteca**, organiza los documentos en **categorías y subcategorías** desde
+el árbol lateral. El botón **+** crea una categoría; el menú de cada una permite
+añadir subcategorías, renombrar o eliminar categorías vacías.
 Puedes mover una selección de documentos o elegir el destino antes de subirlos.
-En el chat, **Fuentes** permite consultar toda la biblioteca, un armario con todos
-sus cajones, un cajón o los documentos sin clasificar. Esta organización se guarda
+En el chat, **Fuentes** permite consultar toda la biblioteca, una categoría con sus
+subcategorías, una subcategoría o los documentos sin categoría. Esta organización se guarda
 en `data/` y conserva PDF, vectores y descripciones ya procesadas.
 [Organización de la biblioteca](docs/LIBRARY.md).
 

@@ -233,7 +233,7 @@ queue**: questions wait while a batch is being indexed.
 | Area | Features |
 |---|---|
 | Chat | Streamed Markdown, topic source selection, copy buttons and a sliding citation panel. |
-| Library | Topic cabinets/drawers, bulk moves without reindexing, uploads, cancellation and retry. |
+| Library | Categories/subcategories, contextual upload destinations, bulk moves without reindexing, cancellation and retry. |
 | Settings | Text/vision routing, retrieved fragment count and processing limits. |
 | Statistics | CPU/GPU/RAM/VRAM charts, queue time, generation throughput and stage timings. |
 | Console | Read-only local server output with filtering, copy and download. |

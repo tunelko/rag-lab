@@ -88,10 +88,11 @@ Escape closes it. Configure fragment counts and retrieval-only mode in Settings.
 Settings save automatically. The top-right flag selector switches Spanish/English;
 fonts and translations are served locally.
 
-In **Biblioteca**, create topic **cabinets** and **drawers**, select documents and
-move them in bulk, or choose a destination before uploading. The chat's **Sources**
-selector searches the entire library, one cabinet (including its drawers), one
-drawer, or unassigned documents. Organization is stored under `data/` and preserves
+In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
+**+** to create a category and its menu to add subcategories or rename it. Select
+documents and move them in bulk; the upload destination follows the chosen category.
+The chat's **Sources** selector searches the entire library, one category including
+its subcategories, one subcategory, or uncategorized documents. Organization is stored under `data/` and preserves
 existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md).
 
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local

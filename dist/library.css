@@ -1,0 +1,47 @@
+/* Category navigation and upload destination share the library workspace. */
+.library-workspace{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px}
+.category-sidebar{flex:1 1 240px;min-width:0}
+.library-content{flex:999 1 700px;min-width:0;container-type:inline-size;container-name:library-content}
+.category-sidebar>.card__head{justify-content:space-between;gap:8px}
+.category-sidebar>.card__body{display:flex;flex-direction:column;gap:12px;padding:14px}
+.category-sidebar .meta{font-size:11px;line-height:18px;color:var(--text-muted)}
+.category-search{width:100%;font-size:11px}
+.topic-filters,.category-tree{display:flex;flex-direction:column;gap:4px;min-width:0}
+.topic-filters{padding-bottom:10px;border-bottom:1px solid var(--border)}
+.category-row{display:flex;align-items:center;gap:3px;min-width:0}
+.category-choice.btn{display:flex;align-items:center;gap:8px;flex:1;min-width:0;width:100%;padding:8px;border:1px solid transparent;background:transparent;text-align:left;font-size:12px;color:var(--text)}
+.category-choice.btn:hover{background:var(--surface-raised)}
+.category-choice.btn[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-text)}
+.category-choice>.icon{width:15px;height:15px;flex:none;color:var(--text-muted)}
+.category-choice[aria-pressed=true]>.icon{color:var(--accent-text)}
+.category-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.category-count{flex:none;padding:1px 5px;border-radius:3px;color:var(--text-muted);background:var(--surface-raised);font-size:10px;font-variant-numeric:tabular-nums}
+.category-expand.btn{flex:none;width:20px;min-width:20px;padding:0;background:transparent;border:0;color:var(--text-muted)}
+.category-expand .icon{width:12px;height:12px;transition:transform .12s}
+.category-expand[aria-expanded=true] .icon{transform:rotate(90deg)}
+.category-children{margin:3px 0 6px 20px;padding-left:8px;border-left:1px solid var(--border)}
+.category-children .category-choice{font-size:11px}
+.category-menu{position:relative;flex:none}
+.category-menu>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;width:28px;min-height:var(--control-h);color:var(--text-muted);border-radius:4px}
+.category-menu>summary::-webkit-details-marker{display:none}
+.category-menu>summary:hover,.category-menu[open]>summary{background:var(--surface-raised);color:var(--ink)}
+.category-menu-items{position:absolute;z-index:30;right:0;top:100%;width:210px;max-width:calc(100vw - 48px);padding:5px;border:1px solid var(--border-control);border-radius:6px;background:var(--surface-raised);box-shadow:var(--shadow-dialog)}
+.category-action.btn{display:block;width:100%;height:auto;padding:8px;border:0;background:transparent;color:var(--text);font-size:11px;text-align:left;white-space:normal}
+.category-action.btn:hover{background:var(--surface);color:var(--ink)}
+.category-action.btn:disabled{color:var(--text-disabled)}
+.topic-form{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding-top:14px;border-top:1px solid var(--border)}
+.category-editor-title{flex:1 0 100%;margin:0;color:var(--ink);font-size:12px;font-weight:500}
+.topic-form .field{flex:1 0 100%;min-width:0;font-size:11px}
+.topic-form .field>span{display:block;margin-bottom:6px}
+.topic-form .btn{flex:1;font-size:11px}
+.library-content .split__aside{flex-basis:300px}
+.library-content .document-name>a{max-width:clamp(170px,22vw,390px)}
+#library-location{min-width:0;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.upload-destination{padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg-app);margin-bottom:14px}
+.upload-destination-title{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--text-muted)}
+.upload-destination-title h3{margin:0;font-size:12px;font-weight:500;color:var(--ink)}
+.upload-destination .field{display:flex;flex-direction:column;gap:6px;font-size:10px;color:var(--text-muted)}
+.upload-destination .select{font-size:11px;color:var(--ink)}
+.upload-destination>.meta{font-size:10px;line-height:17px;color:var(--text-muted);margin-top:8px;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.category-expand .icon{transition:none}}
+@container library-content (max-width:875px){.split>.split__aside{order:-1}}

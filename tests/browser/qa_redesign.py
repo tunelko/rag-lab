@@ -153,7 +153,7 @@ def fixture_server(port):
 def run_browser(url):
     from playwright.sync_api import sync_playwright, expect
     reports = ROOT / "reports"
-    errors, external, uploads = [], [], []
+    errors, external, uploads, queries = [], [], [], []
     checks = []
 
     def check(name):
@@ -191,6 +191,8 @@ def run_browser(url):
                 external.append(request.url)
             if request.url.endswith("/api/admin/upload"):
                 uploads.append(request.url)
+            if request.url.endswith('/api/query') and request.method=='POST':
+                queries.append(request.url)
         page.on("request", requested)
         page.goto(url, wait_until="networkidle")
         english = browser.new_context(locale='en-US', viewport={'width':390,'height':844})
@@ -358,7 +360,11 @@ def run_browser(url):
         expect(page.locator("#model")).not_to_be_visible()
         expect(page.locator("#stat-docs")).not_to_be_visible()
         page.locator("#question").fill("¿Cuándo se realiza la copia de seguridad?")
+        previous_queries=len(queries)
         page.locator("#question").press("Control+Enter")
+        expect(page.locator('#question')).to_have_value('¿Cuándo se realiza la copia de seguridad?\n')
+        assert len(queries)==previous_queries, 'Ctrl+Enter must insert a newline without sending'
+        page.locator("#question").press("Enter")
         expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false")
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#context-panel")).not_to_be_visible()
@@ -610,7 +616,7 @@ def run_browser(url):
         source_details = page.locator(".chat-sources").last
         page.locator("#open-context").click()
         expect(source_details.locator(".source-figure").first).to_be_visible()
-        assert source_details.locator(".source-figure").first.evaluate("e=>e.complete&&e.naturalWidth>0")
+        page.wait_for_function('image=>image.complete&&image.naturalWidth>0',arg=source_details.locator('.source-figure').first.element_handle())
         page.screenshot(path=str(reports / "redesign-fuentes-multimodales.png"), full_page=True)
         page.locator("#close-context").click()
         page.locator("#nav-statistics").click()
@@ -702,7 +708,9 @@ def run_browser(url):
         expect(page.locator('#topic-tree')).to_contain_text('Hardware QA')
         library=page.request.get(url+'/api/library').json()
         cabinet=next(item['id'] for item in library['topics'] if item['name']=='Hardware QA')
-        page.locator('.topic-cabinet').filter(has_text='Hardware QA').get_by_role('button',name='+ Cajón',exact=True).click()
+        category=page.locator('.category-branch').filter(has_text='Hardware QA')
+        category.locator('.category-menu summary').click()
+        category.get_by_role('button',name='Nueva subcategoría',exact=True).click()
         page.locator('#topic-name').fill('Manuales');page.locator('#save-topic').click()
         expect(page.locator('#topic-tree')).to_contain_text('Manuales')
         library=page.request.get(url+'/api/library').json();drawer=next(item['id'] for item in library['topics'] if item['name']=='Manuales')
@@ -713,6 +721,8 @@ def run_browser(url):
         page.locator('#document-search').fill('')
         page.locator(f'#topic-tree [data-topic="{cabinet}"]').click()
         expect(page.locator('#documents-table tr')).to_have_count(1)
+        expect(page.locator('#upload-topic')).to_have_value(cabinet)
+        expect(page.locator('#upload-destination-hint')).to_contain_text('Hardware QA')
         expect(page.locator('#documents-table')).to_contain_text('Hardware QA / Manuales')
         after_library=page.request.get(url+'/api/status').json()
         assert before_library['chunk_count']==after_library['chunk_count']
@@ -732,7 +742,7 @@ def run_browser(url):
         page.keyboard.press('Escape');expect(page.locator('#open-context')).to_be_focused()
         page.locator('#chat-scope').select_option('')
         page.locator('#nav-admin').click();page.locator('#topic-filters [data-topic=""]').click()
-        check('Cabinets/drawers, bulk move without reindexing, scoped chat inventory/history, persistent selection and accessible full-width chat drawer')
+        check('Categories/subcategories, bulk move without reindexing, contextual upload destination, scoped chat history, persistent selection and accessible full-width chat drawer')
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)
         page.set_viewport_size({"width":390,"height":844})

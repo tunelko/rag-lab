@@ -13,7 +13,19 @@ export class Chat{
     try{this.turns=JSON.parse(sessionStorage.getItem(STORE)||'[]').slice(-30);}catch{sessionStorage.removeItem(STORE);}
     this.contextPanel=new ContextPanel();this.render();
     $('question').addEventListener('input',()=>this.controls());
-    $('question').addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'&&!$('ask-button').disabled){event.preventDefault();$('query-form').requestSubmit();}});
+    $('question').addEventListener('keydown',event=>{
+      if(event.key!=='Enter'||event.isComposing||event.keyCode===229)return;
+      if(event.ctrlKey||event.metaKey){
+        event.preventDefault();
+        const input=event.currentTarget;
+        input.setRangeText('\n',input.selectionStart,input.selectionEnd,'end');
+        input.dispatchEvent(new Event('input',{bubbles:true}));
+        return;
+      }
+      if(event.shiftKey||event.altKey)return;
+      event.preventDefault();
+      if(!event.repeat&&!this.active&&!this.submitting&&!this.stopping&&!$('ask-button').disabled)$('query-form').requestSubmit();
+    });
     $('query-form').addEventListener('submit',event=>{event.preventDefault();this.send();});
     $('new-chat').addEventListener('click',()=>{if(this.active||this.submitting)return;this.turns=[];this.turnImages.clear();this.contextTurnId=null;this.save();this.render();$('question').focus();});
     $('attach-image').addEventListener('click',()=>$('query-image-input').click());
@@ -25,7 +37,7 @@ export class Chat{
   controls(){
     const busy=Boolean(this.active||this.submitting);$('ask-button').querySelector('span').textContent=s(busy?this.stopping?'stopping':'stop':'send');
     $('ask-button').disabled=this.submitting||this.stopping||(!busy&&(!this.status||!$('question').value.trim()));$('ask-button').setAttribute('aria-busy',String(busy));$('new-chat').disabled=busy;$('question').required=!busy;
-    $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));$('question-help').textContent='Ctrl + Enter';$('conversation-count').textContent=s('question_count',{count:this.turns.length});
+    $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));$('question-help').textContent=t('ui.chat_keyboard_hint');$('conversation-count').textContent=s('question_count',{count:this.turns.length});
   }
   setStatus(status){
     this.status=status;this.controls();this.suggestions();this.context();

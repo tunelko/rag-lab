@@ -2,7 +2,7 @@
 
 The query planner distinguishes three cases locally, without a classifier LLM:
 
-All cases respect the **Sources** topic selection. A cabinet includes its drawers;
+All cases respect the **Sources** topic selection. A category includes its subcategories;
 an empty topic returns no evidence, and an unknown topic is rejected. Organization
 does not require reindexing. See [library topics](LIBRARY.md).
 

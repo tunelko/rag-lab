@@ -654,7 +654,7 @@ def create_app(service=None):
             except TopicError as error:
                 raise HTTPException(422, str(error)) from error
             if topic_id == 'unassigned':
-                raise HTTPException(422, 'Selecciona un armario o un cajón como destino.')
+                raise HTTPException(422, 'Selecciona una categoría o subcategoría como destino.')
         # Validate all names before saving any file. Existing documents are never overwritten.
         for file in files:
             name = file.filename or ""
