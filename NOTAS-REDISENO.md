@@ -7,6 +7,13 @@ fuentes plegables, Configuración general y Estadísticas separadas. También au
 extender la ingesta y la generación a documentos multimodales. Las restricciones de
 paleta, fuentes locales, accesibilidad y ejecución local del paquete se mantienen.
 
+Corrección para manuales largos: el límite visual pasa a admitir 500 vistas y el lector
+cuenta las vistas antes de solicitar descripciones, para evitar un fallo tardío tras
+varias inferencias. El límite de trabajo deja de formar parte de la identidad del
+parser; se reconocen los manifiestos antiguos para conservar documentos completos.
+El despliegue en un servidor iniciado con la validación anterior requiere reiniciarlo
+cuando termine su cola. Sus tareas ya iniciadas conservan su instantánea de ajustes.
+
 - Nuevas rutas SPA: `/configuracion`, `/estadisticas`; las anteriores siguen funcionando.
 - `GET/PUT /api/settings`: preferencias persistentes y validación de modelos locales.
   `response_mode` admite `automatic` (predeterminado) o `manual`. `response_model`

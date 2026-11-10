@@ -159,7 +159,7 @@ class RagService(JobRuntime):
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             name = path.relative_to(self.documents).as_posix()
             expected_policy = multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None
-            ready = indexed.get("sha256") == digest and bool(indexed.get("ids")) and indexed.get("parser_policy") == expected_policy
+            ready = indexed.get("sha256") == digest and bool(indexed.get("ids")) and rag.same_parser_policy(indexed.get("parser_policy"), expected_policy)
             related = [job for job in jobs if job.get("document_name") == name or job.get("current_document") == path.name or name in job.get("document_names", [])]
             latest = related[-1] if related else {}
             outcome = next((item for item in latest.get("documents", []) if item.get("name") in {name, path.name}), None)

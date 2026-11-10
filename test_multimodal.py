@@ -94,6 +94,19 @@ class ParsingTests(unittest.TestCase):
         item = {"type": "image", "content": {"image_source": {"path": "images/figure.png"}}}
         with self.assertRaises(VisualError):
             self.reader.load(self.archive([[item, item]]))
+        self.assertEqual(self.calls, [])
+
+    def test_pdf_limit_is_checked_before_any_vision_inference(self):
+        path = self.case / "too-many.pdf"
+        with pymupdf.open() as pdf:
+            for _ in range(2):
+                page = pdf.new_page()
+                page.draw_rect(pymupdf.Rect(10, 10, 100, 100))
+            pdf.save(path)
+        self.settings.max_visuals_per_document = 1
+        with self.assertRaisesRegex(VisualError, "necesita 2"):
+            self.reader.load(path)
+        self.assertEqual(self.calls, [])
 
     def test_visual_stream_requires_completion_and_supports_cancellation(self):
         packets = b'{"message":{"content":"42 grados"},"done":false}\n{"done":true}\n'
@@ -174,16 +187,21 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(stats["output_tokens"], 10)
         self.assertEqual(self.client.get("/api/figures/invalid").status_code, 404)
 
-    def test_changed_visual_policy_requires_reindex(self):
+    def test_larger_work_limit_preserves_complete_and_legacy_indexes(self):
         service = self.client.app.state.service
         with patch.object(service, "model_capabilities", return_value=["vision"]), patch("multimodal.describe_image", return_value="Descripción"):
             self.configure(multimodal=True, vision_model="test-local:latest")
             self.upload("image.png", png())
-            self.configure(multimodal=True, vision_model="test-local:latest", max_visuals_per_document=30)
-            self.assertEqual(service.list_documents()[0]["status"], "pending")
+            # Reproduce a manifest from the original implementation with limit 24.
+            state = rag.load_state(service.config)
+            for record in state["files"].values():
+                record["parser_policy"] += ":24"
+            rag.save_state(service.config, state)
+            self.configure(multimodal=True, vision_model="test-local:latest", max_visuals_per_document=500)
+            self.assertEqual(service.list_documents()[0]["status"], "indexed")
             job = self.wait(self.client.post("/api/admin/index", headers=self.headers).json()["job_id"])
-        self.assertEqual(job["summary"]["indexed_files"], 1)
-        self.assertEqual(job["summary"]["skipped_files"], 0)
+        self.assertEqual(job["summary"]["indexed_files"], 0)
+        self.assertEqual(job["summary"]["skipped_files"], 1)
 
     def test_visual_error_keeps_previous_index_intact(self):
         service = self.client.app.state.service

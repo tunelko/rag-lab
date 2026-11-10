@@ -16,7 +16,7 @@ class Preferences(BaseModel):
     multimodal: bool = False
     vision_model: str = Field(default="qwen3.5:9b-q4_K_M", max_length=300)
     max_images: int = Field(default=3, ge=1, le=4)
-    max_visuals_per_document: int = Field(default=24, ge=1, le=100)
+    max_visuals_per_document: int = Field(default=500, ge=1, le=500)
 
 
 class SettingsStore:

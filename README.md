@@ -101,8 +101,13 @@ alternar dos modelos puede implicar que Ollama descargue uno de VRAM y cargue el
 - Las páginas/figuras y sus descripciones se guardan en `data/visual`; la caché evita
   repetir descripciones idénticas con el mismo modelo/parser. El manifiesto del índice
   guarda referencias a figuras y la política de extracción.
-- Límite inicial: 24 vistas/figuras por documento, configurable hasta 100. Si se supera,
-  el documento termina con un error visible, sin confirmar una indexación parcial.
+- Límite predeterminado para nuevas configuraciones: 500 vistas/figuras por documento.
+  Los ajustes guardados conservan su valor hasta cambiarlo en Configuración. El recuento
+  se comprueba antes de solicitar descripciones a Ollama; si se supera, aparece el total
+  necesario y no se confirma una indexación parcial. Las imágenes se procesan una a una:
+  subir este límite amplía el trabajo total, no reserva VRAM para todas simultáneamente.
+  Cambiar solo el límite conserva los documentos ya indexados, incluidos los manifiestos
+  anteriores que almacenaban ese límite como parte de la política de extracción.
   Cambiar el modelo visual o activar/desactivar el modo requiere **Actualizar índice**.
   El CLI textual no sustituye un índice multimodal existente: usa la web para actualizarlo.
 

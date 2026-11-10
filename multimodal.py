@@ -28,7 +28,8 @@ class VisualError(ValueError):
 
 
 def policy(settings):
-    return f"{PARSER_VERSION}:{settings.vision_model}:{settings.max_visuals_per_document}" if settings.multimodal else None
+    # The work limit does not change the contents of an already complete index.
+    return f"{PARSER_VERSION}:{settings.vision_model}" if settings.multimodal else None
 
 
 def describe_image(data: bytes, model: str, endpoint: str, cancelled=lambda: False):
@@ -139,9 +140,16 @@ class VisualReader:
         with pymupdf.open(path) as pdf:
             if pdf.is_encrypted:
                 raise VisualError("PDF cifrado: facilita una copia desbloqueada.")
+            pages = []
             for number, page in enumerate(pdf, 1):
                 self.check()
                 text = page.get_text().strip()
+                visual = bool(page.get_images() or page.get_drawings() or not text)
+                pages.append((number, text, visual))
+            self.ensure_capacity(sum(visual for _, _, visual in pages))
+            for number, text, visual in pages:
+                self.check()
+                page = pdf[number - 1]
                 if text:
                     result.append(Document(page_content=text, metadata={"page": number, "item_type": "text"}))
                 # Preserve tables as rows, rather than losing their cell boundaries.
@@ -153,17 +161,21 @@ class VisualReader:
                         result.append(Document(page_content=table_text, metadata={"page": number, "item_type": "table", "bbox": json.dumps(list(table.bbox))}))
                 # Whole-page render includes vector diagrams, table layout and scans.
                 # It deliberately avoids claiming to segment individual PDF figures.
-                if page.get_images() or page.get_drawings() or not text:
+                if visual:
                     scale = min(1.5, 1440 / max(page.rect.width, page.rect.height))
                     png = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False).tobytes("png")
                     result.append(self.add_image(png, number, "page_image", f"Vista de página {number}", list(page.rect)))
         return result
 
     def add_image(self, *args):
+        self.ensure_capacity(1)
         self.count += 1
-        if self.count > self.settings.max_visuals_per_document:
-            raise VisualError(f"El documento supera el límite de {self.settings.max_visuals_per_document} vistas/figuras. Auméntalo en Configuración o divide el archivo; no se ha confirmado su indexación.")
         return self.image(*args)
+
+    def ensure_capacity(self, additional):
+        total = self.count + additional
+        if total > self.settings.max_visuals_per_document:
+            raise VisualError(f"El documento necesita {total} vistas/figuras y el límite es {self.settings.max_visuals_per_document}. Auméntalo en Configuración o divide el archivo. Se ha detenido antes de describir las imágenes; no se ha confirmado su indexación.")
 
     def mineru(self, path):
         result = []
@@ -191,6 +203,14 @@ class VisualReader:
                 raise VisualError("content_list de MinerU no válido.")
             v2 = str(source).endswith("_content_list_v2.json")
             items = [(page + 1, item) for page, group in enumerate(data) for item in group] if v2 else [(int(item.get("page_idx", 0)) + 1, item) for item in data]
+            def has_image(item):
+                if item.get("type") in {"page_header", "page_footer", "page_number", "page_aside_text"}:
+                    return False
+                content = item.get("content", {}) if v2 else item
+                if not isinstance(content, dict):
+                    return False
+                return bool((content.get("image_source") or {}).get("path") if v2 else content.get("img_path"))
+            self.ensure_capacity(sum(has_image(item) for _, item in items))
             for page, item in items:
                 self.check()
                 kind = item.get("type", "text")

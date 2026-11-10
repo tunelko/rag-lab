@@ -96,6 +96,17 @@ def save_state(config: Config, state):
     pending.replace(path)
 
 
+def same_parser_policy(previous, current):
+    if previous == current:
+        return True
+    # Legacy visual-v1 manifests included the work limit in their policy key.
+    # A completed document below that limit is still complete after raising it.
+    if isinstance(previous, str) and isinstance(current, str) and current.startswith("visual-v1:"):
+        prefix, _, limit = previous.rpartition(":")
+        return prefix == current and limit.isdigit()
+    return False
+
+
 def read_documents(path: Path):
     if path.suffix.lower() == ".pdf":
         from pypdf import PdfReader
@@ -129,7 +140,7 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
         fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
         previous = state["files"].get(key, {})
         policy_key = policy_for(path) if policy_for else None
-        if previous.get("sha256") == fingerprint and previous.get("parser_policy") == policy_key:
+        if previous.get("sha256") == fingerprint and same_parser_policy(previous.get("parser_policy"), policy_key):
             summary["skipped_files"] += 1
             if observer:
                 observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(previous.get("ids", [])), skipped=True)
