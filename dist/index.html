@@ -4,64 +4,94 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>RAG Local · Consulta tus documentos</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%231b4338'/%3E%3Cpath d='M12 12h16v4H12zm0 7h12v4H12zm0 7h8v4h-8z' fill='%23d8f3ad'/%3E%3C/svg%3E">
+  <title>Consulta · RAG Local</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/assets/design/fonts.css">
+  <link rel="stylesheet" href="/assets/design/tokens.css">
   <link rel="stylesheet" href="/assets/app.css">
-  <script src="/assets/app.js" defer></script>
+  <script src="/assets/app.js" type="module"></script>
 </head>
 <body>
-  <svg class="icon-defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
-    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/><path d="M8 10h8M8 14h5"/></symbol>
-    <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4h4v16H4zm6 0h4v16h-4zm6 1 4-1 4 15-4 1Z"/></symbol>
-    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6M8 13h8M8 17h5"/></symbol>
-    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
-    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
-    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
-    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/></symbol>
-    <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></symbol>
-    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.1 3M4.8 15a8 8 0 0 0 13.1 3"/></symbol>
-  </defs></svg>
-  <a class="skip" href="#main">Saltar al contenido</a>
-  <aside class="sidebar">
-    <a class="brand" href="/" aria-label="RAG Local, inicio"><span class="brand-mark"><i></i><i></i><i></i></span><span>RAG<span class="brand-light"> Local</span><small>Tu espacio de conocimiento</small></span></a>
-    <p class="nav-label">ESPACIO DE TRABAJO</p>
-    <nav aria-label="Principal">
-      <a id="nav-query" class="nav-item" href="/"><svg class="icon"><use href="#i-chat"/></svg>Consulta<span class="nav-arrow">↗</span></a>
-      <a id="nav-admin" class="nav-item" href="/admin"><svg class="icon"><use href="#i-library"/></svg>Administración</a>
-    </nav>
-    <div class="sidebar-note"><span class="tiny-label">TU BIBLIOTECA</span><strong id="sidebar-docs">0 documentos</strong><p>Busca, conecta ideas y encuentra respuestas con sus fuentes.</p></div>
-    <div class="sidebar-bottom"><div class="local-status"><span class="dot"></span>Entorno local</div><span id="server-address">127.0.0.1</span><div class="sidebar-divider"></div><div class="machine"><svg class="icon"><use href="#i-cpu"/></svg><span>Embeddings en CPU<small id="ollama-label">Conectando con Ollama…</small></span></div></div>
-  </aside>
-  <div class="workspace">
-    <header class="topbar"><div class="breadcrumbs">Laboratorio <span>/</span> <strong id="breadcrumb-current">Consulta</strong></div><div class="topbar-right"><span class="privacy-tag"><span class="dot"></span>En tu equipo</span><button id="refresh-button" class="icon-button" title="Actualizar estado" aria-label="Actualizar estado"><svg class="icon"><use href="#i-refresh"/></svg></button></div></header>
-    <main id="main">
-      <div id="notice" class="notice" role="alert" hidden></div>
-      <section id="query-view">
-        <div class="page-intro"><div><p class="eyebrow">PREGUNTA. ENCUENTRA. COMPRENDE.</p><h1>Tu conocimiento, conectado.</h1><p class="intro-text">Pregunta a tus documentos y sigue el hilo hasta la fuente.</p></div><span class="edition">RAG / LOCAL</span></div>
-        <div class="stats-row"><div class="stat"><span class="stat-icon"><svg class="icon"><use href="#i-file"/></svg></span><div><strong id="stat-docs">0</strong><span>Documentos en la biblioteca</span></div></div><div class="stat"><span class="stat-icon"><svg class="icon"><use href="#i-library"/></svg></span><div><strong id="stat-chunks">0</strong><span>Fragmentos indexados</span></div></div><div class="stat model-stat"><span class="stat-icon"><svg class="icon"><use href="#i-cpu"/></svg></span><div><strong id="stat-engine">Comprobando</strong><span id="stat-engine-caption">Motor de respuesta</span></div></div></div>
-        <div id="empty-banner" class="empty-banner" hidden><svg class="icon"><use href="#i-library"/></svg><div><strong>Tu biblioteca está esperando sus primeros documentos.</strong><p>Añádelos e indéxalos una vez. Después podrás consultar desde aquí.</p></div><a class="text-link" href="/admin">Añadir documentos <span>→</span></a></div>
-        <div class="query-layout">
-          <div class="query-column">
-            <section class="card composer"><div class="section-heading"><h2><svg class="icon"><use href="#i-spark"/></svg>¿Qué quieres saber?</h2><span class="subtle-label">UNA PREGUNTA, TUS FUENTES</span></div>
-              <form id="query-form"><label class="sr-only" for="question">Tu pregunta</label><textarea id="question" rows="4" maxlength="6000" placeholder="Por ejemplo: ¿cuáles son las conclusiones principales y en qué documentos aparecen?" required></textarea><div class="question-suggestions"><button type="button" data-prompt="Resume los puntos principales de los documentos y cita las fuentes.">Resumir puntos clave</button><button type="button" data-prompt="¿Qué diferencias y coincidencias hay entre los documentos? Cita las fuentes.">Comparar información</button><button type="button" data-prompt="¿Qué procedimientos y pasos se describen en los documentos? Cita las fuentes.">Encontrar procedimientos</button></div>
-                <div class="composer-controls"><div class="field model-field"><label for="model">Modelo de respuesta</label><select id="model"><option value="">Conectando con Ollama…</option></select></div><div class="field k-field"><label for="top-k">Fragmentos</label><select id="top-k"><option value="3">3</option><option value="4" selected>4</option><option value="6">6</option><option value="8">8</option></select></div></div>
-                <div class="composer-footer"><label class="checkbox"><input id="search-only" type="checkbox"><span>Solo buscar fragmentos</span></label><button id="ask-button" class="button primary" type="submit" disabled>Preguntar<svg class="icon"><use href="#i-arrow"/></svg></button></div><p class="keyboard-hint">Ctrl + Enter para consultar <span>·</span> La respuesta se genera con Ollama</p>
-              </form>
-            </section>
-            <section class="card answer-card"><div class="section-heading"><h2>Respuesta</h2><span id="answer-status" class="answer-status">Lista para tu pregunta</span></div><div id="answer-empty" class="answer-empty"><span class="answer-illustration"><svg class="icon"><use href="#i-chat"/></svg></span><h3>Una buena pregunta abre camino.</h3><p>La respuesta aparecerá aquí, acompañada de los fragmentos que la sustentan.</p></div><div id="answer" class="answer" hidden></div><div id="answer-metrics" class="answer-metrics" hidden></div><div class="answer-footnote">Contrasta las afirmaciones con las fuentes originales.</div></section>
-          </div>
-          <aside class="card source-panel"><div class="section-heading"><h2>Fuentes consultadas</h2><span id="source-count" class="count-badge">0</span></div><p class="panel-description">El contexto detrás de la respuesta.</p><div id="sources-empty" class="sources-empty"><svg class="icon"><use href="#i-file"/></svg><p>Aquí encontrarás los fragmentos recuperados y sus documentos de origen.</p></div><div id="sources"></div><div class="source-panel-footer"><svg class="icon"><use href="#i-check"/></svg>Referencias al documento original</div></aside>
+<svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
+  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4v16M9 4v16m5-16 5 16M14 4h3l5 16h-3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.1 3M4.8 15a8 8 0 0 0 13.1 3"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 3H3v12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.5"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M11 4H4v16h16v-7"/></symbol>
+</defs></svg>
+<a class="skip" href="#main">Saltar al contenido</a>
+<div class="app-shell">
+<aside class="sidebar">
+  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>RAG Local<small>Tu espacio de conocimiento</small></span></a>
+  <p class="nav-label">ESPACIO DE TRABAJO</p>
+  <nav aria-label="Principal">
+    <a id="nav-query" class="nav-item" href="/"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Consulta<span class="nav-current" aria-hidden="true">•</span></a>
+    <a id="nav-admin" class="nav-item" href="/admin"><svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>Biblioteca<span id="nav-badge" class="nav-badge">0</span></a>
+  </nav>
+  <section class="sidebar-summary" aria-label="Resumen de la biblioteca"><p class="nav-label">TU BIBLIOTECA</p><div class="sidebar-count"><strong id="sidebar-doc-count">0</strong> documentos</div><div id="library-bar" class="segmented-bar side-bar" role="img" aria-label="Biblioteca vacía"><span class="segment moss"></span><span class="segment ochre"></span><span class="segment brick"></span></div><p id="sidebar-summary-text">Sin documentos</p><small id="last-index">Añade documentos para empezar</small></section>
+  <div class="sidebar-system"><div><span><i class="status-dot"></i>Ollama</span><span id="ollama-label">Comprobando</span></div><div><span><i class="status-dot ochre"></i>Embeddings</span><span id="embedding-label">CPU</span></div><div><span><i class="status-dot"></i>Servidor</span><span id="server-address" class="mono"></span></div></div>
+</aside>
+<div class="workspace">
+  <header class="topbar"><div class="breadcrumbs">Laboratorio <span>/</span><strong id="breadcrumb-current">Consulta</strong></div><div class="topbar-actions"><span class="privacy-pill"><i class="status-dot"></i>En tu equipo · sin conexión externa</span><button id="refresh-button" class="icon-button" aria-label="Actualizar estado"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button></div></header>
+  <main id="main">
+    <section id="query-view">
+      <header class="page-heading"><p class="eyebrow">PREGUNTA · ENCUENTRA · COMPRENDE</p><h1>Tu conocimiento, conectado.</h1><p>Pregunta a tus documentos y sigue cada respuesta hasta el fragmento exacto del que sale.</p></header>
+      <div class="stats-row">
+        <section class="stat"><span class="stat-icon clay"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span><div><strong id="stat-docs">0</strong><span>Documentos en la biblioteca</span></div></section>
+        <section class="stat"><span class="stat-icon ochre"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg></span><div><strong id="stat-chunks">0</strong><span>Fragmentos indexados</span></div></section>
+        <section class="stat"><span class="stat-icon moss"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg></span><div><strong id="stat-engine" class="engine-label">Comprobando</strong><span id="stat-engine-caption">El modelo se carga al consultar</span></div></section>
+      </div>
+      <div id="empty-banner" class="empty-banner"><div><strong>Tu biblioteca está esperando sus primeros documentos.</strong><p>Añade documentos para poder consultar.</p></div><a class="text-link" href="/admin">Añadir documentos →</a></div>
+      <div class="page-columns">
+        <div class="content-column">
+          <section class="card composer"><div class="section-heading"><h2>¿Qué quieres saber?</h2><span class="keyboard-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> para consultar</span></div>
+            <form id="query-form"><label class="sr-only" for="question">Tu pregunta</label><textarea id="question" rows="4" maxlength="6000" placeholder="¿Qué quieres encontrar en tus documentos?" required></textarea>
+              <div class="suggestions"><span>Sugerencias</span><button type="button" data-prompt="Resume los puntos clave de los documentos y cita las fuentes.">Resumir puntos clave</button><button type="button" data-prompt="Compara la información de los documentos y cita sus diferencias y coincidencias.">Comparar información</button><button type="button" data-prompt="¿Qué procedimientos se describen en los documentos? Cita las fuentes.">Encontrar procedimientos</button><button type="button" data-prompt="Enumera las fechas y los plazos que aparecen en los documentos. Cita las fuentes.">Listar fechas y plazos</button></div>
+              <div class="composer-controls"><label class="model-field" for="model">Modelo de respuesta<select id="model" class="mono"><option value="">Conectando con Ollama…</option></select></label><fieldset class="k-field"><legend>Fragmentos</legend><div id="top-k" class="segmented-control"><button type="button" data-k="2" aria-pressed="false">2</button><button type="button" data-k="4" aria-pressed="true">4</button><button type="button" data-k="6" aria-pressed="false">6</button><button type="button" data-k="8" aria-pressed="false">8</button></div></fieldset></div>
+              <div class="composer-footer"><label class="switch-label"><input id="search-only" role="switch" type="checkbox"><span class="switch-track" aria-hidden="true"></span>Solo buscar fragmentos</label><button id="ask-button" class="button primary" type="submit" disabled><span>Preguntar</span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div><p id="question-help" class="help-text">Añade documentos para poder consultar.</p>
+            </form>
+          </section>
+          <section class="card answer-card"><div class="section-heading answer-heading"><h2>Respuesta</h2><span id="answer-status" class="status-pill" hidden></span><span id="answer-meta" class="answer-meta"></span><div class="answer-actions"><button id="copy-answer" class="icon-button" aria-label="Copiar respuesta" disabled><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg></button><button id="regenerate-answer" class="icon-button" aria-label="Regenerar respuesta" disabled><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button></div></div>
+            <blockquote id="question-echo" hidden></blockquote><div id="answer-empty" class="answer-empty"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg><h3>Una buena pregunta abre camino.</h3><p>La respuesta aparecerá aquí, acompañada de sus fuentes.</p></div><div id="answer-skeleton" class="skeleton" hidden aria-label="Generando respuesta"><i></i><i></i><i></i></div><div id="answer" class="answer" hidden></div><div id="query-error" class="inline-error" hidden><p></p><button id="retry-query" class="button secondary" type="button">Reintentar</button></div><div id="answer-metrics" class="answer-metrics" hidden></div><footer id="answer-footnote" class="answer-footnote">Generada en local. Revisa las fuentes antes de usarla.</footer>
+          </section>
         </div>
-      </section>
-      <section id="admin-view" hidden>
-        <div class="page-intro"><div><p class="eyebrow">PREPARA EL CONTEXTO</p><h1>Tu biblioteca, en local.</h1><p class="intro-text">Añade documentos e indexa su contenido para poder consultarlo.</p></div><a class="button secondary" href="/">Ir a consulta<svg class="icon"><use href="#i-arrow"/></svg></a></div>
-        <div class="admin-layout"><div>
-          <section class="card upload-card"><div class="section-heading"><h2>Añadir documentos</h2><span class="subtle-label">PDF · TXT · MARKDOWN</span></div><form id="upload-form"><label id="drop-zone" class="drop-zone" for="file-input"><input id="file-input" class="sr-only" type="file" accept=".pdf,.txt,.md,.markdown" multiple><span class="upload-icon"><svg class="icon"><use href="#i-upload"/></svg></span><strong>Arrastra tus documentos aquí</strong><span>o <u>selecciónalos en tu equipo</u></span><small>Hasta 20 MB por archivo · 20 archivos por lote</small></label><ul id="selected-files" class="selected-files"></ul><div class="upload-footer"><label class="checkbox"><input id="auto-index" type="checkbox" checked><span>Indexar al terminar la subida</span></label><button id="upload-button" class="button primary" type="submit" disabled>Subir e indexar<svg class="icon"><use href="#i-upload"/></svg></button></div></form></section>
-          <section class="card library-card"><div class="section-heading"><h2>Documentos <span id="library-count" class="count-badge">0</span></h2><button id="index-button" class="button secondary small" disabled><svg class="icon"><use href="#i-refresh"/></svg>Actualizar índice</button></div><div class="table-scroll"><table><thead><tr><th>DOCUMENTO</th><th>TAMAÑO</th><th>ESTADO</th><th>FRAGMENTOS</th></tr></thead><tbody id="documents-table"></tbody></table></div><div id="library-empty" class="library-empty">Todavía no has añadido documentos. Empieza por el panel de arriba.</div><p class="library-note">Los archivos sin cambios se omiten al actualizar. Los PDF escaneados pueden necesitar OCR.</p></section>
-        </div><aside class="admin-aside"><section class="card processing-card"><div class="section-heading"><h2>Estado del proceso</h2><span id="job-dot" class="dot muted-dot"></span></div><p id="job-phase" class="job-phase" aria-live="polite">Sin tareas pendientes</p><p id="job-detail" class="muted">Las tareas de ingesta se ejecutan en CPU. La generación empieza cuando haces una consulta.</p><div class="flow-mini"><span>Documento</span><i>→</i><span>Fragmentos</span><i>→</i><span>Índice</span></div></section><section class="card config-card"><div class="section-heading"><h2>Configuración</h2></div><dl><div><dt>Colección</dt><dd id="config-collection">documents</dd></div><div><dt>Embeddings</dt><dd id="config-embeddings">E5 multilingüe</dd></div><div><dt>Dispositivo de búsqueda</dt><dd id="config-device">CPU</dd></div><div><dt>Fragmentación</dt><dd id="config-chunk">500 / 80 caracteres</dd></div><div><dt>Generación</dt><dd>Ollama local</dd></div></dl><button id="prepare-button" class="button secondary full"><svg class="icon"><use href="#i-cpu"/></svg>Preparar modelo de búsqueda</button><p class="config-note">La primera preparación descarga los embeddings en D:. No descarga un LLM.</p></section></aside></div>
-      </section>
-      <footer class="workspace-footer"><span>RAG Local <span class="footer-slash">/</span> Laboratorio de conocimiento</span><span id="footer-collection">Colección: documents</span></footer>
-    </main>
-  </div>
+        <aside class="context-column card source-panel"><div class="section-heading"><h2>Fuentes consultadas</h2><span id="source-count" class="count-badge">0</span></div><p class="panel-description">El contexto que el modelo ha leído, ordenado por relevancia.</p><div id="sources-empty" class="sources-empty"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg><p>Al consultar aparecerán aquí los fragmentos recuperados.</p></div><div id="sources-skeleton" class="skeleton" hidden><i></i><i></i><i></i></div><div id="sources"></div><p class="panel-footnote">Cada cita de la respuesta enlaza con su fragmento.</p></aside>
+      </div>
+    </section>
+    <section id="admin-view" hidden>
+      <header class="page-heading heading-with-action"><div><p class="eyebrow">PREPARA EL CONTEXTO</p><h1>Tu biblioteca, en local.</h1><p>Añade documentos, sigue su progreso y consúltalos en cuanto estén indexados.</p></div><a class="button secondary" href="/">Ir a consulta<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
+      <div class="page-columns"><div class="content-column">
+        <section class="card upload-card"><div class="section-heading"><h2>Añadir documentos</h2><div class="type-list"><span class="file-type pdf">PDF</span><span class="file-type txt">TXT</span><span class="file-type md">MARKDOWN</span></div></div>
+          <div id="drop-zone" class="drop-zone"><input id="file-input" class="sr-only" type="file" accept=".pdf,.txt,.md,.markdown" multiple tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg><div><strong id="drop-title">Arrastra tus documentos aquí</strong><p>Hasta 20 MB por archivo · 20 archivos por lote. Puedes seguir añadiendo mientras se procesa la cola.</p></div><button id="select-files" class="button secondary" type="button">Seleccionar archivos</button></div>
+          <section id="queue-section" class="queue-section" hidden aria-label="Cola de subida"><div class="queue-heading"><h3>Cola de subida</h3><span id="queue-caption"></span><div class="queue-toolbar"><button id="pause-queue" type="button" class="text-button">Pausar</button><button id="clear-queue" type="button" class="text-button">Limpiar completados</button><button id="queue-result-button" type="button" class="text-button" hidden>Ver resultado</button></div></div>
+            <div class="batch-progress"><div class="batch-meta"><strong id="total-percent">0 %</strong><span>Progreso total del lote</span><span id="total-eta">Calculando…</span></div><div id="total-progress" class="segmented-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso total del lote"><span class="segment moss"></span><span class="segment ochre"></span><span class="segment clay"></span></div><div class="progress-legend"><span><i class="status-dot moss"></i>Indexado</span><span><i class="status-dot ochre"></i>Fragmentando</span><span><i class="status-dot clay"></i>Subiendo</span></div></div><ul id="upload-queue" class="upload-queue"></ul>
+          </section>
+          <div class="upload-footer"><label class="switch-label"><input id="auto-index" role="switch" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span>Indexar al terminar la subida</label><div class="queue-footer-actions"><button id="cancel-pending" type="button" class="button secondary" disabled>Cancelar pendientes</button><button id="upload-button" class="button primary" type="button" disabled><span>Subir e indexar (0)</span></button></div></div>
+        </section>
+        <section class="card library-card"><div class="section-heading"><h2>Documentos<span id="library-count" class="count-badge">0</span></h2><div class="table-tools"><label class="search-field"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input id="document-search" type="search" placeholder="Buscar por nombre" aria-label="Buscar documentos por nombre"></label><button id="index-button" class="button secondary"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Actualizar índice</button></div></div>
+          <div id="document-filters" class="filters" aria-label="Filtrar documentos"><button type="button" data-filter="all" aria-pressed="true">Todos · 0</button><button type="button" data-filter="indexed" aria-pressed="false">Indexados · 0</button><button type="button" data-filter="processing" aria-pressed="false">En proceso · 0</button><button type="button" data-filter="error" aria-pressed="false">Con error · 0</button></div>
+          <div class="table-scroll"><table><thead><tr><th>DOCUMENTO</th><th>TAMAÑO</th><th>ESTADO</th><th>FRAGMENTOS</th><th>ACTUALIZADO</th><th><span class="sr-only">Acciones</span></th></tr></thead><tbody id="documents-table"></tbody></table></div><p id="library-empty" class="library-empty">Todavía no has añadido documentos. Empieza por la zona de arriba.</p><footer class="table-footer"><p id="table-caption"></p><div class="pagination"><button id="previous-page" class="icon-button" aria-label="Página anterior">‹</button><span id="page-label">1 / 1</span><button id="next-page" class="icon-button" aria-label="Página siguiente">›</button></div></footer>
+        </section>
+      </div><aside class="context-column admin-context">
+        <section class="card processing-card"><div class="section-heading"><h2>Estado del proceso</h2><span id="process-state" class="status-pill">Inactivo</span></div><ol id="process-steps" class="process-steps"><li data-stage="upload"><span class="step-number">1</span><div><strong>Documento</strong><p>Subida y lectura del texto</p><progress max="100" value="0" aria-label="Progreso de documento"></progress></div></li><li data-stage="chunking"><span class="step-number">2</span><div><strong>Fragmentos</strong><p id="process-document">Fragmentación del contenido</p><progress max="100" value="0" aria-label="Progreso de fragmentación"></progress></div></li><li data-stage="indexing"><span class="step-number">3</span><div><strong>Índice</strong><p>Embeddings y guardado en la colección</p><progress max="100" value="0" aria-label="Progreso de indexación"></progress></div></li></ol><div id="activity-log" class="activity-log" aria-label="Actividad reciente"><p>Sin actividad reciente.</p></div><p class="help-text">La ingesta se ejecuta en CPU. La generación con Ollama empieza cuando haces una consulta.</p></section>
+        <section class="card config-card"><div class="section-heading"><h2>Configuración</h2></div><dl><div><dt>Colección</dt><dd id="config-collection">documents</dd></div><div><dt>Embeddings</dt><dd id="config-embeddings"></dd></div><div><dt>Dispositivo</dt><dd id="config-device">CPU</dd></div><div><dt>Fragmento / solape</dt><dd id="config-chunk">500 / 80 car.</dd></div><div><dt>Generación</dt><dd>Ollama local</dd></div></dl><button id="prepare-button" class="button secondary full"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg>Preparar modelo de búsqueda</button><p class="help-text">La primera preparación descarga los embeddings en D:. No descarga ningún LLM.</p></section>
+      </aside></div>
+    </section>
+    <footer class="workspace-footer"><span>RAG Local · Laboratorio de conocimiento</span><span id="footer-collection">Colección: documents</span></footer>
+  </main>
+</div>
+</div>
+<div id="queue-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="query-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<div id="toast" class="toast" role="status" hidden><span></span><button type="button" hidden>Ver resultado</button></div>
+<dialog id="result-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"><button id="dialog-x" class="icon-button dialog-close" aria-label="Cerrar diálogo"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button><div class="dialog-heading"><span id="dialog-icon" class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><div><h2 id="dialog-title"></h2><p id="dialog-description"></p></div></div><div id="dialog-stats" class="dialog-stats"></div><div id="dialog-list" class="dialog-list"></div><details id="dialog-technical" hidden><summary>Detalles técnicos</summary><pre></pre><button id="copy-details" class="text-button" type="button">Copiar detalles</button></details><div id="dialog-actions" class="dialog-actions"></div></dialog>
 </body>
 </html>
