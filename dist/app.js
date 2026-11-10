@@ -9,12 +9,16 @@ let queue, chat, serverConsole, telemetry;
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
 state.lastIndex=Number(sessionStorage.getItem('rag-local-last-index')||0);
-async function api(path,options={}){
+async function api(path,options={},refreshed=false){
   const headers={...(options.headers||{})};if(options.method&&options.method!=='GET')headers['X-RAG-Token']=state.token;
   let response,result;
   try{response=await fetch(path,{...options,headers});result=await response.json();}
   catch(error){const problem=new Error('Se perdió la conexión con el servidor local.');problem.info=errorData({code:'NETWORK',detail:error.message});throw problem;}
+  if(response.status===403&&!refreshed&&options.method&&options.method!=='GET'&&typeof result.detail==='string'&&result.detail.includes('Recarga esta página')){
+    state.token=(await api('/api/session')).token;return api(path,options,true);
+  }
   if(!response.ok){const message=typeof result.detail==='string'?result.detail:'No se ha podido completar la operación.';const problem=new Error(message);problem.status=response.status;problem.info=errorData(result.error_info||{message,detail:JSON.stringify(result.detail)});throw problem;}
+  if(path==='/api/session'&&result.token)state.token=result.token;
   return result;
 }
 function navigate(path,replace=false){
@@ -108,9 +112,9 @@ function renderProcess(){
 }
 function completed(result,opener=$('upload-button')){
   state.lastResult=result;$('queue-result-button').hidden=false;
-  for(const item of result.successes||[])if(item.chunks>0&&!item.skipped)state.newDocuments.add(item.name);
+  for(const item of result.successes||[])if(item.chunks>0&&!item.skipped&&!item.recovered)state.newDocuments.add(item.name);
   sessionStorage.setItem('rag-local-new-documents',JSON.stringify([...state.newDocuments]));
-  if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped)){state.lastIndex=Date.now();sessionStorage.setItem('rag-local-last-index',String(state.lastIndex));$('last-index').textContent='Última indexación ahora';}
+  if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped&&!item.recovered)){state.lastIndex=Date.now();sessionStorage.setItem('rag-local-last-index',String(state.lastIndex));$('last-index').textContent='Última indexación ahora';}
   if(state.view==='library')showResult(result,opener);else toast(result.kind==='prepare'?'Modelo de búsqueda listo · Ver resultado':'Indexación terminada · Ver resultado',()=>showResult(result,opener));
   refreshStatus();
 }

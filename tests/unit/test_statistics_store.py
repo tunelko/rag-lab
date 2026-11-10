@@ -131,3 +131,19 @@ class HistoryApiTests(unittest.TestCase):
         self.assertIn('Cuántos',result['recent'][0]['question'])
         self.assertEqual(result['recent'][0]['status'],'done')
         self.assertEqual(replacement.jobs,{})
+
+    def test_completed_index_job_can_be_polled_after_restarting_the_service(self):
+        original=self.client.app.state.service
+        response=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('manual.txt',b'Persistent text for indexing.','text/plain'))],data={'auto_index':'true'})
+        job_id=response.json()['job_id']
+        self.wait(job_id)
+        self.client.__exit__(None,None,None)
+        replacement=test_web.OfflineService(original.config,original.documents)
+        self.client=TestClient(create_app(replacement));self.client.__enter__()
+        response=self.client.get('/api/jobs/'+job_id)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(response.json()['status'],'done')
+        self.assertEqual(response.json()['chunks'],1)
+        self.assertTrue(response.json()['recovered'])
+        self.assertEqual(self.client.get('/api/jobs/not-a-real-job').status_code,404)

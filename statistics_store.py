@@ -106,7 +106,7 @@ class StatisticsStore:
         if job.get('kind') not in ('query','index'):
             return
         record = {key:job.get(key) for key in ('id','question','status','created_at','elapsed_seconds','queue_seconds','metrics',
-            'document_name','document_names','chunks','documents')}
+            'document_name','document_names','chunks','documents','document_id','error_info','updated_at')}
         metrics = record['metrics'] or {}
         with self.lock:
             connection = self._open()
@@ -154,6 +154,19 @@ class StatisticsStore:
             rows=connection.execute('SELECT payload,status FROM ingestions WHERE time>=? ORDER BY time DESC LIMIT ? OFFSET ?',
                 (cutoff,per_page,(page-1)*per_page)).fetchall()
             return {'total':total,'page':page,'pages':pages,'recent':[{**json.loads(payload),'status':status} for payload,status in rows]}
+
+    def index_job(self, job_id):
+        with self.lock:
+            row=self._open().execute('SELECT payload,status FROM ingestions WHERE id=? AND time>=?',
+                (job_id,time.time()-self.retention)).fetchone()
+            if not row or row[1] not in ('done','error','cancelled','interrupted'):return None
+            job=json.loads(row[0]);status=row[1]
+            if status=='interrupted':
+                status='error';job['error_info']={'code':'NETWORK','message':'La indexación se interrumpió al cerrar el servidor. El PDF subido se conserva.','detail':'Reintenta el indexado desde Biblioteca.'}
+            return {**job,'id':job_id,'kind':'index','status':status,'state':status,'cancellable':False,
+                'phase':{'done':'Completado','error':'No se pudo completar','cancelled':'Cancelado'}[status],
+                'progress':100 if status=='done' else None,'stage_progress':100 if status=='done' else 0,
+                'cancel_requested':False,'recovered':True}
 
     def close(self):
         with self.lock:

@@ -23,6 +23,11 @@ and jobs still available in the previous server's memory; earlier unrecorded per
 cannot be reconstructed. While the server is stopped, it collects no samples.
 Unfinished runs after a restart are labeled **Interrumpida**.
 
+Completed indexing jobs can still be polled after restart. The upload queue also
+reconciles interrupted entries against the actual library: an already indexed PDF
+is recovered without uploading or indexing it again. Expired local session tokens
+are refreshed once for requests rejected before execution.
+
 For a long upgrade during indexing, `python -m tools.history_bridge` preserves the
 old server's available telemetry and job metrics without loading models. It exits
 when the server provides native persistent history. Normal stop/restart imports

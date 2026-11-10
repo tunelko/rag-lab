@@ -48,6 +48,9 @@ class ScopeTests(unittest.TestCase):
             best_evidence(['---','***'],np.array([.99,.7]),'cpus admitidas')
         self.assertEqual(best_evidence(['Antes de instalar el procesador conserve su cubierta.',
             'Procesador: Soporte para procesadores Intel Core de 14/13/12 generaciones.'],np.array([.99,.7]),'cpu admitidas'),1)
+        self.assertEqual(best_evidence(['Use a CPU fan approved by Intel. Hook the support bracket to the CPU socket.',
+            'Summary of features\nCPU\nSocket 370 processor\nIntel Pentium III, Intel Celeron, VIA Cyrix III.'],
+            np.array([.99,.7]),'cpu admitidas',[{'item_type':'page_image'},{'item_type':'text'}]),1)
 
     def test_global_retrieval_covers_every_document_with_a_bounded_context(self):
         documents = [{'name':f'board-{n}.txt', 'indexed':True} for n in range(9)]

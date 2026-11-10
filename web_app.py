@@ -78,6 +78,15 @@ class RagService(JobRuntime):
     def record_job(self, job):
         self.statistics_archive.save_job(job)
 
+    def snapshot(self, job_id):
+        try:
+            return super().snapshot(job_id)
+        except HTTPException as error:
+            if error.status_code!=404:raise
+            archived=self.statistics_archive.index_job(job_id)
+            if archived:return archived
+            raise
+
     def close(self):
         super().close()
         self.hardware.stop()

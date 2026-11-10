@@ -71,13 +71,17 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
     phrases = [phrase, ' '.join(reversed(terms))] if len(terms) == 2 else [phrase]
     exact = [index for index, text in enumerate(texts)
              if 1 < len(terms) <= 4 and any((' ' + item + ' ') in (' ' + ' '.join(tokens(text)) + ' ') for item in phrases)]
-    field = re.compile(r'^\s*[|#*`\s]*' + re.escape(terms[0]) + r'(?:\s*[*`]*\s*\||[*`\s]*$)', re.MULTILINE | re.IGNORECASE)
+    names=[name for name,value in ALIASES.items() if value==terms[0]] or [terms[0]]
+    field = re.compile(r'^\s*[|#*`\s]*(?:' + '|'.join(re.escape(name) for name in names) + r')(?:\s*[*`]*\s*\||[*`\s]*$)', re.MULTILINE | re.IGNORECASE)
+    cpu_support={'cpu','support'}.issubset(terms)
+    cpu_values=re.compile(r'\b(?:pentium|celeron|ryzen|xeon|epyc|cyrix|core)(?:tm)?\b',re.IGNORECASE)
     fields = [index for index, text in enumerate(texts) if 1 < len(terms) <= 4 and field.search(normalize(text))
-              and all(counts[index][term] for term in terms)]
+              and (all(counts[index][term] for term in terms) or cpu_support and cpu_values.search(text))]
     native_fields = [index for index in fields if metadata and metadata[index].get('item_type') in ('text', 'table')]
+    native_specs=[index for index in native_fields if cpu_support and cpu_values.search(texts[index])]
     native = [index for index in exact if metadata and metadata[index].get('item_type') in ('text', 'table')]
     complete = [index for index in valid if all(counts[index][term] for term in terms)]
-    candidates = native_fields or fields or native or exact or complete or valid
+    candidates = native_specs or native_fields or fields or native or exact or complete or valid
     return max(candidates, key=lambda index: fused[index])
 
 

@@ -17,6 +17,8 @@ rank fusion. Short explicit field phrases and native text/table fields take prec
 over generic visual descriptions. A small bilingual technical alias set handles
 terms such as processor/CPU and soporta/support. These rules need corpus-specific
 evaluation; they are not a guarantee of semantic completeness.
+CPU specification fields listing processor families also qualify when the manual
+states a socket/type without an explicit verb such as “supports”.
 
 The rank-fusion method follows [Cormack et al., SIGIR 2009](https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf).
 No neural reranker or additional GPU model is loaded.

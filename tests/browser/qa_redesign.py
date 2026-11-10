@@ -545,6 +545,31 @@ def run_browser(url):
         page.reload(wait_until="networkidle")
         expect(page.locator("#console-output")).to_contain_text("chunks")
         check("Read-only live console, safe log rendering, pause, filtering, copy, download, local clearing and direct route reload")
+        # Lost upload acknowledgements/session state must reconcile with the durable library.
+        indexed=next(item for item in page.request.get(url+'/api/status').json()['documents'] if item.get('indexed'))
+        before_uploads=len(uploads)
+        page.evaluate('''doc=>sessionStorage.setItem('rag-local-upload-queue-v2',JSON.stringify({entries:[{uid:'lost-ack',name:doc.name,size:doc.bytes,state:'interrupted',upload:100,process:0,batchId:'lost-ack-batch',error:{code:'NETWORK',message:'Vuelve a añadir el archivo para reintentar.',retryable:true}}],batch:{id:'lost-ack-batch',ids:['lost-ack'],started:Date.now(),finished:true},notified:['lost-ack-batch']}))''',indexed)
+        page.reload(wait_until='networkidle')
+        page.locator('#nav-admin').click()
+        expect(page.locator('.queue-row[data-state="indexed"]')).to_have_count(1)
+        expect(page.locator('.queue-error-text')).to_have_count(0)
+        recovered=page.evaluate("JSON.parse(sessionStorage.getItem('rag-local-upload-queue-v2')).entries[0]")
+        assert recovered['chunks']==indexed['chunks'] and recovered['serverName']==indexed['name']
+        assert len(uploads)==before_uploads, 'Recovery must not upload or reindex the PDF'
+        if page.locator('#result-dialog').is_visible():dialog_close(page)
+        page.locator('#nav-settings').click()
+        denied={'count':0}
+        def expired_token(route):
+            if route.request.method=='PUT' and denied['count']==0:
+                denied['count']+=1
+                route.fulfill(status=403,content_type='application/json',body=json.dumps({'detail':'Recarga esta página antes de continuar.'}))
+            else:route.continue_()
+        page.route('**/api/settings',expired_token)
+        page.locator('#save-settings').click()
+        expect(page.locator('#settings-message')).to_have_text('Configuración guardada')
+        assert denied['count']==1
+        page.unroute('**/api/settings',expired_token)
+        check('Indexed upload queue survives lost acknowledgements/reloads without duplicate uploads; expired session token refreshes safely')
         page.locator("#nav-admin").click()
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)

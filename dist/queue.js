@@ -32,7 +32,24 @@ export class UploadQueue {
     $('auto-index').addEventListener('change',()=>this.emit());
     this.render(); this.poll();
   }
-  setDocuments(documents){this.documents=documents;}
+  serverDocument(entry){
+    return this.documents.find(document=>entry.documentId?document.document_id===entry.documentId:entry.serverName?document.name===entry.serverName:document.name===entry.name&&document.bytes===entry.size);
+  }
+  recover(entry){
+    const candidate=entry.error?.code==='NETWORK'||entry.state==='interrupted'||['uploaded','fragmenting','indexing'].includes(entry.state);
+    const document=candidate&&this.serverDocument(entry);
+    if(!document)return false;
+    entry.serverName=document.name;entry.documentId=document.document_id;
+    if(!document.indexed||(document.status&&document.status!=='indexed'))return false;
+    entry.state='indexed';entry.upload=100;entry.process=100;entry.stageProgress=100;entry.chunks=document.chunks||0;
+    entry.error=null;entry.cancelRequested=false;entry.cancellable=false;entry.recovered=true;
+    return true;
+  }
+  setDocuments(documents){
+    this.documents=documents;const previous=this.entries.map(entry=>entry.serverName);const recovered=this.entries.filter(entry=>this.recover(entry));
+    if(recovered.length||this.entries.some((entry,index)=>entry.serverName!==previous[index]))this.emit();
+    if(recovered.length){if(this.running)this.finishCheck();else if(this.batch&&recovered.some(entry=>this.batch.ids.includes(entry.uid))){this.batch.finished=true;this.completed(this.result());}}
+  }
   add(files){
     const list=[...files]; let valid=0;
     if(list.length>20)toast(`Se han omitido ${list.length-20} archivos: el máximo por lote es 20.`);
@@ -71,6 +88,9 @@ export class UploadQueue {
     xhr.onload=()=>{
       if(!settledOnce())return;
       let result;try{result=JSON.parse(xhr.responseText);}catch{this.fail(entry,{code:'NETWORK',detail:xhr.responseText});return;}
+      if(xhr.status===403&&!entry.authRetried&&typeof result.detail==='string'&&result.detail.includes('Recarga esta página')){
+        entry.authRetried=true;this.api('/api/session').then(()=>{if(entry.state==='cancelled'||this.cancelledBatches.has(entry.batchId)){entry.state='cancelled';this.finishCheck();}else{entry.state='queued';this.schedule();}this.emit();}).catch(error=>this.fail(entry,error.info||{code:'NETWORK'}));return;
+      }
       if(xhr.status<200||xhr.status>=300){this.fail(entry,result.error_info||{message:typeof result.detail==='string'?result.detail:undefined,detail:JSON.stringify(result.detail)});return;}
       entry.upload=100;entry.serverName=result.saved?.[0]||entry.name;entry.documentId=result.document_id;entry.jobId=result.job_id;
       entry.state=entry.jobId?'uploaded':'unindexed';entry.process=entry.jobId?0:100;
@@ -108,13 +128,14 @@ export class UploadQueue {
   }
   async cancel(entry){
     if(entry.state==='queued'){entry.state='cancelled';this.emit();this.finishCheck();return;}
-    if(entry.state==='uploading'){entry.xhr?.abort();return;}
+    if(entry.state==='uploading'){if(entry.xhr)entry.xhr.abort();else{entry.state='cancelled';entry.cancelRequested=true;this.emit();this.finishCheck();}return;}
     if(entry.jobId&&entry.cancellable!==false){try{entry.cancelRequested=true;const job=await this.api(`/api/jobs/${entry.jobId}`,{method:'DELETE'});this.applyJob(entry,job);this.emit();this.ensurePoll();}catch(error){toast(error.message);entry.cancelRequested=false;}}
   }
   remove(entry){if(entry.jobId)this.ignored.add(entry.jobId);this.entries=this.entries.filter((item)=>item.uid!==entry.uid);this.emit();toast('Archivo quitado de la cola');}
   async retry(entry){
     if(entry.error&&!entry.error.retryable)return;
-    entry.error=null;entry.cancelRequested=false;entry.process=0;entry.jobId=null;entry.stageProgress=0;entry.batchId=null;
+    try{this.setDocuments((await this.api('/api/status')).documents||[]);if(entry.state==='indexed')return;}catch{}
+    entry.error=null;entry.authRetried=false;entry.cancelRequested=false;entry.process=0;entry.jobId=null;entry.stageProgress=0;entry.batchId=null;
     if(entry.serverName){
       entry.state='uploaded';entry.upload=100;
       if(!this.running){this.batch={id:crypto.randomUUID(),ids:[entry.uid],started:Date.now(),finished:false};this.running=true;this.maxTotal=0;this.samples=[];}else this.batch.ids.push(entry.uid);
@@ -125,9 +146,10 @@ export class UploadQueue {
   }
   applyJob(entry,job){
     const previous=entry.state;
+    if(job.recovered)entry.recovered=true;
     entry.jobId=job.id;entry.process=job.progress??entry.process;entry.stageProgress=job.stage_progress??0;entry.chunks=job.chunks||0;entry.cancellable=job.cancellable;entry.cancelRequested=['queued','running'].includes(job.status)&&Boolean(job.cancel_requested);
     entry.serverName=entry.serverName||job.document_name||entry.name;
-    if(job.status==='done'){entry.state='indexed';entry.upload=100;entry.process=100;const own=(job.documents||[]).find((item)=>item.name===entry.serverName.split('/').pop());entry.chunks=own?.chunks??job.chunks??0;entry.skipped=own?.skipped||false;}
+    if(job.status==='done'){entry.state='indexed';entry.error=null;entry.upload=100;entry.process=100;const own=(job.documents||[]).find((item)=>item.name===entry.serverName.split('/').pop());entry.chunks=own?.chunks??job.chunks??0;entry.skipped=own?.skipped||false;}
     else if(job.status==='error'){entry.state='error';entry.error=errorData(job.error_info||(typeof job.error==='object'?job.error:{message:job.error}));}
     else if(job.status==='cancelled')entry.state='cancelled';
     else if(job.status==='queued')entry.state='uploaded';
@@ -153,7 +175,10 @@ export class UploadQueue {
         if(entry)this.applyJob(entry,job);
       }
       const known=new Set(jobs.map((job)=>job.id));
-      for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.message.includes('no está disponible')){entry.state='cancelled';entry.cancelRequested=false;entry.error=null;entry.jobId=null;}}}
+      for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.status===404){
+        this.documents=(await this.api('/api/status')).documents||[];
+        if(!this.recover(entry)){entry.state='interrupted';entry.cancelRequested=false;entry.error=errorData({code:'NETWORK',message:entry.serverName?'El archivo sigue subido. Reintenta la indexación.':'No se ha podido confirmar la subida tras reiniciar. Revisa la biblioteca antes de volver a añadirlo.'});entry.jobId=null;}
+      }}}
       this.emit();this.finishCheck();
     }catch(error){if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state)))toast('Se perdió la conexión con el servidor local.');}
     finally{this.polling=false;if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state))||this.uploads||Date.now()<(this.cancelWatchUntil||0)||(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)))this.ensurePoll();}
@@ -162,7 +187,7 @@ export class UploadQueue {
   value(entry){if(['indexed','unindexed'].includes(entry.state))return 100;if(['uploaded','fragmenting','indexing'].includes(entry.state))return 40+.6*(entry.process||0);return .4*(entry.upload||0);}
   result(){
     const entries=this.currentEntries();
-    return {kind:'batch',successes:entries.filter((entry)=>['indexed','unindexed'].includes(entry.state)).map((entry)=>({name:entry.name,chunks:entry.chunks||0,skipped:entry.skipped})),failures:entries.filter((entry)=>['error','rejected','interrupted'].includes(entry.state)).map((entry)=>({name:entry.name,error:entry.error,retry:()=>this.retry(entry),remove:()=>this.remove(entry)})),unindexed:entries.some((entry)=>entry.state==='unindexed'),duration:(Date.now()-(this.batch?.started||Date.now()))/1000,retryAll:()=>entries.filter((entry)=>entry.error?.retryable).forEach((entry)=>this.retry(entry))};
+    return {kind:'batch',successes:entries.filter((entry)=>['indexed','unindexed'].includes(entry.state)).map((entry)=>({name:entry.name,chunks:entry.chunks||0,skipped:entry.skipped,recovered:entry.recovered})),failures:entries.filter((entry)=>['error','rejected','interrupted'].includes(entry.state)).map((entry)=>({name:entry.name,error:entry.error,retry:()=>this.retry(entry),remove:()=>this.remove(entry)})),unindexed:entries.some((entry)=>entry.state==='unindexed'),duration:(Date.now()-(this.batch?.started||Date.now()))/1000,retryAll:()=>entries.filter((entry)=>entry.error?.retryable).forEach((entry)=>this.retry(entry))};
   }
   finishCheck(){
     if(!this.running)return;const entries=this.currentEntries();
