@@ -1,0 +1,2 @@
+# Isolated terminal configurator, Windows and Linux. No AI runtimes.
+textual==8.2.8
