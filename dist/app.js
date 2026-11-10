@@ -20,6 +20,7 @@ async function api(path,options={}){
 function navigate(path,replace=false){
   const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin','Biblioteca'],'/biblioteca':['library','admin-view','nav-admin','Biblioteca'],'/configuracion':['settings','settings-view','nav-settings','Configuración'],'/estadisticas':['statistics','statistics-view','nav-statistics','Estadísticas'],'/consola':['console','console-view','nav-console','Consola']};
   const route=new URL(path,location.origin);const target=views[route.searchParams.get('vista')==='consola'?'/consola':route.pathname]||views['/'];state.view=target[0];
+  if(state.view!=='statistics'&&$('resource-dialog').open)$('resource-dialog').close();
   if(location.pathname+location.search!==path)history[replace?'replaceState':'pushState']({},'',path);
   for(const id of ['query-view','admin-view','settings-view','statistics-view','console-view'])$(id).hidden=id!==target[1];
   document.querySelectorAll('.nav-item').forEach(link=>link.removeAttribute('aria-current'));$(target[2]).setAttribute('aria-current','page');

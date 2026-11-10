@@ -28,6 +28,7 @@
   <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 3H3v12"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.5"/></symbol>
   <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M11 4H4v16h16v-7"/></symbol>
+  <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
 </defs></svg>
 <a class="skip" href="#main">Saltar al contenido</a>
 <div class="app-shell">
@@ -92,7 +93,31 @@
     <section id="statistics-view" hidden>
       <header class="page-heading"><p class="eyebrow">ACTIVIDAD DEL LABORATORIO</p><h1>Estadísticas</h1><p>Estado del índice, rendimiento de las consultas y actividad de procesamiento.</p></header>
       <section class="card hardware-card"><div class="section-heading"><h2>Carga del equipo en tiempo real</h2><span id="hardware-status" class="help-text" role="status">Preparando lecturas…</span></div>
-        <div class="hardware-values"><div><span>CPU</span><strong id="hardware-cpu">—</strong><p id="hardware-cpu-caption"></p></div><div><span>GPU</span><strong id="hardware-gpu">—</strong><p id="hardware-gpu-caption"></p></div><div><span>RAM</span><strong id="hardware-ram">—</strong><p id="hardware-ram-caption"></p></div><div><span>VRAM</span><strong id="hardware-vram">—</strong><p id="hardware-vram-caption"></p></div></div>
+        <div class="hardware-chart-toolbar"><div><p>Historial de rendimiento</p><span>Lecturas cada 2 segundos · hasta 15 minutos</span></div><div id="hardware-range" class="segmented-control" aria-label="Ventana del historial"><button type="button" data-seconds="60" aria-pressed="true">1 min</button><button type="button" data-seconds="300" aria-pressed="false">5 min</button><button type="button" data-seconds="900" aria-pressed="false">15 min</button></div><button id="hardware-pause" class="button secondary" type="button" aria-pressed="false" title="Congela la visualización y mantiene la recogida de métricas">Pausar gráficas</button></div>
+        <div class="resource-charts"><article class="resource-card resource-cpu" aria-label="Rendimiento de CPU">
+  <header class="resource-heading"><div><h3>CPU</h3><p id="hardware-cpu-caption"></p></div><strong id="hardware-cpu">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de CPU"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
+  <div id="chart-cpu" class="resource-plot" tabindex="0"><span id="chart-cpu-empty" class="resource-empty">Recopilando lecturas reales…</span></div>
+  <div class="resource-time"><span id="chart-cpu-range">Hace 1 min</span><span>Última lectura</span></div>
+  <dl class="resource-summary"><div><dt>Mínimo</dt><dd id="chart-cpu-min">—</dd></div><div><dt title="Media de las lecturas visibles">Media</dt><dd id="chart-cpu-mean">—</dd></div><div><dt>Máximo</dt><dd id="chart-cpu-max">—</dd></div></dl>
+</article>
+<article class="resource-card resource-gpu" aria-label="Rendimiento de GPU">
+  <header class="resource-heading"><div><h3>GPU</h3><p id="hardware-gpu-caption"></p><p id="hardware-gpu-sensors"></p></div><strong id="hardware-gpu">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de GPU"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
+  <div id="chart-gpu" class="resource-plot" tabindex="0"><span id="chart-gpu-empty" class="resource-empty">Recopilando lecturas reales…</span></div>
+  <div class="resource-time"><span id="chart-gpu-range">Hace 1 min</span><span>Última lectura</span></div>
+  <dl class="resource-summary"><div><dt>Mínimo</dt><dd id="chart-gpu-min">—</dd></div><div><dt title="Media de las lecturas visibles">Media</dt><dd id="chart-gpu-mean">—</dd></div><div><dt>Máximo</dt><dd id="chart-gpu-max">—</dd></div></dl>
+</article>
+<article class="resource-card resource-ram" aria-label="Rendimiento de RAM">
+  <header class="resource-heading"><div><h3>RAM</h3><p id="hardware-ram-caption"></p></div><strong id="hardware-ram">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de RAM"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
+  <div id="chart-ram" class="resource-plot" tabindex="0"><span id="chart-ram-empty" class="resource-empty">Recopilando lecturas reales…</span></div>
+  <div class="resource-time"><span id="chart-ram-range">Hace 1 min</span><span>Última lectura</span></div>
+  <dl class="resource-summary"><div><dt>Mínimo</dt><dd id="chart-ram-min">—</dd></div><div><dt title="Media de las lecturas visibles">Media</dt><dd id="chart-ram-mean">—</dd></div><div><dt>Máximo</dt><dd id="chart-ram-max">—</dd></div></dl>
+</article>
+<article class="resource-card resource-vram" aria-label="Rendimiento de VRAM">
+  <header class="resource-heading"><div><h3>VRAM</h3><p id="hardware-vram-caption"></p></div><strong id="hardware-vram">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de VRAM"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
+  <div id="chart-vram" class="resource-plot" tabindex="0"><span id="chart-vram-empty" class="resource-empty">Recopilando lecturas reales…</span></div>
+  <div class="resource-time"><span id="chart-vram-range">Hace 1 min</span><span>Última lectura</span></div>
+  <dl class="resource-summary"><div><dt>Mínimo</dt><dd id="chart-vram-min">—</dd></div><div><dt title="Media de las lecturas visibles">Media</dt><dd id="chart-vram-mean">—</dd></div><div><dt>Máximo</dt><dd id="chart-vram-max">—</dd></div></dl>
+</article></div><p id="hardware-history-note" class="hardware-history-note">Recopilando historial real…</p>
         <div class="table-scroll"><table><thead><tr><th>COMPONENTE</th><th>PROCESO</th><th>CPU DEL EQUIPO</th><th>RAM DEL PROCESO</th></tr></thead><tbody id="hardware-processes"></tbody></table></div>
         <p class="hardware-note">«100 % GPU» en Ollama indica que el modelo está alojado en la GPU. La utilización que aparece aquí mide su actividad en cada lectura. La CPU de cada proceso se expresa sobre el total del equipo; la RAM de procesos con memoria compartida no debe sumarse.</p>
       </section>
@@ -119,6 +144,7 @@
 </div>
 <div id="queue-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="query-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 <div id="toast" class="toast" role="status" hidden><span></span><button type="button" hidden>Ver resultado</button></div>
+<dialog id="resource-dialog" class="resource-dialog" aria-labelledby="resource-dialog-title"><header class="resource-dialog-heading"><div><h2 id="resource-dialog-title">Rendimiento</h2><p>El mismo historial y las mismas lecturas en una vista ampliada.</p></div><button id="resource-dialog-close" class="icon-button" type="button" aria-label="Cerrar gráfica ampliada"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></header><div id="resource-dialog-body"></div></dialog>
 <dialog id="result-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"><button id="dialog-x" class="icon-button dialog-close" aria-label="Cerrar diálogo"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button><div class="dialog-heading"><span id="dialog-icon" class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><div><h2 id="dialog-title"></h2><p id="dialog-description"></p></div></div><div id="dialog-stats" class="dialog-stats"></div><div id="dialog-list" class="dialog-list"></div><details id="dialog-technical" hidden><summary>Detalles técnicos</summary><pre></pre><button id="copy-details" class="text-button" type="button">Copiar detalles</button></details><div id="dialog-actions" class="dialog-actions"></div></dialog>
 </body>
 </html>
