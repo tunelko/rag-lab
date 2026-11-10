@@ -108,6 +108,26 @@ class WebTests(unittest.TestCase):
             response = self.client.request(method, path, headers=self.headers)
             self.assertEqual(response.status_code, 404, response.text)
 
+    def test_response_language_is_per_query_and_validated(self):
+        uploaded = self.client.post('/api/admin/upload', headers=self.headers,
+            files=[('files', ('manual.txt', b'Backups run every Friday.', 'text/plain'))],
+            data={'auto_index': 'true'})
+        self.wait(uploaded.json()['job_id'])
+        def generate(messages, model, **kwargs):
+            self.assertIn('Answer in English', messages[0]['content'])
+            self.assertIn('Backups run every Friday.', messages[-1]['content'])
+            return 'Every Friday [1].', {'output_tokens': 5}
+        with patch.object(rag, 'generate_ollama', side_effect=generate):
+            result = self.client.post('/api/query', headers=self.headers,
+                json={'question': 'When are backups?', 'language': 'en'})
+            answer = self.wait(result.json()['job_id'])
+        self.assertEqual(answer['answer'], 'Every Friday [1].')
+        self.assertEqual(answer['metrics']['language'], 'en')
+        self.assertEqual(answer['sources'][0]['file'], 'manual.txt')
+        response = self.client.post('/api/query', headers=self.headers,
+            json={'question': 'When are backups?', 'language': 'fr'})
+        self.assertEqual(response.status_code, 422)
+
     def test_pdf_sources_distinguish_physical_pages_and_repeated_document_labels(self):
         import pymupdf
         from langchain_core.documents import Document

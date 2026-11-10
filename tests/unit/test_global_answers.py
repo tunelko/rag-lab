@@ -6,6 +6,20 @@ from global_answers import GlobalAnswer
 
 
 class GlobalAnswerTests(unittest.TestCase):
+    def test_english_table_keeps_original_filenames_and_source_excerpt(self):
+        answer = GlobalAnswer([{'citation': 1, 'file': 'placa_original.pdf',
+                    'text': 'CPU: Intel Core 12th generation, LGA1700.'}], cpu_guard=True, language='en')
+        self.assertIn('inglés', answer.instruction())
+        rendered = answer.finish('{"1":"Intel Core 99th generation, LGA9999."}')
+        self.assertIn('| Document | Answer |', rendered)
+        self.assertIn('placa', rendered)
+        self.assertIn('Source excerpt: CPU: Intel Core 12th generation', rendered)
+        self.assertIn('[1]', rendered)
+        answer = GlobalAnswer([{'citation': 1, 'file': 'manual.pdf',
+                    'text': 'CPU: Celeron and Pentium, Socket 370.'}], cpu_guard=True, language='en')
+        rendered = answer.finish('{"1":"No processor information is provided."}')
+        self.assertIn('Source excerpt: CPU: Celeron and Pentium', rendered)
+
     def test_streaming_preserves_file_ids_and_escapes_partial_content(self):
         answer=GlobalAnswer([{'citation':1,'file':'board_A|x.pdf'}, {'citation':2,'file':'other.pdf'}])
         payload=json.dumps({'1':'Intel Core "12"\nCPU | socket', '2':'No aporta el dato.'})

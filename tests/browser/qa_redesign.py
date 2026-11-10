@@ -180,7 +180,7 @@ def run_browser(url):
 
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
-        context = browser.new_context(viewport={"width": 1440, "height": 1100}, reduced_motion="reduce", permissions=["clipboard-read", "clipboard-write"])
+        context = browser.new_context(locale="es-ES", viewport={"width": 1440, "height": 1100}, reduced_motion="reduce", permissions=["clipboard-read", "clipboard-write"])
         page = context.new_page()
         page.set_default_timeout(30000)
         page.on("pageerror", lambda error: errors.append(str(error)))
@@ -192,6 +192,51 @@ def run_browser(url):
                 uploads.append(request.url)
         page.on("request", requested)
         page.goto(url, wait_until="networkidle")
+        english = browser.new_context(locale='en-US', viewport={'width':390,'height':844})
+        english_page = english.new_page()
+        locale_mutations = []
+        english_page.on('request', lambda request: locale_mutations.append(request.url)
+                        if request.method in {'POST','PUT','DELETE','PATCH'} else None)
+        english_page.goto(url, wait_until='networkidle')
+        expect(english_page.locator('html')).to_have_attribute('lang','en')
+        expect(english_page.locator('#nav-admin [data-i18n]')).to_have_text('Library')
+        english_page.locator('#question').fill('Keep this unsent question <script>literal</script>')
+        english_page.locator('#nav-settings').click()
+        english_page.locator('#max-visuals').fill('240')
+        english_page.locator('#model-selection').select_option('manual')
+        english_page.locator('#language-selection').select_option('es')
+        expect(english_page.locator('#nav-admin [data-i18n]')).to_have_text('Biblioteca')
+        expect(english_page.locator('#max-visuals')).to_have_value('240')
+        expect(english_page.locator('#model-selection')).to_have_value('manual')
+        expect(english_page.locator('#question')).to_have_value('Keep this unsent question <script>literal</script>')
+        english_page.locator('#language-selection').select_option('en')
+        expect(english_page.locator('#model-selection option').first).to_have_text('Automatic, based on the query')
+        assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
+        english_page.screenshot(path=str(reports/'redesign-english-mobile.png'),full_page=True)
+        english_page.reload(wait_until='networkidle')
+        expect(english_page.locator('html')).to_have_attribute('lang','en')
+        expect(english_page.locator('#language-selection')).to_have_value('en')
+        english_page.locator('#language-selection').select_option('auto')
+        expect(english_page.locator('html')).to_have_attribute('lang','en')
+        for control, heading in [('#nav-statistics','Statistics'),('#nav-console','Console'),('#nav-admin','Your library, locally.')]:
+            english_page.locator(control).click()
+            expect(english_page.locator('h1:visible')).to_have_text(heading)
+            assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'), heading
+        translated_phase = english_page.evaluate('''async () => {
+            const {serverText} = await import('/assets/i18n.js');
+            return serverText('Generando tabla · 1/2 documentos');
+        }''')
+        assert translated_phase == 'Generating table · 1/2 documents', translated_phase
+        assert not locale_mutations, locale_mutations
+        english.close()
+        fallback = browser.new_context(locale='en-US')
+        fallback_page = fallback.new_page()
+        fallback_page.route('**/assets/locales/en.json', lambda route: route.fulfill(status=404, body='unavailable'))
+        fallback_page.goto(url,wait_until='networkidle')
+        expect(fallback_page.locator('html')).to_have_attribute('lang','es')
+        expect(fallback_page.locator('#nav-admin [data-i18n]')).to_have_text('Biblioteca')
+        fallback.close()
+        check('Local i18n: browser detection, live selection, persistence, missing-locale fallback, mobile layout and no mutation requests')
         # Exercise real source rendering, including an older saved conversation
         # whose PDF URL did not contain a page fragment.
         page_locations = page.evaluate('''async () => {

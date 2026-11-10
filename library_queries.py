@@ -125,20 +125,24 @@ def topic_query(question):
     return re.sub(r'\bcpus\b', 'cpu', text.strip(' ,;:.?¿¡!')) or question.strip()
 
 
-def catalog_answer(documents, mode):
+def catalog_answer(documents, mode, language='es'):
+    from localization import text
+
     indexed = [item for item in documents if item.get('indexed')]
     chunks = sum(item.get('chunks', 0) for item in indexed)
-    formatted_chunks = f'{chunks:,}'.replace(',', '.')
-    answer = f'Hay **{len(indexed)} documentos indexados**, con **{formatted_chunks} fragmentos**.'
+    formatted_chunks = f'{chunks:,}' if language == 'en' else f'{chunks:,}'.replace(',', '.')
+    answer = text('answer.inventory_one' if len(indexed) == 1 else 'answer.inventory_other', language,
+                  count=len(indexed), chunks=formatted_chunks,
+                  chunk_label=text('answer.chunk_one' if chunks == 1 else 'answer.chunk_other', language))
     if mode == 'catalog_list':
         def label(name):
             return re.sub(r'([\\`*{}\[\]()#+.!_<>])', r'\\\1', name)
         answer += '\n\n' + '\n'.join(f'- [{label(item["name"])}](/api/source?file={quote(item["name"], safe="")})' for item in indexed)
     pending = len(documents) - len(indexed)
     if pending:
-        answer += f'\n\nOtros **{pending} documentos** todavía no tienen un índice actualizado.'
-    return answer, {'backend': 'catalog', 'model': 'Registro del índice', 'retrieval_mode': 'catalog',
-                    'routing_mode': 'catalog', 'routing_reason': 'Recuento exacto del registro; sin generación.',
+        answer += '\n\n' + text('answer.pending_one' if pending == 1 else 'answer.pending_other', language, count=pending)
+    return answer, {'backend': 'catalog', 'model': text('answer.catalog_model', language), 'retrieval_mode': 'catalog',
+                    'routing_mode': 'catalog', 'routing_reason': text('answer.catalog_reason', language),
                     'documents_indexed': len(indexed), 'fragments_indexed': chunks}
 
 

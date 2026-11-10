@@ -1,3 +1,4 @@
+import {t} from './i18n.js';
 import {Marked} from './vendor/marked/marked.esm.js';
 import DOMPurify from './vendor/dompurify/purify.es.js';
 
@@ -5,14 +6,14 @@ const escape=text=>String(text).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;
 const parser=new Marked({gfm:true,breaks:false,async:false});
 parser.use({renderer:{
   html(token){return escape(token.text);},
-  image(token){return escape(`Imagen: ${token.text}`);},
+  image(token){return escape(t("ui.image_17593b", {value1: (token.text)}));},
   heading(token){const level=Math.min(6,token.depth+1);return `<h${level}>${this.parser.parseInline(token.tokens)}</h${level}>\n`;},
 }});
 const cache=new WeakMap();
 
 function citation(number,prefix){
   const link=document.createElement('a');link.className='citation';link.textContent=String(number);link.href=`#${prefix}-${number}`;
-  link.setAttribute('aria-label',`Ver fuente ${number}`);
+  link.setAttribute('aria-label',t("ui.view_source_7ad4a8", {value1: (number)}));
   link.addEventListener('click',()=>{const target=document.getElementById(`${prefix}-${number}`);const details=target?.closest('details');if(details)details.open=true;});
   return link;
 }
@@ -56,11 +57,11 @@ function decorateCode(fragment){
     const section=document.createElement('div');section.className='markdown-code';
     const header=document.createElement('div');header.className='markdown-code-heading';
     const label=document.createElement('span');label.textContent=language;
-    const copy=document.createElement('button');copy.type='button';copy.textContent='Copiar';copy.className='text-button';copy.setAttribute('aria-label','Copiar bloque de código');
+    const copy=document.createElement('button');copy.type='button';copy.textContent=t("ui.copy_39dcf1");copy.className='text-button';copy.setAttribute('aria-label',t("ui.copy_code_block_91ce14"));
     copy.addEventListener('click',async()=>{
-      try{await navigator.clipboard.writeText(code.textContent);copy.textContent='Copiado';}
-      catch{copy.textContent='No se pudo copiar';}
-      setTimeout(()=>{copy.textContent='Copiar';},2000);
+      try{await navigator.clipboard.writeText(code.textContent);copy.textContent=t("ui.copied_d8dd87");}
+      catch{copy.textContent=t("ui.could_not_copy_2af300");}
+      setTimeout(()=>{copy.textContent=t("ui.copy_39dcf1");},2000);
     });
     header.append(label,copy);pre.replaceWith(section);section.append(header,pre);
   }
@@ -83,7 +84,7 @@ export function renderMarkdown(container,text,citations=new Set(),prefix='src'){
     }
     normalizeLinks(fragment);addCitations(fragment,citations,prefix);decorateCode(fragment);
     for(const table of fragment.querySelectorAll('table')){
-      const wrapper=document.createElement('div');wrapper.className='markdown-table';wrapper.tabIndex=0;wrapper.setAttribute('role','region');wrapper.setAttribute('aria-label','Tabla de la respuesta');
+      const wrapper=document.createElement('div');wrapper.className='markdown-table';wrapper.tabIndex=0;wrapper.setAttribute('role','region');wrapper.setAttribute('aria-label',t("ui.answer_table_081c1c"));
       table.replaceWith(wrapper);wrapper.append(table);
     }
     container.replaceChildren(fragment);

@@ -2,15 +2,17 @@
 import json
 import re
 import unicodedata
+from localization import text as localized
 
 
 class GlobalAnswer:
-    def __init__(self, sources, *, cpu_guard=False):
+    def __init__(self, sources, *, cpu_guard=False, language='es'):
         self.sources = sources
         self.keys = [str(source['citation']) for source in sources]
         self.buffer = ''
         self.rows = {}
         self.cpu_guard=cpu_guard
+        self.language=language
         self.grounding_fallbacks=set()
         self.schema = {'type': 'object', 'properties': {key: {'type': 'string', 'minLength': 1} for key in self.keys},
                        'required': self.keys, 'additionalProperties': False}
@@ -36,18 +38,20 @@ class GlobalAnswer:
         wrong_numbers=bool(numbers(answer)-numbers(evidence))
         wrong_socket=bool(claimed-expected) or bool(expected and re.search(r'\b(?:socket|zócalo)\b',answer) and not claimed)
         false_absence=bool(re.search(r'\b(?:pentium|celeron|ryzen|cyrix|xeon)\b',evidence)
-            and re.search(r'no (?:se )?(?:especifica|menciona|contiene|aporta)',answer))
+            and re.search(r'no (?:se )?(?:especifica|menciona|contiene|aporta)|'
+                          r'\b(?:not (?:specified|mentioned|provided)|does not (?:specify|mention|contain|provide)|'
+                          r'no (?:cpu|processor|support) information)',answer))
         if wrong_numbers or wrong_socket or false_absence:
             self.grounding_fallbacks.add(str(source['citation']))
             text=re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]',' ',source['text'])
             text=re.sub(r'(?m)^\s*#{1,6}\s*','',text).replace('**','')
-            return 'Extracto del documento: '+text
+            return localized('answer.source_excerpt', self.language)+text
         return value
 
     def instruction(self):
         return ('\n\nFORMATO DE SALIDA: devuelve exclusivamente un objeto JSON con una propiedad por fuente. '
                 'La clave "1" corresponde solo a la fuente [1], "2" a la [2], etc. '
-                'Cada valor es una respuesta breve en español a la pregunta, usando únicamente el fragmento '
+                f'Cada valor es una respuesta breve en {"inglés" if self.language == "en" else "español"} a la pregunta, usando únicamente el fragmento '
                 'de esa fuente. Conserva generaciones, familias y condiciones de BIOS. '
                 'No escribas nombres de archivo, tablas Markdown ni citas en los valores: los añade la aplicación. '
                 'Si esa fuente no aporta el dato solicitado, indícalo en su valor, sin deducirlo de otros documentos. '
@@ -98,7 +102,7 @@ class GlobalAnswer:
         self.grounding_fallbacks=set()
         def cell(value):
             return re.sub(r'([\\`*{}\[\]()#+.!_|<>])', r'\\\1', value).replace('\r', '').replace('\n', ' ')
-        lines = ['| Documento | Respuesta |', '| --- | --- |']
+        lines = [localized('answer.table_header', self.language), '| --- | --- |']
         for source in self.sources:
             key = str(source['citation'])
             if key in self.rows:

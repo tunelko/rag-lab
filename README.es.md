@@ -139,3 +139,7 @@ quedan fuera de Git. Las descargas iniciales necesitan Internet. Más:
 [instalación](docs/INSTALACION.md), [referencia completa](docs/REFERENCE.es.md),
 [diagnóstico](docs/DESARROLLO.md). Licencia propia pendiente; se conservan las de terceros.
 Avisos de dependencias y límites del despliegue local: [estado de seguridad](SECURITY.md).
+
+Interfaz en español e inglés, detección del navegador y selector de idioma
+persistente. Las nuevas respuestas usan el idioma elegido mediante Ollama local.
+Consulta [idiomas](docs/INTERNATIONALIZATION.md) y el [plan de escalabilidad](docs/SCALING.md).

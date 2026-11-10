@@ -1,7 +1,8 @@
+import {t, serverText} from './i18n.js';
 import {$, node, icon, iconButton, button, fileType, progress, segments, errorData, number, size, terminal, toast, announce} from './ui.js';
 
 const STORE = 'rag-local-upload-queue-v2';
-const labels = {queued:'En cola', uploading:'Subiendo', uploaded:'Subido', fragmenting:'Fragmentando', indexing:'Indexando', indexed:'Indexado', unindexed:'Sin indexar', error:'Error', rejected:'Error', cancelled:'Cancelado', interrupted:'Interrumpido'};
+const labels = () => ({queued:t("ui.queued_d19761"), uploading:t("ui.uploading_8f2161"), uploaded:t("ui.uploaded_24762e"), fragmenting:t("ui.splitting_into_chunks_726c36"), indexing:t("ui.indexing_8df561"), indexed:t("ui.indexed_bb7f0d"), unindexed:t("ui.not_indexed_f84805"), error:t("ui.error_54a0e8"), rejected:t("ui.error_54a0e8"), cancelled:t("ui.cancelled_f40738"), interrupted:t("ui.interrupted_8da730")});
 const activeStates = new Set(['queued','uploading','uploaded','fragmenting','indexing']);
 const phaseClass = (state) => ['fragmenting','indexing','uploaded'].includes(state) ? 'processing' : ['error','rejected','interrupted'].includes(state) ? 'error' : state === 'indexed' ? 'success' : state === 'uploading' ? 'uploading' : '';
 
@@ -14,7 +15,7 @@ export class UploadQueue {
       const saved=JSON.parse(sessionStorage.getItem(STORE)||'{}');
       this.cancelledBatches=new Set(saved.cancelledBatches||[]);
       this.entries=(saved.entries||[]).map((entry)=>{
-        if (['queued','uploading'].includes(entry.state) && !entry.jobId) return {...entry,state:'interrupted',error:errorData({code:'NETWORK',message:'La subida se interrumpió al recargar. Vuelve a añadir el archivo.'})};
+        if (['queued','uploading'].includes(entry.state) && !entry.jobId) return {...entry,state:'interrupted',error:errorData({code:'NETWORK',message:t("ui.the_upload_was_interrupted_by_a_reload_add_the_file_again_1a934e")})};
         return entry;
       });
       this.ignored=new Set(saved.ignored||[]); this.notified=new Set(saved.notified||[]); this.batch=saved.batch||null; this.maxTotal=saved.maxTotal||0;
@@ -23,11 +24,11 @@ export class UploadQueue {
     $('select-files').addEventListener('click',()=>$('file-input').click());
     $('file-input').addEventListener('change',(event)=>{this.add(event.target.files); event.target.value='';});
     const drop=$('drop-zone');
-    for(const name of ['dragenter','dragover']) drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.add('dragging');$('drop-title').textContent='Suelta para añadir a la cola';});
-    for(const name of ['dragleave','drop']) drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.remove('dragging');$('drop-title').textContent='Arrastra tus documentos aquí';if(name==='drop')this.add(event.dataTransfer.files);});
+    for(const name of ['dragenter','dragover']) drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.add('dragging');$('drop-title').textContent=t("ui.drop_to_add_to_the_queue_d5aa9b");});
+    for(const name of ['dragleave','drop']) drop.addEventListener(name,(event)=>{event.preventDefault();drop.classList.remove('dragging');$('drop-title').textContent=t("ui.drop_your_documents_here_403059");if(name==='drop')this.add(event.dataTransfer.files);});
     $('upload-button').addEventListener('click',()=>this.start());
     $('pause-queue').addEventListener('click',()=>{this.paused=!this.paused;this.schedule();this.emit();});
-    $('clear-queue').addEventListener('click',()=>{this.entries.filter((entry)=>['indexed','cancelled'].includes(entry.state)).forEach((entry)=>{if(entry.jobId)this.ignored.add(entry.jobId);});this.entries=this.entries.filter((entry)=>!['indexed','cancelled'].includes(entry.state));this.emit();toast('Completados eliminados de la cola');});
+    $('clear-queue').addEventListener('click',()=>{this.entries.filter((entry)=>['indexed','cancelled'].includes(entry.state)).forEach((entry)=>{if(entry.jobId)this.ignored.add(entry.jobId);});this.entries=this.entries.filter((entry)=>!['indexed','cancelled'].includes(entry.state));this.emit();toast(t("ui.completed_entries_cleared_from_the_queue_0a5e8c"));});
     $('cancel-pending').addEventListener('click',()=>this.cancelAll());
     $('auto-index').addEventListener('change',()=>this.emit());
     this.render(); this.poll();
@@ -52,18 +53,18 @@ export class UploadQueue {
   }
   add(files){
     const list=[...files]; let valid=0;
-    if(list.length>20)toast(`Se han omitido ${list.length-20} archivos: el máximo por lote es 20.`);
+    if(list.length>20)toast(t("ui.skipped_files_a_batch_can_contain_at_most_20_01fc90", {value1: (list.length-20)}));
     if(!this.running&&!this.entries.some((entry)=>!entry.batchId)){this.maxTotal=0;this.samples=[];}
     for(const file of list.slice(0,20)){
       const entry={uid:crypto.randomUUID(),name:file.name,size:file.size,file,state:'queued',upload:0,process:0,stageProgress:0,chunks:0,batchId:this.running?this.batch.id:null,autoIndex:$('auto-index').checked};
       const extension='.'+(file.name.split('.').pop()||'').toLowerCase();
-      if(!['.pdf','.txt','.md','.markdown','.png','.jpg','.jpeg','.webp','.zip'].includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:`Formato no compatible (${extension}).`});
-      else if(file.size>20*1024*1024)entry.error=errorData({code:'FILE_TOO_LARGE',message:`Supera el límite de 20 MB por archivo (${size(file.size)}).`});
+      if(!['.pdf','.txt','.md','.markdown','.png','.jpg','.jpeg','.webp','.zip'].includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:t("ui.unsupported_format_b5e884", {value1: (extension)})});
+      else if(file.size>20*1024*1024)entry.error=errorData({code:'FILE_TOO_LARGE',message:t("ui.exceeds_the_20_mb_file_limit_eab388", {value1: (size(file.size))})});
       else if(this.documents.some((doc)=>doc.indexed&&doc.name.toLowerCase()===file.name.toLowerCase()&&doc.bytes===file.size)||this.entries.some((item)=>!['error','rejected','cancelled','interrupted'].includes(item.state)&&item.name.toLowerCase()===file.name.toLowerCase()&&item.size===file.size))entry.error=errorData({code:'DUPLICATE'});
-      if(entry.error){entry.state='rejected';announce(`${entry.name} con error`);}else valid++;
+      if(entry.error){entry.state='rejected';announce(t("ui.failed_1c52f6", {value1: (entry.name)}));}else valid++;
       this.entries.push(entry); if(this.running)this.batch.ids.push(entry.uid);
     }
-    if(!valid&&list.length){$('drop-zone').classList.add('rejected');$('drop-title').textContent='Ningún archivo es compatible (PDF, TXT o Markdown)';setTimeout(()=>{$('drop-zone').classList.remove('rejected');$('drop-title').textContent='Arrastra tus documentos aquí';},3000);}
+    if(!valid&&list.length){$('drop-zone').classList.add('rejected');$('drop-title').textContent=t("ui.no_files_are_supported_pdf_txt_or_markdown_1d8fba");setTimeout(()=>{$('drop-zone').classList.remove('rejected');$('drop-title').textContent=t("ui.drop_your_documents_here_403059");},3000);}
     this.emit(); if(this.running)this.schedule();
   }
   start(){
@@ -100,7 +101,7 @@ export class UploadQueue {
     xhr.onabort=()=>{if(settledOnce()){entry.state='cancelled';this.emit();this.finishCheck();}};
     const body=new FormData();body.append('files',entry.file);body.append('auto_index',String(entry.autoIndex));body.append('batch_id',entry.batchId);xhr.send(body);this.emit();
   }
-  fail(entry,error){entry.state='error';entry.error=errorData(error);announce(`${entry.name} con error`);this.emit();this.finishCheck();}
+  fail(entry,error){entry.state='error';entry.error=errorData(error);announce(t("ui.failed_1c52f6", {value1: (entry.name)}));this.emit();this.finishCheck();}
   async cancelAll(){
     if(this.cancelling)return;
     this.cancelling=true;this.paused=true;this.emit();
@@ -121,7 +122,7 @@ export class UploadQueue {
           const entry=this.entries.find(item=>item.jobId===job.id);if(entry)this.applyJob(entry,cancelled);
         }
       }
-      toast(finishingWrite?'Pendientes cancelados. La escritura del índice actual terminará antes de detenerse.':'Cancelación solicitada. Se conservan los archivos y la caché.');
+      toast(finishingWrite?t("ui.pending_jobs_cancelled_the_current_index_write_will_finish_before_788d3a"):t("ui.cancellation_requested_files_and_cache_are_preserved_f126f5"));
       this.ensurePoll();
     }catch(error){toast(error.message);}
     finally{this.cancelling=false;this.emit();}
@@ -131,7 +132,7 @@ export class UploadQueue {
     if(entry.state==='uploading'){if(entry.xhr)entry.xhr.abort();else{entry.state='cancelled';entry.cancelRequested=true;this.emit();this.finishCheck();}return;}
     if(entry.jobId&&entry.cancellable!==false){try{entry.cancelRequested=true;const job=await this.api(`/api/jobs/${entry.jobId}`,{method:'DELETE'});this.applyJob(entry,job);this.emit();this.ensurePoll();}catch(error){toast(error.message);entry.cancelRequested=false;}}
   }
-  remove(entry){if(entry.jobId)this.ignored.add(entry.jobId);this.entries=this.entries.filter((item)=>item.uid!==entry.uid);this.emit();toast('Archivo quitado de la cola');}
+  remove(entry){if(entry.jobId)this.ignored.add(entry.jobId);this.entries=this.entries.filter((item)=>item.uid!==entry.uid);this.emit();toast(t("ui.file_removed_from_the_queue_5af5f7"));}
   async retry(entry){
     if(entry.error&&!entry.error.retryable)return;
     try{this.setDocuments((await this.api('/api/status')).documents||[]);if(entry.state==='indexed')return;}catch{}
@@ -142,7 +143,7 @@ export class UploadQueue {
       entry.batchId=this.batch.id;
       try{const result=await this.api('/api/admin/index',{method:'POST',body:JSON.stringify({file:entry.serverName}),headers:{'Content-Type':'application/json'}});entry.jobId=result.job_id;this.emit();this.ensurePoll();}catch(error){this.fail(entry,error.info||{code:'NETWORK',detail:error.message});}
     }else if(entry.file){entry.state='queued';entry.upload=0;if(this.running){entry.batchId=this.batch.id;this.batch.ids.push(entry.uid);this.schedule();}else this.start();this.emit();}
-    else{entry.state='interrupted';entry.error=errorData({code:'NETWORK',message:'Vuelve a añadir el archivo para reintentar.'});this.emit();$('file-input').click();}
+    else{entry.state='interrupted';entry.error=errorData({code:'NETWORK',message:t("ui.add_the_file_again_to_retry_22db07")});this.emit();$('file-input').click();}
   }
   applyJob(entry,job){
     const previous=entry.state;
@@ -154,7 +155,7 @@ export class UploadQueue {
     else if(job.status==='cancelled')entry.state='cancelled';
     else if(job.status==='queued')entry.state='uploaded';
     else entry.state=job.stage==='indexing'?'indexing':'fragmenting';
-    if(previous!==entry.state&&['indexed','error'].includes(entry.state))announce(entry.state==='indexed'?`${entry.name} indexado, ${number(entry.chunks)} fragmentos`:`${entry.name} con error`);
+    if(previous!==entry.state&&['indexed','error'].includes(entry.state))announce(entry.state==='indexed'?t("ui.indexed_chunks_c6c0b1", {value1: (entry.name), value2: (number(entry.chunks))}):t("ui.failed_1c52f6", {value1: (entry.name)}));
   }
   ensurePoll(){if(!this.pollTimer)this.pollTimer=setTimeout(()=>this.poll(),1000);}
   async poll(){
@@ -177,10 +178,10 @@ export class UploadQueue {
       const known=new Set(jobs.map((job)=>job.id));
       for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.status===404){
         this.documents=(await this.api('/api/status')).documents||[];
-        if(!this.recover(entry)){entry.state='interrupted';entry.cancelRequested=false;entry.error=errorData({code:'NETWORK',message:entry.serverName?'El archivo sigue subido. Reintenta la indexación.':'No se ha podido confirmar la subida tras reiniciar. Revisa la biblioteca antes de volver a añadirlo.'});entry.jobId=null;}
+        if(!this.recover(entry)){entry.state='interrupted';entry.cancelRequested=false;entry.error=errorData({code:'NETWORK',message:entry.serverName?t("ui.the_file_is_still_uploaded_retry_indexing_00d8ad"):t("ui.the_upload_could_not_be_confirmed_after_restarting_check_the_libr_5f713f")});entry.jobId=null;}
       }}}
       this.emit();this.finishCheck();
-    }catch(error){if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state)))toast('Se perdió la conexión con el servidor local.');}
+    }catch(error){if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state)))toast(t("ui.the_connection_to_the_local_server_was_lost_8caf59"));}
     finally{this.polling=false;if(this.entries.some((entry)=>entry.jobId&&activeStates.has(entry.state))||this.uploads||Date.now()<(this.cancelWatchUntil||0)||(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)))this.ensurePoll();}
   }
   currentEntries(){const fresh=this.entries.filter((entry)=>!entry.batchId);if(!this.running&&fresh.length)return fresh;return this.batch?this.entries.filter((entry)=>this.batch.ids.includes(entry.uid)):this.entries;}
@@ -191,57 +192,57 @@ export class UploadQueue {
   }
   finishCheck(){
     if(!this.running)return;const entries=this.currentEntries();
-    if(entries.length&&entries.every((entry)=>terminal.has(entry.state))){this.running=false;this.batch.finished=true;this.emit();if(!this.notified.has(this.batch.id)){this.notified.add(this.batch.id);const result=this.result();this.save();if(result.successes.length||result.failures.length)this.completed(result);else toast('Cola cancelada');}}
+    if(entries.length&&entries.every((entry)=>terminal.has(entry.state))){this.running=false;this.batch.finished=true;this.emit();if(!this.notified.has(this.batch.id)){this.notified.add(this.batch.id);const result=this.result();this.save();if(result.successes.length||result.failures.length)this.completed(result);else toast(t("ui.queue_cancelled_0a7af3"));}}
   }
   save(){const entries=this.entries.map(({file,xhr,samples,...entry})=>entry);sessionStorage.setItem(STORE,JSON.stringify({entries,ignored:[...this.ignored],notified:[...this.notified],cancelledBatches:[...this.cancelledBatches],batch:this.batch,maxTotal:this.maxTotal}));}
   emit(){this.save();if(!this.frame)this.frame=requestAnimationFrame(()=>{this.frame=null;this.render();this.save();this.changed?.();});}
   render(){
     $('queue-section').hidden=!this.entries.length;
     const completed=this.entries.filter((entry)=>['indexed','unindexed'].includes(entry.state)).length;const errors=this.entries.filter((entry)=>['error','rejected','interrupted'].includes(entry.state)).length;
-    $('queue-caption').textContent=`${this.entries.length} archivos · ${completed} completados · ${errors} con error`;
+    $('queue-caption').textContent=t("ui.files_completed_failed_2602b3", {value1: (this.entries.length), value2: (completed), value3: (errors)});
     const current=this.currentEntries();const valid=current.filter((entry)=>!['rejected','cancelled'].includes(entry.state));const total=valid.reduce((sum,entry)=>sum+Math.max(1,entry.size),0);
     const percent=total?valid.reduce((sum,entry)=>sum+this.value(entry)*Math.max(1,entry.size),0)/total:0;this.maxTotal=Math.max(this.maxTotal,percent);
     $('total-percent').textContent=`${number(this.maxTotal)} %`;$('total-progress').setAttribute('aria-valuenow',String(Math.round(this.maxTotal)));
     const widths=[0,0,0];for(const entry of valid){const group=['indexed','unindexed'].includes(entry.state)?0:entry.state==='uploading'?2:1;widths[group]+=this.value(entry)*Math.max(1,entry.size)/(total||1);}const sum=widths.reduce((a,b)=>a+b,0);if(sum>=this.maxTotal-.01)this.lastSegments=widths;segments($('total-progress'),this.lastSegments||widths);
     const now=performance.now();this.samples.push({time:now,value:this.maxTotal});this.samples=this.samples.filter((sample)=>sample.time>=now-3000);
     const first=this.samples[0];const span=first?(now-first.time)/1000:0;const rate=span?(this.maxTotal-first.value)/span:0;
-    $('total-eta').textContent=this.maxTotal>=100?'Completado':span>=2&&rate>0?`Quedan ≈ ${Math.ceil((100-this.maxTotal)/rate)} s`:'Calculando…';
+    $('total-eta').textContent=this.maxTotal>=100?t("ui.completed_856641"):span>=2&&rate>0?t("ui.approximately_s_remaining_4e4750", {value1: (Math.ceil((100-this.maxTotal)/rate))}):t("ui.calculating_bef25b");
     const focused=document.activeElement?.closest('[data-queue-action]');const focusKey=focused?.dataset.queueAction;
     $('upload-queue').replaceChildren();
     for(const entry of this.entries){
       const row=node('li','queue-row');row.dataset.state=entry.state;row.dataset.uploadProgress=String(entry.upload||0);row.dataset.totalProgress=String(this.value(entry));const type=fileType(entry.name);type.classList.add('queue-file-icon');row.append(type);
-      const body=node('div','queue-body');const line=node('div','queue-line');line.append(node('span','queue-name',entry.name),node('span',`status-pill ${phaseClass(entry.state)}`,entry.cancelRequested&&activeStates.has(entry.state)?'Cancelando…':labels[entry.state]));body.append(line);
+      const body=node('div','queue-body');const line=node('div','queue-line');line.append(node('span','queue-name',entry.name),node('span',`status-pill ${phaseClass(entry.state)}`,entry.cancelRequested&&activeStates.has(entry.state)?t("ui.cancelling_c5b0af"):labels()[entry.state]));body.append(line);
       if(!['error','rejected','cancelled','interrupted'].includes(entry.state)){
-        if(['fragmenting','indexing','uploaded'].includes(entry.state)){const phases=node('div','file-phases queue-progress');phases.append(progress(100,'moss',`${entry.name}: subida`),progress(entry.state==='indexing'?100:entry.stageProgress||0,'ochre',`${entry.name}: fragmentos`),progress(entry.state==='indexing'?entry.stageProgress||0:0,'ochre',`${entry.name}: índice`));body.append(phases);}
-        else{const bar=progress(this.value(entry),entry.state==='uploading'?'clay':'',`Progreso total de ${entry.name}`);bar.classList.add('queue-progress');body.append(bar);}
+        if(['fragmenting','indexing','uploaded'].includes(entry.state)){const phases=node('div','file-phases queue-progress');phases.append(progress(100,'moss',t("ui.upload_f5fd51", {value1: (entry.name)})),progress(entry.state==='indexing'?100:entry.stageProgress||0,'ochre',t("ui.chunks_5126ab", {value1: (entry.name)})),progress(entry.state==='indexing'?entry.stageProgress||0:0,'ochre',t("ui.index_f24825", {value1: (entry.name)})));body.append(phases);}
+        else{const bar=progress(this.value(entry),entry.state==='uploading'?'clay':'',t("ui.overall_progress_of_e8c25f", {value1: (entry.name)}));bar.classList.add('queue-progress');body.append(bar);}
       }
-      let meta=`${size(entry.size)} · esperando turno (${this.entries.filter((item)=>item.state==='queued').indexOf(entry)+1}.º)`;
+      let meta=t("ui.queue_position_9b5105", {value1: (size(entry.size)), value2: (this.entries.filter((item)=>item.state==='queued').indexOf(entry)+1)});
       if(entry.state==='uploading'){
         const samples=entry.samples||[];const first=samples[0];const seconds=first?(performance.now()-first.time)/1000:0;const speed=seconds>0?((entry.loaded||0)-first.bytes)/seconds:0;
-        meta=`${size(entry.loaded||0)} de ${size(entry.size)} · subida ${number(entry.upload||0)} %${speed>0?` · ${size(speed)}/s`:''}${seconds>=2&&speed>0?` · ≈ ${Math.ceil((entry.size-(entry.loaded||0))/speed)} s`:' · Calculando…'}`;
-      }else if(entry.state==='indexed')meta=`${size(entry.size)} · ${number(entry.chunks||0)} fragmentos`;
-      else if(entry.state==='unindexed')meta=`${size(entry.size)} · subido sin indexar`;
-      else if(['fragmenting','indexing'].includes(entry.state))meta=`${size(entry.size)} · Paso ${entry.state==='fragmenting'?2:3} de 3: subida ✓ · fragmentos · índice`;
-      else if(entry.state==='uploaded')meta=`${size(entry.size)} · subida ✓ · esperando procesado`;
+        meta=t("ui.of_uploaded_48429b", {value1: (size(entry.loaded||0)), value2: (size(entry.size)), value3: (number(entry.upload||0)), value4: (speed>0?` · ${size(speed)}/s`:''), value5: (seconds>=2&&speed>0?` · ≈ ${Math.ceil((entry.size-(entry.loaded||0))/speed)} s`:t("ui.calculating_ecfa69"))});
+      }else if(entry.state==='indexed')meta=t("ui.chunks_68e953", {value1: (size(entry.size)), value2: (number(entry.chunks||0))});
+      else if(entry.state==='unindexed')meta=t("ui.uploaded_not_indexed_2520f6", {value1: (size(entry.size))});
+      else if(['fragmenting','indexing'].includes(entry.state))meta=t("ui.step_of_3_upload_chunks_index_742655", {value1: (size(entry.size)), value2: (entry.state==='fragmenting'?2:3)});
+      else if(entry.state==='uploaded')meta=t("ui.uploaded_waiting_for_processing_ec25b3", {value1: (size(entry.size))});
       else if(['error','rejected','interrupted','cancelled'].includes(entry.state))meta=size(entry.size);
       const foot=node('div','queue-meta');foot.append(node('span','',meta),node('span','mono',`${number(this.value(entry))} %`));body.append(foot);
-      if(entry.error)body.append(node('p','queue-error-text',entry.error.message));row.append(body);
+      if(entry.error)body.append(node('p','queue-error-text',serverText(entry.error.message)));row.append(body);
       const actions=node('div','queue-row-actions');const add=(control,key)=>{control.dataset.queueAction=`${entry.uid}:${key}`;actions.append(control);};
-      if(['queued','uploading','uploaded','fragmenting'].includes(entry.state)){const control=iconButton('x',`Cancelar ${entry.name}`,()=>this.cancel(entry));control.disabled=entry.cancellable===false||entry.cancelRequested;add(control,'cancel');}
-      if(entry.state==='unindexed')add(button('Indexar ahora','button secondary',()=>this.retry(entry)), 'index');
-      if(['error','interrupted'].includes(entry.state)&&entry.error?.retryable)add(button(entry.file||entry.serverName?'Reintentar':'Volver a añadir','button error-outline',()=>this.retry(entry)), 'retry');
-      if(terminal.has(entry.state))add(iconButton('x',`Quitar ${entry.name}`,()=>this.remove(entry)), 'remove');
+      if(['queued','uploading','uploaded','fragmenting'].includes(entry.state)){const control=iconButton('x',t("ui.cancel_8ce354", {value1: (entry.name)}),()=>this.cancel(entry));control.disabled=entry.cancellable===false||entry.cancelRequested;add(control,'cancel');}
+      if(entry.state==='unindexed')add(button(t("ui.index_now_81cb03"),'button secondary',()=>this.retry(entry)), 'index');
+      if(['error','interrupted'].includes(entry.state)&&entry.error?.retryable)add(button(entry.file||entry.serverName?t("ui.retry_a9254c"):t("ui.add_again_3a79a4"),'button error-outline',()=>this.retry(entry)), 'retry');
+      if(terminal.has(entry.state))add(iconButton('x',t("ui.remove_615174", {value1: (entry.name)}),()=>this.remove(entry)), 'remove');
       row.append(actions);$('upload-queue').append(row);
     }
     if(focusKey&&(!document.activeElement||document.activeElement===document.body)){const target=[...$('upload-queue').querySelectorAll('[data-queue-action]')].find((element)=>element.dataset.queueAction===focusKey);(target||$('select-files')).focus({preventScroll:true});}
     const pending=this.entries.filter((entry)=>entry.state==='queued');const fresh=this.entries.filter((entry)=>!entry.batchId&&entry.state!=='cancelled');
     $('upload-button').disabled=!this.running&&!fresh.length;$('upload-button').setAttribute('aria-busy',String(this.running));
-    $('upload-button').querySelector('span').textContent=this.running?`${this.paused?'En pausa':'Procesando'} ${current.filter((entry)=>terminal.has(entry.state)).length} de ${current.length}…`:`${$('auto-index').checked?'Subir e indexar':'Subir'} (${fresh.length})`;
-    $('pause-queue').textContent=this.paused?'Reanudar':'Pausar';$('pause-queue').disabled=!this.running;
+    $('upload-button').querySelector('span').textContent=this.running?t("ui.of_d33efc", {value1: (this.paused?t("ui.paused_c28d81"):t("ui.processing_d9ab8c")), value2: (current.filter((entry)=>terminal.has(entry.state)).length), value3: (current.length)}):`${$('auto-index').checked?t("ui.upload_and_index_aa0b2b"):t("ui.upload_b3aad4")} (${fresh.length})`;
+    $('pause-queue').textContent=this.paused?t("ui.resume_5685e1"):t("ui.pause_cd25ee");$('pause-queue').disabled=!this.running;
     const localWork=this.entries.some(entry=>['queued','uploading'].includes(entry.state));
     const serverWork=(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)&&!job.cancel_requested&&(job.status==='queued'||job.stage!=='indexing'));
-    $('cancel-pending').disabled=this.cancelling||(!localWork&&!serverWork);$('cancel-pending').textContent=this.cancelling?'Cancelando…':'Cancelar procesamiento';
+    $('cancel-pending').disabled=this.cancelling||(!localWork&&!serverWork);$('cancel-pending').textContent=this.cancelling?t("ui.cancelling_c5b0af"):t("ui.cancel_processing_141faf");
     $('clear-queue').disabled=!this.entries.some((entry)=>['indexed','cancelled'].includes(entry.state));
-    const count=this.entries.filter((entry)=>activeStates.has(entry.state)).length;$('nav-badge').classList.toggle('queued',count>0);if(count)$('nav-badge').textContent=`${count} en cola`;
+    const count=this.entries.filter((entry)=>activeStates.has(entry.state)).length;$('nav-badge').classList.toggle('queued',count>0);if(count)$('nav-badge').textContent=t("ui.queued_3af7dc", {value1: (count)});
   }
 }

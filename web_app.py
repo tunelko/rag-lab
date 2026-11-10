@@ -35,6 +35,7 @@ from library_queries import query_intent, catalog_answer, global_retrieve, token
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
+from localization import text as localized
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -51,6 +52,7 @@ class ChatMessage(BaseModel):
 
 class Query(BaseModel):
     question: str = Field(min_length=1, max_length=6000)
+    language: Literal["es", "en"] = "es"
     model: str | None = Field(default=None, max_length=300)
     k: int = Field(default=4, ge=1, le=12)
     search_only: bool = False
@@ -263,7 +265,7 @@ class RagService(JobRuntime):
         intent = query_intent(query.question)
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
-            answer, metrics = catalog_answer(self.list_documents(), intent.mode)
+            answer, metrics = catalog_answer(self.list_documents(), intent.mode, language=query.language)
             return {'answer': answer, 'sources': [], 'metrics': metrics}
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
@@ -285,9 +287,9 @@ class RagService(JobRuntime):
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
-            return {"answer": "No hay fragmentos disponibles para responder. Revisa la biblioteca.", "sources": [], "metrics": timings}
+            return {"answer": localized('answer.empty',query.language), "sources": [], "metrics": timings}
         stage_started = time.perf_counter()
-        messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars)
+        messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars, language=query.language)
         if intent.mode == 'global':
             represented = len({source['file'] for source in sources})
             if represented != scope['documents_indexed']:
@@ -295,7 +297,7 @@ class RagService(JobRuntime):
             messages[0]['content'] += (
                 f' Esta consulta global aporta evidencia de {represented} documentos distintos. '
                 'Responde para EXACTAMENTE cada documento, sin agrupar ni siquiera versiones en distintos idiomas. '
-                'Redacta también las celdas en español, traduciendo las fuentes y conservando nombres técnicos. '
+                f'Redacta también las celdas en {"inglés" if query.language == "en" else "español"}, traduciendo las fuentes y conservando nombres técnicos. '
                 'Solo indica el nombre de una entidad si aparece en esa fuente; si no, conserva el nombre del archivo. '
                 'No transfieras el nombre ni las especificaciones de un documento a otro. '
                 'Para documentos sin el dato solicitado en sus fragmentos, indícalo expresamente. '
@@ -342,8 +344,8 @@ class RagService(JobRuntime):
         timings["source_preparation_seconds"] = round(time.perf_counter() - stage_started, 6)
         self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds, **timings})
         if query.search_only:
-            return {"answer": "Fragmentos recuperados. No se ha solicitado una respuesta al modelo.", "sources": sources,
-                    "metrics": {"retrieval_seconds": retrieval_seconds, **timings, "routing_mode": "search_only", "routing_reason": "Búsqueda sin generación."}}
+            return {"answer": localized('answer.search_only',query.language), "sources": sources,
+                    "metrics": {"retrieval_seconds": retrieval_seconds, **timings, "routing_mode": "search_only", "routing_reason": localized('answer.search_only_reason',query.language)}}
         stage_started = time.perf_counter()
         available = self.ollama_status()
         if not available["connected"]:
@@ -362,7 +364,7 @@ class RagService(JobRuntime):
         self.update(job_id, phase="Generando respuesta con Ollama", model=model,
                     metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing})
 
-        structured = GlobalAnswer(sources,cpu_guard={'cpu','support'}.issubset(tokens(intent.topic))) if intent.mode == 'global' else None
+        structured = GlobalAnswer(sources,cpu_guard={'cpu','support'}.issubset(tokens(intent.topic)),language=query.language) if intent.mode == 'global' else None
         if structured:
             messages[-1]['content'] += structured.instruction()
 
@@ -395,7 +397,7 @@ class RagService(JobRuntime):
             raise ValueError("El modelo no devolvió texto visible. Prueba otro modelo o aumenta RAG_MAX_NEW_TOKENS en .env.")
         timings["generation_wall_seconds"] = round(time.perf_counter() - stage_started, 6)
         return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, **timings, "retrieval_seconds": retrieval_seconds,
-                "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0}}
+                "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0, "language": query.language}}
 
 
 def create_app(service=None):
@@ -515,7 +517,7 @@ def create_app(service=None):
         if "search_only" not in body.model_fields_set:
             body.search_only = settings.search_only
         return service.start("query", lambda job_id: service.query(job_id, body),
-                             question=body.question, search_only=body.search_only, k=body.k)
+                             question=body.question, search_only=body.search_only, k=body.k, language=body.language)
 
     @app.post("/api/admin/prepare", status_code=202)
     def prepare():

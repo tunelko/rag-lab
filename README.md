@@ -137,3 +137,7 @@ stay outside Git. Initial downloads need Internet. More: [installation](docs/INS
 [Spanish reference](docs/REFERENCE.es.md), [diagnostics](docs/DESARROLLO.md).
 The project's license is pending; third-party notices remain intact.
 Dependency advisories and local deployment boundaries: [security status](SECURITY.md).
+
+The interface supports English and Spanish, automatic browser detection and a
+persistent language selector. New answers use the selected language through local
+Ollama. See [languages](docs/INTERNATIONALIZATION.md) and the [scaling roadmap](docs/SCALING.md).

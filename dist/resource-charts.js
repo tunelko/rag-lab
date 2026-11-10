@@ -1,3 +1,4 @@
+import {t, intlLocale} from './i18n.js';
 import {node,number} from './ui.js';
 import {chartSeries} from './chart-data.js';
 
@@ -53,7 +54,7 @@ export class ResourceChart {
   maximize(){
     if(ResourceChart.dialog.open)return;
     this.hide();this.placeholder=node('div','resource-placeholder');this.placeholder.style.height=`${this.card.getBoundingClientRect().height}px`;this.placeholder.setAttribute('aria-hidden','true');this.card.before(this.placeholder);
-    document.getElementById('resource-dialog-title').textContent=`Rendimiento de ${this.label}`;
+    document.getElementById('resource-dialog-title').textContent=t("ui.performance_bae050", {value1: (this.label)});
     document.getElementById('resource-dialog-body').append(this.card);this.card.classList.add('resource-expanded');ResourceChart.expanded=this;
     document.body.classList.add('modal-open');ResourceChart.dialog.showModal();document.getElementById('resource-dialog-close').focus({preventScroll:true});
   }
@@ -61,7 +62,7 @@ export class ResourceChart {
   show(index){
     const point=this.series.values[index];this.index=index;this.cross.setAttribute('visibility','visible');
     this.cursor.setAttribute('x1',point.x);this.cursor.setAttribute('x2',point.x);this.dot.setAttribute('cx',point.x);this.dot.setAttribute('cy',point.y);
-    this.tooltip.textContent=`${this.seconds>=86400?new Date(point.epoch).toLocaleString('es-ES'):new Date(point.epoch).toLocaleTimeString('es-ES')} · ${this.label}: ${this.format(point.value)}`;
+    this.tooltip.textContent=`${this.seconds>=86400?new Date(point.epoch).toLocaleString(intlLocale()):new Date(point.epoch).toLocaleTimeString(intlLocale())} · ${this.label}: ${this.format(point.value)}`;
     const fraction=this.svg.getBoundingClientRect().width/(this.root.getBoundingClientRect().width||1);
     this.tooltip.style.left=`${Math.max(3,Math.min(60,point.x/640*fraction*100))}%`;this.tooltip.hidden=false;
   }
@@ -78,8 +79,8 @@ export class ResourceChart {
     this.axis.replaceChildren();for(const value of [max,max/2,0])this.axis.append(node('span','',max>0?this.format(value):'—'));
     const empty=document.getElementById(`chart-${this.key}-empty`);empty.hidden=this.series.values.length>0;
     for(const [id,value] of [['min',this.series.min],['mean',this.series.mean],['max',this.series.max]])document.getElementById(`chart-${this.key}-${id}`).textContent=this.format(value);
-    document.getElementById(`chart-${this.key}-range`).textContent=({60:'Hace 1 min',3600:'Hace 1 hora',86400:'Hace 1 día',604800:'Hace 1 semana'})[seconds]||`Hace ${seconds/60} min`;
-    this.root.setAttribute('aria-label',`${this.label}. ${this.series.values.length} lecturas reales. Mínimo ${this.format(this.series.min)}, media ${this.format(this.series.mean)}, máximo ${this.format(this.series.max)}. Usa las flechas para recorrer las lecturas.`);
+    document.getElementById(`chart-${this.key}-range`).textContent=({60:t("ui.1_min_ago_f882dc"),3600:t("ui.1_hour_ago_ef2ff1"),86400:t("ui.1_day_ago_ab4d95"),604800:t("ui.1_week_ago_627061")})[seconds]||`Hace ${seconds/60} min`;
+    this.root.setAttribute('aria-label',t("ui.actual_readings_minimum_mean_maximum_use_arrow_keys_to_explore_re_7dcd9c", {value1: (this.label), value2: (this.series.values.length), value3: (this.format(this.series.min)), value4: (this.format(this.series.mean)), value5: (this.format(this.series.max))}));
     if(selected!=null){const index=this.series.values.findIndex(point=>point.epoch===selected);if(index>=0)this.show(index);}
   }
 }

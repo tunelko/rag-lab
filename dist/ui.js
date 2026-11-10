@@ -1,7 +1,8 @@
+import {t, intlLocale, serverText} from './i18n.js';
 import {renderMarkdown} from './markdown.js';
 
 export const $ = (id) => document.getElementById(id);
-export const number = (value, digits = 0) => new Intl.NumberFormat('es-ES', {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
+export const number = (value, digits = 0) => new Intl.NumberFormat(intlLocale(), {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
 export const size = (value) => value < 1024 * 1024 ? `${number(value / 1024, 1)} KB` : `${number(value / 1024 / 1024, 1)} MB`;
 export const duration = (seconds) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 export const normalize = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -19,20 +20,20 @@ export function announce(message, region = 'queue-announcements') { $(region).te
 export function errorData(input = {}) {
   const code = input.code || 'UNEXPECTED';
   const catalog = {
-    FILE_TOO_LARGE: ['Supera el límite de 20 MB por archivo.', 'Divídelo o comprímelo y añádelo de nuevo.', false],
-    UNSUPPORTED_TYPE: ['Formato no compatible.', 'Conviértelo a PDF, TXT o Markdown.', false],
-    DUPLICATE: ['Ya está en la biblioteca sin cambios.', 'No hace falta volver a indexarlo.', false],
-    NO_TEXT: ['No se ha podido extraer texto: parece un PDF escaneado.', 'Actívale OCR y vuelve a procesarlo.', true],
-    OLLAMA_UNAVAILABLE: ['Ollama no responde.', 'Comprueba que Ollama está en marcha y reintenta.', true],
-    EMBEDDINGS_NOT_READY: ['El modelo de búsqueda no está preparado.', 'Pulsa «Preparar modelo de búsqueda» en Configuración.', true],
-    NETWORK: ['Se perdió la conexión con el servidor local.', 'Comprueba que la app sigue en marcha.', true],
-    INVALID_NAME: ['El nombre del archivo no es válido.', 'Renómbralo sin rutas ni caracteres reservados de Windows.', false],
-    UNEXPECTED: ['Error inesperado al procesar el archivo.', 'Consulta los detalles técnicos.', true],
+    FILE_TOO_LARGE: [t("ui.exceeds_the_20_mb_file_limit_c35db2"), t("ui.split_or_compress_it_and_add_it_again_51855e"), false],
+    UNSUPPORTED_TYPE: [t("ui.unsupported_format_8fbb1c"), t("ui.convert_it_to_pdf_txt_or_markdown_5ea27e"), false],
+    DUPLICATE: [t("ui.already_in_the_library_and_unchanged_a8ff24"), t("ui.it_does_not_need_indexing_again_c2b35b"), false],
+    NO_TEXT: [t("ui.could_not_extract_text_this_appears_to_be_a_scanned_pdf_8e3b9c"), t("ui.enable_ocr_and_process_it_again_26f25f"), true],
+    OLLAMA_UNAVAILABLE: [t("ui.ollama_is_not_responding_8d0b59"), t("ui.check_that_ollama_is_running_and_retry_d6f79a"), true],
+    EMBEDDINGS_NOT_READY: [t("ui.the_retrieval_model_is_not_ready_6ccfb4"), t("ui.click_prepare_retrieval_model_in_settings_3aa926"), true],
+    NETWORK: [t("ui.the_connection_to_the_local_server_was_lost_8caf59"), t("ui.check_that_the_application_is_still_running_de097f"), true],
+    INVALID_NAME: [t("ui.invalid_filename_ccd43a"), t("ui.rename_it_without_paths_or_windows_reserved_characters_89dba1"), false],
+    UNEXPECTED: [t("ui.unexpected_error_while_processing_the_file_a145bc"), t("ui.see_the_technical_details_b376ef"), true],
   };
   const [message, hint, retryable] = catalog[code] || catalog.UNEXPECTED;
-  return {code, message: input.message || message, hint: input.hint || hint, detail: input.detail || '', retryable: input.retryable ?? retryable};
+  return {code, message: serverText(input.message) || message, hint: serverText(input.hint) || hint, detail: input.detail || '', retryable: input.retryable ?? retryable};
 }
-export async function copyText(text, message = 'Respuesta copiada') { try { await navigator.clipboard.writeText(text); toast(message); } catch { toast('No se ha podido copiar. Selecciona el texto y usa Ctrl + C.'); } }
+export async function copyText(text, message = t("ui.answer_copied_41e1be")) { try { await navigator.clipboard.writeText(text); toast(message); } catch { toast(t("ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3")); } }
 
 export function renderText(container, text, citations = new Set(), prefix = 'src') {
   renderMarkdown(container,text,citations,prefix);
@@ -57,24 +58,24 @@ export function renderSources(sources, question, container = $('sources'), prefi
     const pdf = /\.pdf$/i.test(source.file);
     const page = Number(source.page);
     const hasPage = Number.isSafeInteger(page) && page > 0;
-    const pageLocation = hasPage ? `${pdf ? 'pág. PDF' : 'pág.'} ${page}` : (source.section ? `sección ${source.section}` : source.lines ? `líneas ${source.lines}` : 'Fragmento recuperado');
-    const pageLabel = pdf && hasPage && source.page_label && String(source.page_label) !== String(page) ? `numeración del documento: ${source.page_label}` : '';
+    const pageLocation = hasPage ? `${pdf ? t("ui.pdf_p_354326") : t("ui.p_96d288")} ${page}` : (source.section ? t("ui.section_4ab0fc", {value1: (source.section)}) : source.lines ? t("ui.lines_895473", {value1: (source.lines)}) : t("ui.retrieved_chunk_b27719"));
+    const pageLabel = pdf && hasPage && source.page_label && String(source.page_label) !== String(page) ? t("ui.document_numbering_9d763c", {value1: (source.page_label)}) : '';
     const location = [pageLocation, pageLabel, source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
     meta.append(node('span', '', location));
     const score = Math.max(0, Math.min(1, source.relevance ?? (1 - Number(source.cosine_distance || 0))));
-    const relevance = node('div', 'relevance'); relevance.title = 'Similitud de coseno recortada al intervalo 0–1; no es una probabilidad.';
-    relevance.append(progress(score * 100, score >= .85 ? 'moss' : score >= .75 ? '' : 'ochre', `Relevancia de ${source.file}`), node('span', '', number(score, 2))); meta.append(relevance);
+    const relevance = node('div', 'relevance'); relevance.title = t("ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451");
+    relevance.append(progress(score * 100, score >= .85 ? 'moss' : score >= .75 ? '' : 'ochre', t("ui.relevance_of_e74d90", {value1: (source.file)})), node('span', '', number(score, 2))); meta.append(relevance);
     const excerpt = node('p', 'source-excerpt'); highlighted(excerpt, source.text || '', question);
     card.append(top, meta, excerpt);
     for (const figure of source.figures || []) {
       if (!/^\/api\/figures\/[a-f0-9]{64}$/.test(figure.url)) continue;
       const link = node('a', 'figure-link'); link.href = figure.url; link.target = '_blank'; link.rel = 'noopener';
-      const figureLocation = `${pdf ? 'pág. PDF' : 'pág.'} ${figure.page}`;
-      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = `Vista documental de ${source.file}, ${figureLocation}`;
-      link.append(image, node('span', 'help-text', `Ver imagen · ${figureLocation}`)); card.append(link);
+      const figureLocation = `${pdf ? t("ui.pdf_p_354326") : t("ui.p_96d288")} ${figure.page}`;
+      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = t("ui.document_view_of_cb6081", {value1: (source.file), value2: (figureLocation)});
+      link.append(image, node('span', 'help-text', t("ui.view_image_82ab3f", {value1: (figureLocation)}))); card.append(link);
     }
     if (source.url && source.url.startsWith('/api/source?')) {
-      const link = node('a', 'source-link', pdf && hasPage ? `Abrir página PDF ${page}` : 'Abrir en el documento');
+      const link = node('a', 'source-link', pdf && hasPage ? t("ui.open_pdf_page_95085f", {value1: (page)}) : t("ui.open_in_document_73e4f6"));
       // Also repair page links in conversations saved by earlier UI versions.
       link.href = pdf && hasPage ? `${source.url.split('#')[0]}#page=${page}` : source.url;
       link.target = '_blank'; link.rel = 'noopener'; link.append(icon('external')); card.append(link);
@@ -98,31 +99,31 @@ export function showResult(result, opener = document.activeElement) {
   const failed = failures.length > 0;
   dialog.dataset.variant = failed ? 'error' : 'success'; dialog.setAttribute('role', failed ? 'alertdialog' : 'dialog');
   $('dialog-icon').replaceChildren(icon(failed ? 'alert' : 'check'));
-  const title = failed ? (result.kind === 'prepare' ? 'No se ha podido preparar el modelo' : `${failures.length} documento${failures.length === 1 ? ' no se ha indexado' : 's no se han indexado'}`) : result.kind === 'prepare' ? 'Modelo de búsqueda listo' : result.kind === 'index' ? 'Índice actualizado' : result.unindexed ? 'Subida completada' : 'Indexación completada';
+  const title = failed ? (result.kind === 'prepare' ? t("ui.could_not_prepare_the_model_e1daf6") : t(failures.length === 1 ? 'dialog.failed_one' : 'dialog.failed_other', {count: failures.length})) : result.kind === 'prepare' ? t("ui.retrieval_model_ready_26e48b") : result.kind === 'index' ? t("ui.index_updated_7684ca") : result.unindexed ? t("ui.upload_complete_410ab1") : t("ui.indexing_complete_bc36d9");
   $('dialog-title').textContent = title;
-  $('dialog-description').textContent = failed ? (successes.length ? `El resto del lote (${successes.length} documentos) está en tu biblioteca. Revisa estos y vuelve a intentarlo.` : 'No se ha añadido ningún documento de este lote.') : result.kind === 'prepare' ? 'Los embeddings están descargados y cargados en CPU.' : result.kind === 'index' ? `${result.summary?.indexed_files || 0} documentos actualizados · ${result.summary?.skipped_files || 0} sin cambios omitidos.` : result.unindexed ? `${successes.length} documentos se han subido. Puedes indexarlos cuando quieras.` : `${successes.length} documentos nuevos ya forman parte de tu biblioteca. Puedes consultarlos desde ahora.`;
+  $('dialog-description').textContent = failed ? (successes.length ? t("ui.the_rest_of_the_batch_documents_is_in_your_library_review_these_f_46910a", {value1: (successes.length)}) : t("ui.no_documents_from_this_batch_were_added_7a3c2e")) : result.kind === 'prepare' ? t("ui.the_embeddings_have_been_downloaded_and_loaded_on_the_cpu_0b89ac") : result.kind === 'index' ? t("ui.documents_updated_unchanged_files_skipped_7d3c83", {value1: (result.summary?.indexed_files || 0), value2: (result.summary?.skipped_files || 0)}) : result.unindexed ? t("ui.documents_uploaded_you_can_index_them_at_any_time_b76544", {value1: (successes.length)}) : t("ui.new_documents_are_now_in_your_library_you_can_query_them_immediat_45830e", {value1: (successes.length)});
   $('dialog-stats').replaceChildren(); $('dialog-stats').hidden = failed || result.kind === 'prepare';
-  if (!failed && result.kind !== 'prepare') for (const [value, label] of [[result.kind === 'index' ? result.summary?.indexed_files || 0 : successes.length, 'documentos'], [successes.reduce((sum, item) => sum + (item.skipped ? 0 : item.chunks || 0), 0), 'fragmentos nuevos'], [duration(result.duration || 0), 'min de proceso']]) { const stat = node('div', 'dialog-stat'); stat.append(node('strong', '', typeof value === 'number' ? number(value) : value), node('span', '', label)); $('dialog-stats').append(stat); }
+  if (!failed && result.kind !== 'prepare') for (const [value, label] of [[result.kind === 'index' ? result.summary?.indexed_files || 0 : successes.length, t("ui.documents_df9fb2")], [successes.reduce((sum, item) => sum + (item.skipped ? 0 : item.chunks || 0), 0), t("ui.new_chunks_ded5f6")], [duration(result.duration || 0), t("ui.processing_min_d0452c")]]) { const stat = node('div', 'dialog-stat'); stat.append(node('strong', '', typeof value === 'number' ? number(value) : value), node('span', '', label)); $('dialog-stats').append(stat); }
   $('dialog-list').replaceChildren();
   if (failed) {
     for (const item of failures) {
       const card = node('article', 'dialog-error-card'); card.append(node('strong', '', item.name), node('p', 'error-reason', item.error.message), node('p', 'error-hint', item.error.hint));
-      if (item.retry && item.error.retryable && item.error.code !== 'NO_TEXT') card.append(button('Reintentar', 'button error-outline', () => { dialog.close(); item.retry(); }));
-      else if (item.remove) card.append(button('Quitar', 'button secondary', () => { dialog.close(); item.remove(); }));
+      if (item.retry && item.error.retryable && item.error.code !== 'NO_TEXT') card.append(button(t("ui.retry_a9254c"), 'button error-outline', () => { dialog.close(); item.retry(); }));
+      else if (item.remove) card.append(button(t("ui.remove_f039f4"), 'button secondary', () => { dialog.close(); item.remove(); }));
       $('dialog-list').append(card);
     }
   } else {
     for (const item of successes.slice(0, 5)) { const row = node('div', 'dialog-document'); row.append(node('span', '', `✓  ${item.name}`), node('span', 'mono', number(item.chunks || 0))); $('dialog-list').append(row); }
-    if (successes.length > 5) $('dialog-list').append(node('p', 'help-text', `y ${successes.length - 5} más`));
+    if (successes.length > 5) $('dialog-list').append(node('p', 'help-text', t("ui.and_more_704e3a", {value1: (successes.length - 5)})));
   }
   $('dialog-technical').hidden = !failed; $('dialog-technical').open = false;
   const details = failures.map((item) => `${item.name}\n${item.error.code}: ${item.error.detail || item.error.message}`).join('\n\n');
   $('dialog-technical').querySelector('pre').textContent = details;
-  $('copy-details').onclick = async () => { try { await navigator.clipboard.writeText(details); toast('Detalles copiados'); } catch { toast('Selecciona los detalles y usa Ctrl + C.'); } };
+  $('copy-details').onclick = async () => { try { await navigator.clipboard.writeText(details); toast(t("ui.details_copied_ab487a")); } catch { toast(t("ui.select_the_details_and_use_ctrl_c_31bdce")); } };
   $('dialog-actions').replaceChildren();
-  const close = button(failed ? 'Cerrar' : 'Seguir añadiendo', 'button secondary', () => dialog.close()); $('dialog-actions').append(close);
+  const close = button(failed ? t("ui.close_aeccae") : t("ui.add_more_1fe414"), 'button secondary', () => dialog.close()); $('dialog-actions').append(close);
   let primary;
-  if (failed) { const retryable = failures.filter((item) => item.retry && item.error.retryable); if (retryable.length) { primary = button('Reintentar los fallidos', 'button danger', () => { dialog.close(); if (result.retryAll) result.retryAll(); else retryable.forEach((item) => item.retry()); }); $('dialog-actions').append(primary); } }
-  else { primary = button('Hacer una consulta', 'button primary', () => { dialog.close(); window.dispatchEvent(new CustomEvent('rag:navigate', {detail: '/'})); }); primary.append(icon('arrow')); $('dialog-actions').append(primary); }
+  if (failed) { const retryable = failures.filter((item) => item.retry && item.error.retryable); if (retryable.length) { primary = button(t("ui.retry_failed_files_62b137"), 'button danger', () => { dialog.close(); if (result.retryAll) result.retryAll(); else retryable.forEach((item) => item.retry()); }); $('dialog-actions').append(primary); } }
+  else { primary = button(t("ui.ask_a_question_c3cefd"), 'button primary', () => { dialog.close(); window.dispatchEvent(new CustomEvent('rag:navigate', {detail: '/'})); }); primary.append(icon('arrow')); $('dialog-actions').append(primary); }
   document.body.classList.add('modal-open'); dialog.showModal(); (failed ? close : primary || close).focus({preventScroll: true});
 }
