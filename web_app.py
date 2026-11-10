@@ -29,6 +29,7 @@ from settings_store import SettingsStore, Preferences
 import multimodal
 from model_routing import select_model
 from server_console import ConsoleBuffer, ConsoleCapture
+from hardware_monitor import HardwareMonitor
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -65,6 +66,7 @@ class RagService(JobRuntime):
         self.visual_root = self.config.db.parent / "visual"
         self.capabilities_cache = {}
         self.console = ConsoleBuffer()
+        self.hardware = HardwareMonitor()
         super().__init__()
 
     def get_embeddings(self, download=False):
@@ -367,6 +369,10 @@ def create_app(service=None):
     @app.get("/api/console")
     def console(after: int = QueryParameter(default=0, ge=0), limit: int = QueryParameter(default=200, ge=1, le=500)):
         return service.console.snapshot(after, limit)
+
+    @app.get("/api/telemetry")
+    def telemetry():
+        return service.hardware.sample()
 
     @app.get("/api/settings")
     def settings():

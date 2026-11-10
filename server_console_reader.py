@@ -14,6 +14,7 @@ import urllib.request
 
 import psutil
 from server_console import ConsoleBuffer, LineClassifier
+from hardware_monitor import HardwareMonitor
 
 ROOT = Path(__file__).resolve().parent
 
@@ -57,6 +58,7 @@ def main():
     if not processes:
         return
     buffer = ConsoleBuffer()
+    hardware = HardwareMonitor()
     buffer.append("Lectura del registro del servidor actual conectada.", "server")
     files = [(ROOT / "reports" / "rag-server-runtime.log", "stdout"),
              (ROOT / "reports" / "rag-server-runtime-errors.log", "stderr")]
@@ -101,7 +103,9 @@ def main():
             except (OSError, ValueError):
                 pass
             pending = output.with_suffix(".pending")
-            pending.write_text(json.dumps(buffer.snapshot(limit=1000), ensure_ascii=False), encoding="utf-8")
+            snapshot = buffer.snapshot(limit=1000)
+            snapshot["telemetry"] = hardware.sample()
+            pending.write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
             try:
                 pending.replace(output)
             except PermissionError:
