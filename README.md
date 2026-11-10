@@ -1,16 +1,50 @@
-# Laboratorio RAG local para Windows y RTX 3080
+# RAG Local · Windows y Linux
 
-Entorno instalado en `D:\problemas_gpu\rag-lab`, aislado del Python global y de OMP.
-Python 3.13 x64, PyTorch 2.14.1 con CUDA 13.0, Transformers 5.22.2,
-bitsandbytes 0.50.2, Accelerate 1.15.0, LangChain 1.4.9 y ChromaDB 1.5.9.
-Las dependencias directas están fijadas; `requirements-lock.txt` registra todo el entorno.
+Consulta documental local con chat, fuentes verificables, PDF/figuras, ChromaDB,
+embeddings CPU y generación con Ollama. Incluye un asistente de terminal inspirado
+en OMP: paneles divididos, navegación con teclado, selección de modelos, revisión
+de cambios y registro de instalación. No necesita OMP ni Node.
+
+## Empezar con el asistente
+
+Requiere Python **3.13 x64**, Windows o Linux x86_64 y Ollama para generar respuestas.
+Abre una terminal en la carpeta del proyecto:
+
+```powershell
+# Windows
+.\Configurar.ps1
+```
+
+```bash
+# Linux
+bash configurar.sh
+```
+
+Elige el perfil, instala las dependencias cuando corresponda, selecciona modelos
+locales y revisa los ajustes antes de guardarlos. No descarga ni ejecuta LLMs.
+El asistente usa un entorno separado en `.cache/wizard-venv`; el RAG usa `.venv`.
+El perfil recomendado deja embeddings en CPU y la generación GPU a Ollama; el
+perfil avanzado añade PyTorch CUDA y bitsandbytes. Conserva la instalación existente.
+
+Después puedes arrancar con `.\Configurar.ps1 -Start` o `bash configurar.sh --start`.
+Para comprobar el equipo sin modificar archivos ni instalar paquetes usa
+`.\Configurar.ps1 -Check` o `bash configurar.sh --check`.
+
+La [guía paso a paso](docs/INSTALACION.md) explica cada pantalla y los requisitos.
+[Preparación del repositorio](docs/REPOSITORIO.md) describe las exclusiones y la
+futura publicación. Documentos, modelos, índices y configuración privada no se
+incluyen en Git. El repositorio permanece local hasta elegir un remoto.
+
+La instalación de desarrollo original usa Python 3.13 x64, PyTorch 2.14.1 CUDA 13.0,
+Transformers 5.22.2 y ChromaDB 1.5.9. Las dependencias directas están fijadas;
+`requirements-lock.txt` conserva la instantánea histórica completa de Windows.
 
 ## Interfaz local: Chat, Biblioteca, Configuración y Estadísticas
 
 Desde PowerShell, sin activar el entorno:
 
 ```powershell
-& 'D:\problemas_gpu\rag-lab\Start-Web.ps1'
+.\Start-Web.ps1
 ```
 
 Mantén esa consola abierta. Ctrl+C cierra el servidor. Si el puerto está ocupado,
@@ -74,10 +108,9 @@ no ejecuta inferencias ni modifica documentos, índices o preferencias.
 4. En Chat, escribe la pregunta y pulsa **Enviar** o Ctrl+Enter.
 
 El arranque y el guardado de ajustes no ejecutan inferencias ni descargan modelos.
-En este equipo está activada la selección automática: BlackICE para texto y
-`qwen3.5:9b-q4_K_M` para imágenes/indexación visual. La decisión usa la pregunta
-y la evidencia recuperada. La instalación/capacidad de los modelos se ha comprobado
-sin ejecutar inferencias reales. Puedes cambiar los candidatos en Configuración.
+Elige tus modelos instalados en el asistente o en Configuración. La selección
+automática usa la pregunta y la evidencia recuperada para decidir entre el modelo
+de texto y el visual. Comprobar capacidades no ejecuta inferencias.
 **Preparar modelo de búsqueda**, en Configuración, adelanta la descarga de embeddings CPU.
 No se instala MinerU completo ni se descarga ningún LLM automáticamente.
 
@@ -185,10 +218,14 @@ siguen disponibles en Fuentes. Así se evita cargar recursos remotos al leer una
 
 ## Entrar al entorno
 
+Los comandos de `verify_env.py` de esta sección corresponden al perfil avanzado
+CUDA/HF. Para el perfil Ollama/CPU usa el diagnóstico del asistente (`-Check` /
+`--check`) y `.venv` → `python -m pip check`; bitsandbytes no forma parte de ese perfil.
+
 Desde PowerShell:
 
 ```powershell
-Set-Location 'D:\problemas_gpu\rag-lab'
+# Desde la carpeta donde hayas clonado o descomprimido el proyecto:
 . .\Enter-Lab.ps1
 python verify_env.py
 ```
@@ -278,8 +315,8 @@ El modelo de embeddings debe estar ya descargado en la caché.
 ### 3. Generación con Ollama
 
 Esta fase sí envía una solicitud de inferencia a Ollama y usa la GPU según su configuración.
-El CLI apunta al BlackICE configurado en `.env`. Cámbialo allí si prefieres otro
-modelo instalado. La selección automática según la pregunta se aplica a la web;
+El CLI apunta al modelo configurado en `.env`. El asistente guarda el nombre del
+modelo instalado que elijas. La selección automática según la pregunta se aplica a la web;
 este comando CLI conserva su modelo fijo y no descarga otro automáticamente.
 
 ```powershell

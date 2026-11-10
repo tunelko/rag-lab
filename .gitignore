@@ -1,6 +1,8 @@
 .venv/
 .cache/
 .env
+.env.*
+!.env.example
 data/documents/*
 !data/documents/.gitkeep
 data/chroma/
@@ -12,5 +14,23 @@ install-*.json
 data/settings.json
 data/settings.pending
 data/visual/
+
+# Documents, models, indexes and backups are private runtime data.
+/data/*
+!/data/documents/
+/data/documents/*
+!/data/documents/.gitkeep
+*.gguf
+*.safetensors
+*.log
+*.pending
+
+# Source material copied locally at the project root, outside the application.
+/[0-9]*/
+/MSIMotherboard*/
+/manuals-plus-*/
+/mb_manual*/
+/xbox-360-motherboard-developments/
+/lista.txt
 dist/runtime-console.json
 dist/runtime-console.pending
