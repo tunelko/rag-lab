@@ -126,7 +126,9 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_install_does_not_touch_running_servers(self):
         state = {**fake_probe(self.root, self.plan), 'servers': [{'port': 8765, 'active_jobs': 0}]}
-        with patch.object(setup, 'probe', return_value=state), patch.object(setup.subprocess, 'Popen') as execute:
+        # platform.machine() may spawn Windows `ver` when its cache is cold;
+        # this assertion concerns installer commands, not host identification.
+        with patch.object(setup, 'probe', return_value=state), patch.object(setup.platform, 'machine', return_value='x86_64'), patch.object(setup.subprocess, 'Popen') as execute:
             with self.assertRaisesRegex(ValueError, 'RAG está abierto'):
                 setup.install_environment(self.root, self.plan)
         execute.assert_not_called()

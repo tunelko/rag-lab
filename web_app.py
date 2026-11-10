@@ -31,6 +31,7 @@ from model_routing import select_model
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
+from library_queries import query_intent, catalog_answer, global_retrieve
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -242,6 +243,11 @@ class RagService(JobRuntime):
 
     def query(self, job_id, query):
         started = time.perf_counter()
+        intent = query_intent(query.question)
+        if intent.mode.startswith('catalog_'):
+            self.update(job_id, phase='Consultando el registro real de la biblioteca')
+            answer, metrics = catalog_answer(self.list_documents(), intent.mode)
+            return {'answer': answer, 'sources': [], 'metrics': metrics}
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
         self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
@@ -252,14 +258,34 @@ class RagService(JobRuntime):
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6)}
         stage_started = time.perf_counter()
-        hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k)
+        if intent.mode == 'global':
+            hits, scope = global_retrieve(self.config, self.list_documents(), embeddings, query.question,
+                cancelled=lambda: self.cancelled(job_id),
+                observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
+        else:
+            hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k)
+            scope = {'retrieval_mode': 'focused'}
+        timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
             return {"answer": "No hay fragmentos disponibles para responder. Revisa la biblioteca.", "sources": [], "metrics": timings}
         stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars)
+        if intent.mode == 'global':
+            represented = len({source['file'] for source in sources})
+            if represented != scope['documents_indexed']:
+                raise ValueError('El contexto no incluye todos los documentos. Se ha detenido la respuesta global para evitar omisiones.')
+            messages[0]['content'] += (
+                f' Esta consulta global aporta evidencia de {represented} documentos distintos. '
+                'Escribe una tabla con EXACTAMENTE una fila por documento, identificada por su nombre de archivo '
+                'y su cita. No agrupes documentos, ni siquiera versiones en distintos idiomas. '
+                'Solo indica el nombre de una entidad si aparece en esa fuente; si no, conserva el nombre del archivo. '
+                'No transfieras el nombre ni las especificaciones de un documento a otro. '
+                'Para documentos sin el dato solicitado en sus fragmentos, indícalo expresamente. '
+                'Conserva el nivel de detalle de las fuentes: no inventes modelos concretos a partir de familias o generaciones. '
+                'Las fuentes actuales prevalecen sobre respuestas anteriores.')
         # Previous dialogue helps follow-up questions without replacing retrieved evidence.
-        if query.history:
+        if query.history and intent.mode != 'global':
             history, remaining = [], 6000
             for message in reversed(query.history):
                 if remaining <= 0:
@@ -322,7 +348,11 @@ class RagService(JobRuntime):
 
         stage_started = time.perf_counter()
         try:
-            answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id))
+            generation_options = {
+                'context_length': int(os.getenv('RAG_OLLAMA_GLOBAL_CONTEXT', '8192')),
+                'max_output_tokens': int(os.getenv('RAG_GLOBAL_MAX_NEW_TOKENS', '1536')),
+            } if intent.mode == 'global' else {}
+            answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id), **generation_options)
         except InterruptedError:
             raise
         except OSError as exc:
@@ -437,7 +467,7 @@ def create_app(service=None):
     def query(body: Query):
         if not body.question.strip():
             raise HTTPException(422, "Escribe una pregunta.")
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists():
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
         if "k" not in body.model_fields_set:

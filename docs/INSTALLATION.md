@@ -164,8 +164,8 @@ Changes to `.env` require a server restart.
 ### How requirements files work
 
 `requirements/ollama.txt` is a **pip requirements file**. Its line
-`-r requirements/web.txt` includes the shared FastAPI, upload and Uvicorn dependencies
-from the adjacent file. The remaining lines list the RAG dependencies.
+`-r base.txt` includes the shared RAG dependencies from the adjacent file. That
+file includes `-r web.txt` for FastAPI, upload and Uvicorn dependencies.
 
 The wizard installs the selected PyTorch build **first**, then processes the
 requirements files with pip and runs `pip check`. It handles this order for you.
@@ -189,6 +189,27 @@ bash configurar.sh --start
 Open **http://127.0.0.1:8765** in your browser, or the port chosen in the wizard.
 Keep the server terminal open. **Ctrl+C** stops the server; closing the browser does
 not stop it. If the server is already running, the launcher prints its address.
+
+For background operation, use the lifecycle launcher instead:
+
+```powershell
+.\Start-Web.ps1 start
+.\Start-Web.ps1 status
+.\Start-Web.ps1 restart
+.\Start-Web.ps1 stop
+```
+
+Linux equivalents are `bash web.sh start`, `bash web.sh status`,
+`bash web.sh restart` and `bash web.sh stop`. With no action, both scripts start
+the server. They read `RAG_WEB_PORT` from `.env` (default 8765); override it with
+`-Port 8766` on PowerShell or `--port 8766` on Linux.
+
+The background server survives closing the terminal. Output is appended to
+`reports/rag-server-runtime.log` and `reports/rag-server-runtime-errors.log`;
+the web Console also shows the running server's output. Repeated start does not
+create another instance. Stop/restart refuse to interrupt active RAG jobs: cancel
+them in Library/Chat or wait until they finish. These commands manage only this
+project's web process and preserve documents, indexes and Ollama.
 
 ## 7. Index your first document and ask a question
 

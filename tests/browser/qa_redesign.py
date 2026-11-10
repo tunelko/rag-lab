@@ -80,7 +80,7 @@ def fixture_server(port):
 
     attempted_errors = set()
 
-    def fake_generate(messages, model, on_chunk=None, cancelled=None):
+    def fake_generate(messages, model, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None):
         question = messages[-1]["content"]
         if "__QA_ERROR__" in question and "error" not in attempted_errors:
             attempted_errors.add("error")
@@ -483,6 +483,25 @@ def run_browser(url):
         assert text_metrics["model"] == "qa-local:latest", text_metrics
         assert text_metrics["images_used"] == 0
         check("Image upload, collapsed thumbnails and automatic vision/text selection with visible routing reasons using fake models")
+
+        indexed_count = sum(document['indexed'] for document in page.request.get(url + '/api/status').json()['documents'])
+        previous_turns = page.locator('.chat-turn').count()
+        page.locator('#question').fill('¿Cuántos documentos hay indexados?')
+        page.locator('#ask-button').click()
+        expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')
+        expect(page.locator('.chat-turn .answer').last).to_contain_text(f'{indexed_count} documentos indexados')
+        inventory = page.request.get(url + '/api/statistics').json()['recent'][0]['metrics']
+        assert inventory['backend'] == 'catalog', inventory
+        previous_turns = page.locator('.chat-turn').count()
+        page.locator('#question').fill('De todos los documentos indexados, enumera las CPU soportadas por cada placa.')
+        page.locator('#ask-button').click()
+        expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')
+        coverage = page.request.get(url + '/api/statistics').json()['recent'][0]['metrics']
+        assert coverage['documents_retrieved'] == indexed_count, coverage
+        assert coverage['coverage_complete'], coverage
+        check('Exact library inventory and global retrieval cover every indexed fixture, independent of top K')
 
         page.locator("#nav-console").click()
         expect(page.locator("#console-output")).to_contain_text("chunks")

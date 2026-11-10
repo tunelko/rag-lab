@@ -182,6 +182,26 @@ bash configurar.sh --start
 El servidor ocupa esa consola; **Ctrl+C** lo cierra. Si ya está abierto en ese
 puerto, se muestra la URL sin detenerlo ni lanzar otra instancia.
 
+Para ejecutarlo en segundo plano y controlar su ciclo de vida:
+
+```powershell
+.\Start-Web.ps1 start
+.\Start-Web.ps1 status
+.\Start-Web.ps1 restart
+.\Start-Web.ps1 stop
+```
+
+En Linux: `bash web.sh start`, `bash web.sh status`, `bash web.sh restart` y
+`bash web.sh stop`. Sin acción, ambos scripts arrancan el servidor. Leen el puerto
+de `RAG_WEB_PORT` en `.env` (8765 por defecto); puedes indicar `-Port 8766` en
+PowerShell o `--port 8766` en Linux.
+
+El servidor en segundo plano sigue abierto al cerrar la consola. Su salida se
+añade a `reports/rag-server-runtime.log` y `reports/rag-server-runtime-errors.log`;
+también puedes verla en la sección Consola de la web. Start evita duplicados.
+Stop/restart pide terminar o cancelar primero las tareas activas. Solo gestiona
+el servidor web de este proyecto y conserva documentos, índices y Ollama.
+
 Abre `http://127.0.0.1:8765` o el puerto elegido. En Configuración, prepara el
 modelo de búsqueda; la primera vez se descarga a `.cache`. Después añade un TXT
 pequeño desde Biblioteca y comprueba una pregunta con respuesta conocida. Activa

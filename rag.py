@@ -227,10 +227,18 @@ def build_messages(question: str, hits, max_chars: int):
     return [{"role": "system", "content": system}, {"role": "user", "content": user}], sources
 
 
-def generate_ollama(messages, model: str, on_chunk=None, cancelled=None):
+def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None):
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
     options = {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}
-    if any(message.get("images") for message in messages):
+    if max_output_tokens is not None:
+        if not 1 <= max_output_tokens <= 4096:
+            raise ValueError('El límite de salida debe estar entre 1 y 4096 tokens.')
+        options['num_predict'] = max_output_tokens
+    if context_length is not None:
+        if not 1024 <= context_length <= 32768:
+            raise ValueError('La ventana de contexto debe estar entre 1024 y 32768 tokens.')
+        options['num_ctx'] = context_length
+    if context_length is None and any(message.get("images") for message in messages):
         options["num_ctx"] = int(os.getenv("RAG_OLLAMA_VISION_CONTEXT", "8192"))
     body = json.dumps({"model": model, "messages": messages, "stream": on_chunk is not None,
                        "think": False,

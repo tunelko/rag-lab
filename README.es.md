@@ -58,6 +58,21 @@ conserva los datos y crea copias de configuración. Mantén abierta la consola d
 servidor; **Ctrl+C** lo cierra. Para volver a arrancar: `Configurar.ps1 -Start` en
 Windows o `bash configurar.sh --start` en Linux. [Guía detallada](docs/INSTALACION.md).
 
+Para controlar el servidor en segundo plano, desde el directorio del proyecto:
+
+```powershell
+.\Start-Web.ps1 start
+.\Start-Web.ps1 status
+.\Start-Web.ps1 restart
+.\Start-Web.ps1 stop
+```
+
+En Linux: `bash web.sh start|status|restart|stop` (elige una acción).
+Usa el puerto de `.env`; puedes cambiarlo con `-Port 8766` en Windows o
+`--port 8766` en Linux. Registros en `reports/rag-server-runtime*.log`.
+Si hay tareas activas, stop/restart pide terminarlas o cancelarlas primero.
+Estos comandos gestionan solo el servidor RAG y conservan los documentos.
+
 ## Primera consulta
 
 En **Configuración**, pulsa **Preparar modelo de búsqueda** para descargar los
@@ -79,6 +94,10 @@ Admite PDF, TXT, Markdown, PNG/JPEG/WebP y exportaciones MinerU compatibles. Las
 descripciones se reutilizan desde caché. La ingesta visual puede tardar segundos
 por página. La cola es secuencial: las preguntas esperan durante la indexación.
 Contrasta los detalles delicados con los originales.
+
+Los recuentos y listados consultan el registro real del índice. Las preguntas sobre
+todos los documentos recuperan evidencia de cada archivo con un presupuesto de
+contexto compartido; 2/4/6/8 fragmentos se aplica a consultas concretas. [Detalles](docs/RETRIEVAL.md).
 
 ## Organización y entornos
 

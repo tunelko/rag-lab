@@ -11,7 +11,7 @@ Windows/Linux con Python 3.13 y Node 24:
 3. Ejecuta `python -m unittest discover -v`: persistencia Chroma real, vectores
    deterministas, modelos/sensores falsos, configuración y navegación del wizard.
 4. Ejecuta los tests de gráficas y comprueba sintaxis JS y Bash.
-5. En Linux instala Edge y ejecuta `tests/browser/qa_redesign.py` con un servidor y corpus propios.
+5. En Linux instala Edge y ejecuta `python -m tests.browser.qa_redesign`; usa un servidor y corpus de prueba propios.
 6. Conserva registros/capturas como artefactos durante siete días, incluso si falla.
 
 No hay LLMs ni embeddings reales en las pruebas. CUDA queda oculta y el Hub HF en

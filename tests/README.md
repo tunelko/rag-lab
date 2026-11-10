@@ -13,7 +13,10 @@ Run from the project root in an environment installed with
 Browser tests require Edge: `python -m playwright install msedge`.
 Linux can add `--with-deps` to install browser system libraries.
 
-Unit tests use fake vectors/models/sensors and temporary files. Browser acceptance
+Unit tests use fake vectors/models/sensors and temporary files.
+Lifecycle tests start real Uvicorn workers with a temporary fixture app and verify
+restart, graceful stop, busy-job refusal and preservation of unrelated listeners.
+They do not load the RAG application or call models. Browser acceptance
 starts and closes its own server/corpus (port 8767, configurable with `--port`) and
 never calls Ollama. Reports go to ignored `reports/`. Test metrics are fixtures,
 not GPU benchmarks.

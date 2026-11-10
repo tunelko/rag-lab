@@ -58,6 +58,20 @@ preserves existing data and creates configuration backups. Keep the server termi
 open; **Ctrl+C** stops it. To start later: `Configurar.ps1 -Start` on Windows or
 `bash configurar.sh --start` on Linux. [Detailed instructions](docs/INSTALLATION.md).
 
+To manage the server in the background, use the project directory:
+
+```powershell
+.\Start-Web.ps1 start
+.\Start-Web.ps1 status
+.\Start-Web.ps1 restart
+.\Start-Web.ps1 stop
+```
+
+On Linux: `bash web.sh start|status|restart|stop` (choose one action).
+The port comes from `.env`; override with `-Port 8766` on Windows or `--port 8766`
+on Linux. Logs are in `reports/rag-server-runtime*.log`. Stop/restart refuse active
+jobs; cancel or finish them first. These commands leave Ollama and documents alone.
+
 ## First query
 
 In **Configuración**, click **Preparar modelo de búsqueda** to download the CPU
@@ -78,6 +92,10 @@ verify the original source. Start with a short PDF before indexing large batches
 Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descriptions
 are cached. Visual indexing can take seconds per page. Jobs share a sequential
 queue; questions wait during indexing. Check original sources for critical details.
+
+Library counts/listings read the actual index register. Questions explicitly about
+all documents retrieve evidence from every indexed file with a shared context budget;
+the 2/4/6/8 fragment setting applies to focused questions. [Retrieval details](docs/RETRIEVAL.md).
 
 ## Layout and environments
 

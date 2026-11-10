@@ -58,6 +58,7 @@ jobs:
           node --test tests/frontend/*.test.mjs
           for module in dist/*.js; do node --check "$module"; done
           bash -n configurar.sh
+          bash -n web.sh
       - name: Install Edge for browser QA
         if: runner.os == 'Linux'
         run: python -m playwright install --with-deps msedge

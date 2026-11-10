@@ -39,6 +39,16 @@ class OllamaStreamTests(unittest.TestCase):
         self.assertEqual(answer, "Respuesta")
         self.assertEqual(metrics["generation_tok_s"], 6)
 
+    def test_global_generation_has_an_independent_output_and_context_budget(self):
+        body = b'{"message":{"content":"Tabla"},"eval_count":1}'
+        with patch('rag.urllib.request.urlopen', return_value=io.BytesIO(body)) as request:
+            rag.generate_ollama([], 'test', context_length=8192, max_output_tokens=1536)
+        options = json.loads(request.call_args.args[0].data)['options']
+        self.assertEqual(options['num_ctx'], 8192)
+        self.assertEqual(options['num_predict'], 1536)
+        with self.assertRaises(ValueError):
+            rag.generate_ollama([], 'test', max_output_tokens=100000)
+
     def test_truncated_stream_is_not_reported_as_complete(self):
         with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
             with self.assertRaises(RuntimeError):
