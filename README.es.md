@@ -138,3 +138,4 @@ El servidor escucha en loopback. Documentos, modelos, índices y ajustes privado
 quedan fuera de Git. Las descargas iniciales necesitan Internet. Más:
 [instalación](docs/INSTALACION.md), [referencia completa](docs/REFERENCE.es.md),
 [diagnóstico](docs/DESARROLLO.md). Licencia propia pendiente; se conservan las de terceros.
+Avisos de dependencias y límites del despliegue local: [estado de seguridad](SECURITY.md).

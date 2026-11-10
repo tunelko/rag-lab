@@ -21,6 +21,32 @@ import rag
 
 
 class RagSmokeTests(unittest.TestCase):
+    def test_store_stays_embedded_despite_remote_chroma_environment(self):
+        from chromadb.errors import AuthorizationError
+
+        sandbox_root = rag.ROOT / "data" / "test-chroma"
+        sandbox_root.mkdir(parents=True, exist_ok=True)
+        case_root = Path(tempfile.mkdtemp(prefix="embedded-", dir=sandbox_root))
+        config = rag.Config(db=case_root / "database", collection="embedded_test")
+        environment = {
+            "CHROMA_API_IMPL": "chromadb.api.fastapi.FastAPI",
+            "CHROMA_SERVER_HOST": "127.0.0.1",
+            "CHROMA_SERVER_HTTP_PORT": "9",
+            "ALLOW_RESET": "true",
+        }
+        with patch.dict(os.environ, environment):
+            store = rag.open_store(config, DeterministicFakeEmbedding(size=32))
+            store.add_documents([Document(page_content="Local evidence")], ids=["local"])
+            self.assertEqual(store.get()["ids"], ["local"])
+            settings = store._client.get_settings()
+            self.assertEqual(settings.chroma_api_impl, "chromadb.api.rust.RustBindingsAPI")
+            self.assertIsNone(settings.chroma_server_host)
+            self.assertIsNone(settings.chroma_server_http_port)
+            self.assertFalse(settings.allow_reset)
+            with self.assertRaises(AuthorizationError):
+                store._client.reset()
+            self.assertEqual(store.get()["ids"], ["local"])
+
     def test_ingest_persist_deduplicate_update_and_retrieve(self):
         # Chroma holds open file handles on Windows; retain this tiny isolated test DB.
         sandbox_root = rag.ROOT / "data" / "test-chroma"

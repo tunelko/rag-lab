@@ -136,3 +136,4 @@ The server listens on loopback. Documents, models, indexes and private settings
 stay outside Git. Initial downloads need Internet. More: [installation](docs/INSTALLATION.md),
 [Spanish reference](docs/REFERENCE.es.md), [diagnostics](docs/DESARROLLO.md).
 The project's license is pending; third-party notices remain intact.
+Dependency advisories and local deployment boundaries: [security status](SECURITY.md).

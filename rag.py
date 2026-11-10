@@ -75,7 +75,12 @@ def open_store(config: Config, embeddings):
         embedding_function=embeddings,
         persist_directory=str(config.db),
         collection_metadata={"hnsw:space": "cosine"},
-        client_settings=Settings(anonymized_telemetry=False),
+        # Keep Chroma embedded even if the shell defines CHROMA_API_IMPL or
+        # CHROMA_SERVER_* for another project. Do not expose its server API.
+        client_settings=Settings(anonymized_telemetry=False,
+                                 chroma_api_impl="chromadb.api.rust.RustBindingsAPI",
+                                 chroma_server_host=None, chroma_server_http_port=None,
+                                 allow_reset=False),
     )
 
 

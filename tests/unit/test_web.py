@@ -102,6 +102,12 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/admin/prepare", headers={**self.headers, "Origin": "https://example.org"}).status_code, 403)
         self.assertEqual(self.client.get("/api/status", headers={"Host": "other.example"}).status_code, 400)
 
+    def test_chroma_server_collection_endpoints_are_not_exposed(self):
+        endpoint = '/api/v2/tenants/default_tenant/databases/default_database/collections'
+        for method, path in (('GET', endpoint), ('POST', endpoint), ('PATCH', endpoint + '/unused-id')):
+            response = self.client.request(method, path, headers=self.headers)
+            self.assertEqual(response.status_code, 404, response.text)
+
     def test_pdf_sources_distinguish_physical_pages_and_repeated_document_labels(self):
         import pymupdf
         from langchain_core.documents import Document
