@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass, field
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import sys
@@ -23,6 +24,8 @@ from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from file_fingerprints import sha256_file
+from index_lock import index_writer
+from ollama_http import open_ollama
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -98,8 +101,21 @@ def save_state(config: Config, state):
     config.db.mkdir(parents=True, exist_ok=True)
     path = config.db / f"{config.collection}-manifest.json"
     pending = path.with_suffix(".pending")
-    pending.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    with pending.open('w',encoding='utf-8') as output:
+        json.dump(state,output,ensure_ascii=False,indent=2)
+        output.flush()
+        os.fsync(output.fileno())
     pending.replace(path)
+
+
+def published_ids(state, file=None):
+    """The manifest is the publication boundary, including for legacy indexes."""
+    ids=[]
+    for source,record in state.get('files',{}).items():
+        name=record.get('file') or source.replace('\\','/')
+        if file is None or name==file or name.endswith('/'+file):
+            ids.extend(record.get('ids',[]))
+    return list(dict.fromkeys(ids))
 
 
 def same_parser_policy(previous, current):
@@ -123,6 +139,13 @@ def read_documents(path: Path):
 
 def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=None, cancelled=None,
            loader=None, extensions=None, policy_for=None):
+    with index_writer(config):
+        return _ingest(config,source,embeddings,paths=paths,observer=observer,cancelled=cancelled,
+                       loader=loader,extensions=extensions,policy_for=policy_for)
+
+
+def _ingest(config, source, embeddings, *, paths=None, observer=None, cancelled=None,
+            loader=None, extensions=None, policy_for=None):
     source = source.resolve()
     if not source.is_dir():
         raise ValueError(f"Document directory does not exist: {source}")
@@ -151,12 +174,16 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
             if observer:
                 observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(previous.get("ids", [])), skipped=True)
             continue
+        ids=[]
+        published=False
         try:
             if loader is None and previous.get("parser_policy"):
                 raise ValueError("Este archivo tiene un índice multimodal. Actualízalo desde la interfaz web para conservar sus figuras.")
             if observer:
                 observer(stage="chunking", stage_progress=0, document=path.name, chunks=0)
             documents = (loader or read_documents)(path)
+            if sha256_file(path)!=fingerprint:
+                raise ValueError('El documento cambió durante su lectura. Vuelve a indexarlo cuando termine de guardarse.')
             chunks = splitter.split_documents(documents)
             chunks = [chunk for chunk in chunks if chunk.page_content.strip()]
             if observer:
@@ -170,27 +197,46 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
                 ids.append(hashlib.sha256(f"{key}:{fingerprint}:{policy_key or ''}:{index}".encode()).hexdigest())
             # Upsert new chunks BEFORE removing obsolete ones. Retry remains idempotent.
             for start in range(0, len(chunks), 64):
+                if cancelled and cancelled():
+                    raise InterruptedError('Ingesta cancelada antes de confirmar el índice.')
                 if observer:
                     observer(stage="indexing", stage_progress=100 * start / len(chunks), document=path.name, chunks=len(chunks))
                 store.add_documents(chunks[start:start + 64], ids=ids[start:start + 64])
                 if observer:
                     observer(stage="indexing", stage_progress=100 * min(start + 64, len(chunks)) / len(chunks), document=path.name, chunks=len(chunks))
-            stale = sorted(set(previous.get("ids", [])) - set(ids))
-            if stale:
-                store.delete(ids=stale)
+            if cancelled and cancelled():
+                raise InterruptedError('Ingesta cancelada antes de confirmar el índice.')
+            if sha256_file(path)!=fingerprint:
+                raise ValueError('El documento cambió antes de confirmar su índice. Vuelve a indexarlo.')
             visuals = {(doc.metadata["asset_id"], doc.metadata.get("page", 0), doc.metadata.get("item_type", "figure")): doc.metadata
                        for doc in documents if doc.metadata.get("asset_id")}
             state["files"][key] = {"sha256": fingerprint, "ids": ids, "parser_policy": policy_key,
-                                    "visuals": list(visuals.values())}
+                                    "visuals": list(visuals.values()),"file":path.relative_to(source).as_posix()}
             save_state(config, state)
+            published=True
+            # Publish first. Readers filter by manifest IDs, so old vectors can be
+            # collected afterwards without exposing staged data or losing a version.
+            stale=sorted(set(previous.get('ids',[]))-set(ids))
+            if stale:
+                try:
+                    store.delete(ids=stale)
+                except Exception:
+                    logging.getLogger('rag.index').warning('Índice confirmado; limpieza de vectores antiguos pendiente.',exc_info=True)
             summary["indexed_files"] += 1
             summary["chunks"] += len(chunks)
             if observer:
                 observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(chunks), complete=True)
             print(f"{path.name}: {len(chunks)} chunks" + (" (no extractable text; OCR may be required)" if not chunks else ""))
-        except InterruptedError:
-            raise
         except Exception as exc:
+            if not published:
+                if previous:state['files'][key]=previous
+                else:state['files'].pop(key,None)
+                staged=sorted(set(ids)-set(previous.get('ids',[])))
+                if staged:
+                    try:store.delete(ids=staged)
+                    except Exception:logging.getLogger('rag.index').warning('Limpieza pendiente de vectores no publicados.',exc_info=True)
+            if isinstance(exc,InterruptedError):
+                raise
             summary["errors"] += 1
             if observer:
                 observer(stage="error", stage_progress=0, document=path.name, error=str(exc), code=getattr(exc, "code", "UNEXPECTED"))
@@ -202,13 +248,16 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
 def retrieve(config: Config, question: str, embeddings, k: int, *, files=None):
     if not (config.db / f"{config.collection}-manifest.json").exists():
         raise ValueError("No index exists for this collection. Run ingest first.")
-    load_state(config)
+    state=load_state(config)
     if files is not None and not files:
+        return []
+    ids=published_ids(state)
+    if not ids:
         return []
     store = open_store(config, embeddings)
     window = max(16, k * 4)
     while True:
-        hits = store.similarity_search_with_score(question, k=window,
+        hits = store.similarity_search_with_score(question, k=window,ids=ids,
             **({'filter': {'file': {'$in': list(files)}}} if files is not None else {}))
         useful = [(document, distance) for document, distance in hits if usable_evidence(document.page_content)]
         if len(useful) >= k or len(hits) < window or window >= 512:
@@ -254,6 +303,8 @@ def build_messages(question: str, hits, max_chars: int, language: str = "es"):
 
 
 def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None, response_format=None):
+    if cancelled and cancelled():
+        raise InterruptedError('Generación cancelada antes de contactar con Ollama.')
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
     options = {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}
     if max_output_tokens is not None:
@@ -274,7 +325,7 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
     started = time.perf_counter()
     first_content = None
     thinking_characters = 0
-    with urllib.request.urlopen(request, timeout=600) as response:
+    with open_ollama(request, timeout=600) as response:
         if on_chunk is None:
             result = json.load(response)
             answer = result["message"]["content"]

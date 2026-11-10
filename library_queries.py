@@ -162,11 +162,13 @@ def global_retrieve(config, documents, embeddings, question, *, cancelled=lambda
         raise ValueError('El embedding de la consulta no es válido.')
     query = query / norm
     store = rag.open_store(config, embeddings)
+    manifest=rag.load_state(config)
     hits = []
     for number, item in enumerate(indexed, 1):
         if cancelled():
             raise InterruptedError('Búsqueda global cancelada.')
-        rows = store.get(where={'file': item['name']}, include=['documents', 'metadatas', 'embeddings'])
+        ids=rag.published_ids(manifest,item['name'])
+        rows = store.get(ids=ids,where={'file': item['name']}, include=['documents', 'metadatas', 'embeddings']) if ids else {'ids':[]}
         if not rows['ids']:
             raise ValueError(f'No se han recuperado los fragmentos de {item["name"]}; revisa su índice. '
                              'La consulta global se ha detenido para no omitir ese documento.')

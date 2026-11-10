@@ -39,6 +39,8 @@ from localization import text as localized
 from query_images import normalize_query_images
 from server_control import validate_host
 from library_topics import TopicStore, TopicError
+from index_lock import IndexBusyError
+from ollama_http import open_ollama
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -124,10 +126,12 @@ class RagService(JobRuntime):
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         return {"message": "Modelo de búsqueda preparado en CPU."}
 
-    def index(self, job_id, only_file=None):
+    def index(self, job_id, only_file=None, *, files=None, preferences=None):
         documents = self.list_documents()
         if only_file:
             documents = [document for document in documents if document["name"] == only_file]
+        if files is not None:
+            documents=[document for document in documents if document['name'] in files]
         if not documents:
             raise ValueError("Añade documentos PDF, TXT o Markdown antes de indexar.")
         rag.load_state(self.config)
@@ -163,7 +167,7 @@ class RagService(JobRuntime):
                 current_document=document, chunks=event.get("chunks", 0), documents=list(outcomes.values()),
                 cancellable=stage != "indexing")
 
-        settings = self.settings.get()
+        settings = preferences or self.settings.get()
 
         def describe(data, model):
             self.check_cancel(job_id)
@@ -182,10 +186,13 @@ class RagService(JobRuntime):
                     raise multimodal.VisualError("Activa el procesamiento multimodal en Configuración para indexar imágenes o exportaciones MinerU.")
             return rag.read_documents(path)
 
-        summary = rag.ingest(self.config, self.documents, embeddings,
-            paths=[self.documents / document["name"] for document in documents], observer=observe,
-            cancelled=lambda: self.cancelled(job_id), loader=loader, extensions=ALLOWED,
-            policy_for=lambda path: multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None)
+        try:
+            summary = rag.ingest(self.config, self.documents, embeddings,
+                paths=[self.documents / document["name"] for document in documents], observer=observe,
+                cancelled=lambda: self.cancelled(job_id), loader=loader, extensions=ALLOWED,
+                policy_for=lambda path: multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None)
+        except IndexBusyError as error:
+            raise JobFailure('INDEX_BUSY',str(error)) from error
         self.update(job_id, summary=summary, documents=list(outcomes.values()))
         failures = [item for item in outcomes.values() if item.get("error_info")]
         if failures:
@@ -226,11 +233,12 @@ class RagService(JobRuntime):
     def ollama_status(self):
         base = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
         try:
-            with urllib.request.urlopen(base + "/api/tags", timeout=3) as response:
+            with open_ollama(base + "/api/tags", timeout=3) as response:
                 models = json.load(response).get("models", [])
-            with urllib.request.urlopen(base + "/api/ps", timeout=3) as response:
+            with open_ollama(base + "/api/ps", timeout=3) as response:
                 loaded = json.load(response).get("models", [])
-            names = [item["name"] for item in models if not item["name"].endswith(":cloud") and not item.get("remote_host")]
+            names = [item["name"] for item in models if not item["name"].lower().endswith(":cloud")
+                     and not item.get("remote_host") and not item.get("remote_model")]
             default = os.getenv("RAG_OLLAMA_MODEL", "gemma-4-12b-redteam-blackice:latest")
             return {"connected": True, "models": names, "default_model": default if default in names else (names[0] if names else ""),
                     "loaded": [{"name": item.get("name"), "vram_bytes": item.get("size_vram", 0)} for item in loaded]}
@@ -269,7 +277,7 @@ class RagService(JobRuntime):
         base = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
         request = urllib.request.Request(base + "/api/show", data=json.dumps({"model": model}).encode(), headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with open_ollama(request, timeout=5) as response:
                 capabilities = json.load(response).get("capabilities", [])
         except (OSError, ValueError):
             capabilities = []
@@ -293,7 +301,7 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query(self, job_id, query, document_names=None, scope_label=None):
+    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None):
         started = time.perf_counter()
         documents = self.list_documents()
         if document_names is not None:
@@ -322,7 +330,7 @@ class RagService(JobRuntime):
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
             hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k,
-                                files=document_names)
+                                files=frozenset(item['name'] for item in documents if item.get('indexed')))
             scope = {'retrieval_mode': 'focused'}
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
@@ -354,7 +362,7 @@ class RagService(JobRuntime):
                 remaining -= len(content)
             messages[1:1] = reversed(history)
         manifest = rag.load_state(self.config)
-        settings = self.settings.get()
+        settings = preferences or self.settings.get()
         images = {}
         for source, (document, _) in zip(sources, hits):
             source["text"] = document.page_content
@@ -584,7 +592,7 @@ def create_app(service=None):
                 body.images=normalize_query_images(body.images,settings.max_images)
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
-        return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label),
+        return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,preferences=settings),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
                              image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
 
@@ -612,7 +620,7 @@ def create_app(service=None):
     @app.delete('/api/admin/topics/{topic_id}')
     def remove_topic(topic_id: str):
         try:
-            service.topics.remove(topic_id)
+            service.topics.remove(topic_id,existing_names={item['name'] for item in service.list_documents()})
             return {'ok': True}
         except TopicError as error:
             raise HTTPException(409, str(error)) from error
@@ -641,7 +649,8 @@ def create_app(service=None):
             path = (service.documents / name).resolve()
             if not path.is_relative_to(service.documents) or not path.is_file() or path.suffix.lower() not in ALLOWED:
                 raise HTTPException(404, "Documento no disponible.")
-        return service.start("index", lambda job_id: service.index(job_id, name), document_name=name)
+        preferences=service.settings.get()
+        return service.start("index", lambda job_id: service.index(job_id, name,preferences=preferences), document_name=name)
 
     @app.post("/api/admin/upload")
     async def upload(files: Annotated[list[UploadFile], File()], auto_index: Annotated[bool, Form()] = True,
@@ -700,7 +709,8 @@ def create_app(service=None):
         result = {"saved": saved, "document_id": hashlib.sha256(saved[0].encode()).hexdigest()[:24]}
         if auto_index:
             name = saved[0] if len(saved) == 1 else None
-            result.update(service.start("index", lambda job_id: service.index(job_id, name),
+            preferences=service.settings.get()
+            result.update(service.start("index", lambda job_id: service.index(job_id, name,files=frozenset(saved),preferences=preferences),
                 document_name=name, document_id=result["document_id"], batch_id=batch_id[:100],
                 bytes=len(payloads[0][1]) if len(payloads) == 1 else sum(len(item[1]) for item in payloads)))
         return result

@@ -179,10 +179,11 @@ Pulsa «Iniciar web» al terminar, o usa los mismos lanzadores:
 bash configurar.sh --start
 ```
 
-El servidor ocupa esa consola; **Ctrl+C** lo cierra. Si ya está abierto en ese
-puerto, se muestra la URL sin detenerlo ni lanzar otra instancia.
+El asistente usa el mismo controlador de segundo plano que los lanzadores siguientes.
+Cerrar la consola o el navegador no detiene el servidor. Si ya está abierto en ese
+puerto, se muestra su dirección real, incluida la IP de red, sin lanzar otra instancia.
 
-Para ejecutarlo en segundo plano y controlar su ciclo de vida:
+Para controlar su ciclo de vida:
 
 ```powershell
 .\Start-Web.ps1 start

@@ -4,7 +4,7 @@ RAG Local is a single-user application bound to loopback by default, with an emb
 database. An explicit private IPv4 bind permits access from a trusted LAN. It is not a hosted Chroma server or a multi-tenant service. Do not expose
 the local UI through a public proxy or run `chroma run` against its private index.
 
-## Dependency review — 2026-11-10
+## Dependency review — 2026-11-11
 
 GitHub reported 23 open alerts representing seven distinct advisories. Chroma is
 included by five requirements profiles, so each Chroma advisory appears five times.
@@ -26,6 +26,11 @@ a fixed version is available and tested, or the dependency is safely replaced.
 Changing the requirements layout, suppressing alerts, or lowering the version
 does not remediate them.
 
+The latest API inspection still returned all 23 open alerts. GitHub's SBOM reports
+setuptools 78.1.0, while the repository pin and inspected local environment are
+84.1.0. This is a dependency-graph discrepancy, not evidence that GitHub has
+closed those alerts. No alerts were dismissed during this review.
+
 ## Controls in this application
 
 - Chroma uses an explicitly selected embedded Rust implementation and a local
@@ -35,6 +40,9 @@ does not remediate them.
   or accept collection embedding-function configuration from browser requests.
 - Embeddings are supplied by the application with `trust_remote_code=False`.
   Downloading a model does not authorize execution of remote model code.
+- Runtime Ollama HTTP calls use a direct connection without ambient HTTP proxies
+  and reject redirects, keeping document context at the explicitly configured
+  endpoint. This does not protect against a compromised endpoint/model server.
 - The UI server defaults to `127.0.0.1`. `--host` accepts loopback or an assigned
   RFC1918 IPv4 address, never a wildcard/public bind. Mutating requests require a
   session token and a matching origin; Host validation includes only the explicit bind.

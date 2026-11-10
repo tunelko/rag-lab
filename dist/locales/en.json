@@ -586,6 +586,7 @@
   "sentinel.reattach_image": "Attach the image again to retry this query.",
   "sentinel.query_progress": "Query progress",
   "sentinel.query_error": "The query could not be completed.",
+  "sentinel.query_unconfirmed": "This query was not acknowledged. Retry it if it is still needed.",
   "sentinel.query_stopped": "Query stopped. The partial answer may be incomplete.",
   "sentinel.waiting_index": "Waiting for library indexing to finish.",
   "sentinel.writing": "Writing…",

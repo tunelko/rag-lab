@@ -243,7 +243,7 @@ def run_server(root, port,host='127.0.0.1'):
     import uvicorn
     sys.path.insert(0, str(root))
     state_path, stop_path = paths(root, port)
-    identity = {'pid': os.getpid(), 'created': psutil.Process().create_time()}
+    identity = {'pid': os.getpid(), 'created': psutil.Process().create_time(), 'host': validate_host(host)}
     atomic_json(state_path, identity)
     os.environ['RAG_WEB_HOST']=validate_host(host)
     server = uvicorn.Server(uvicorn.Config('web_app:app', host=host, port=port, access_log=False))
@@ -253,7 +253,7 @@ def run_server(root, port,host='127.0.0.1'):
         while not finished.wait(.2):
             try:
                 request = json.loads(stop_path.read_text(encoding='utf-8'))
-                if request == identity:
+                if isinstance(request,dict) and all(request.get(key)==identity[key] for key in ('pid','created')):
                     server.should_exit = True
                     return
             except (OSError, ValueError):

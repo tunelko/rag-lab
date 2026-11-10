@@ -161,15 +161,29 @@ def probe(root: Path, plan: Plan):
         result['notes'].append('Ollama no disponible: ' + str(exc))
     old = read_env(root / '.env')
     for port in sorted({8765, plan.port, int(old.get('RAG_WEB_PORT', 8765))}):
+        hosts=['127.0.0.1']
+        # Managed servers may bind only to a LAN address. Discovery must stay
+        # standard-library-only, including before the project environment exists.
         try:
-            address = f'http://127.0.0.1:{port}'
-            session = local_json(address + '/api/session', timeout=.5)
-            if not session.get('token'):
-                continue
-            jobs = local_json(address + '/api/jobs?active=1', timeout=.5).get('jobs', [])
-            result['servers'].append({'port': port, 'active_jobs': len(jobs)})
-        except (OSError, ValueError):
+            state=json.loads((root/'.cache/servers'/f'{port}.json').read_text('utf-8'))
+            if not isinstance(state,dict):
+                raise ValueError('Estado del servidor no válido.')
+            address=ipaddress.IPv4Address(state.get('host','127.0.0.1'))
+            if address.is_loopback or any(address in ipaddress.IPv4Network(net) for net in ('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')):
+                hosts.append(str(address))
+        except (OSError, ValueError, TypeError):
             pass
+        for host in dict.fromkeys(hosts):
+            try:
+                address = f'http://{host}:{port}'
+                session = local_json(address + '/api/session', timeout=.5)
+                if not session.get('token'):
+                    continue
+                jobs = local_json(address + '/api/jobs?active=1', timeout=.5).get('jobs', [])
+                result['servers'].append({'port': port, 'host':host, 'active_jobs': len(jobs)})
+                break
+            except (OSError, ValueError):
+                pass
     return result
 
 
@@ -282,16 +296,15 @@ def start_web(root: Path):
     plan = load_plan(root)
     for server in probe(root, plan)['servers']:
         if server['port'] == plan.port:
-            print(f'El RAG ya está abierto: http://127.0.0.1:{plan.port}')
+            print(f"El RAG ya está abierto: http://{server.get('host','127.0.0.1')}:{plan.port}")
             return 0
     python = venv_python(root)
     if not python.exists():
         raise ValueError('Primero instala el entorno desde el asistente.')
-    print(f'RAG local: http://127.0.0.1:{plan.port} · Ctrl+C para cerrar.', flush=True)
     environment = dict(os.environ, PYTHONUTF8='1', OMP_NUM_THREADS='4')
     try:
-        return subprocess.call([str(python), '-m', 'uvicorn', 'web_app:app', '--app-dir', str(root),
-                                '--host', '127.0.0.1', '--port', str(plan.port), '--no-access-log'], env=environment, cwd=root)
+        return subprocess.call([str(python), str(root/'server_control.py'), 'start', '--root', str(root),
+                                '--port', str(plan.port)], env=environment, cwd=root)
     except KeyboardInterrupt:
         return 0
 

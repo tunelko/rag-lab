@@ -8,6 +8,10 @@ import rag
 
 
 class OllamaStreamTests(unittest.TestCase):
+    def test_already_cancelled_request_never_contacts_ollama(self):
+        with patch('rag.open_ollama') as request,self.assertRaises(InterruptedError):
+            rag.generate_ollama([], 'test', cancelled=lambda:True)
+        request.assert_not_called()
     def test_stream_text_and_native_metrics(self):
         packets = [
             {"message": {"content": "Cada "}, "done": False},
@@ -17,7 +21,7 @@ class OllamaStreamTests(unittest.TestCase):
         ]
         body = "\n".join(json.dumps(packet) for packet in packets).encode()
         pieces = []
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(body)) as request:
+        with patch("rag.open_ollama", return_value=io.BytesIO(body)) as request:
             answer, metrics = rag.generate_ollama([], "test", on_chunk=pieces.append)
         self.assertEqual(answer, "Cada viernes [1].")
         self.assertEqual(pieces, ["Cada ", "viernes [1]."])
@@ -28,20 +32,20 @@ class OllamaStreamTests(unittest.TestCase):
 
     def test_images_use_a_separate_explicit_context_budget(self):
         body = b'{"message":{"content":"Respuesta"},"eval_count":1}'
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(body)) as request:
+        with patch("rag.open_ollama", return_value=io.BytesIO(body)) as request:
             rag.generate_ollama([{"role": "user", "content": "Figura", "images": ["base64"]}], "test")
         self.assertEqual(json.loads(request.call_args.args[0].data)["options"]["num_ctx"], 8192)
 
     def test_nonstream_cli_compatibility(self):
         body = json.dumps({"message": {"content": "Respuesta"}, "eval_count": 12, "eval_duration": 2_000_000_000}).encode()
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(body)):
+        with patch("rag.open_ollama", return_value=io.BytesIO(body)):
             answer, metrics = rag.generate_ollama([], "test")
         self.assertEqual(answer, "Respuesta")
         self.assertEqual(metrics["generation_tok_s"], 6)
 
     def test_global_generation_has_an_independent_output_and_context_budget(self):
         body = b'{"message":{"content":"Tabla"},"eval_count":1}'
-        with patch('rag.urllib.request.urlopen', return_value=io.BytesIO(body)) as request:
+        with patch('rag.open_ollama', return_value=io.BytesIO(body)) as request:
             rag.generate_ollama([], 'test', context_length=8192, max_output_tokens=1536)
         options = json.loads(request.call_args.args[0].data)['options']
         self.assertEqual(options['num_ctx'], 8192)
@@ -52,17 +56,17 @@ class OllamaStreamTests(unittest.TestCase):
     def test_structured_schema_is_sent_to_the_local_api(self):
         body=b'{"message":{"content":"{}"},"eval_count":1}'
         schema={'type':'object','properties':{'1':{'type':'string'}},'required':['1']}
-        with patch('rag.urllib.request.urlopen',return_value=io.BytesIO(body)) as request:
+        with patch('rag.open_ollama',return_value=io.BytesIO(body)) as request:
             rag.generate_ollama([], 'test', response_format=schema)
         self.assertEqual(json.loads(request.call_args.args[0].data)['format'],schema)
 
     def test_truncated_stream_is_not_reported_as_complete(self):
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
+        with patch("rag.open_ollama", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
             with self.assertRaises(RuntimeError):
                 rag.generate_ollama([], "test", on_chunk=lambda text: None)
 
     def test_error_packet_is_reported(self):
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(b'{"error":"model unavailable"}\n')):
+        with patch("rag.open_ollama", return_value=io.BytesIO(b'{"error":"model unavailable"}\n')):
             with self.assertRaisesRegex(RuntimeError, "model unavailable"):
                 rag.generate_ollama([], "test", on_chunk=lambda text: None)
 

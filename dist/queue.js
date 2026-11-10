@@ -37,7 +37,8 @@ export class UploadQueue {
     this.render(); this.poll();
   }
   serverDocument(entry){
-    return this.documents.find(document=>entry.documentId?document.document_id===entry.documentId:entry.serverName?document.name===entry.serverName:document.name===entry.name&&document.bytes===entry.size);
+    // Matching names and sizes are not proof of a completed upload.
+    return this.documents.find(document=>entry.documentId?document.document_id===entry.documentId:entry.serverName?document.name===entry.serverName:false);
   }
   recover(entry){
     const candidate=entry.error?.code==='NETWORK'||entry.state==='interrupted'||(!entry.jobId&&['uploaded','fragmenting','indexing'].includes(entry.state));

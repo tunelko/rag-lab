@@ -67,7 +67,7 @@ def fixture_server(port):
             return super().embed_documents(texts)
 
     class FixtureService(RagService):
-        def index(self, job_id, only_file=None):
+        def index(self, job_id, only_file=None, **kwargs):
             if only_file and Path(only_file).name.startswith('cancelar-todo-'):
                 # Hold this fixture before index writes so cancellation tests do
                 # not race with a runner that finishes parsing/writing sooner.
@@ -75,7 +75,7 @@ def fixture_server(port):
                 if not self.cancels[job_id].wait(60):
                     raise AssertionError('QA did not request cancellation of the held index job')
                 self.check_cancel(job_id)
-            return super().index(job_id,only_file)
+            return super().index(job_id,only_file,**kwargs)
 
         def model_capabilities(self, model):
             return ["vision"] if model == "qa-vision:latest" else []
@@ -678,7 +678,14 @@ def run_browser(url):
         # Lost upload acknowledgements/session state must reconcile with the durable library.
         indexed=next(item for item in page.request.get(url+'/api/status').json()['documents'] if item.get('indexed'))
         before_uploads=len(uploads)
-        page.evaluate('''doc=>sessionStorage.setItem('rag-local-upload-queue-v2',JSON.stringify({entries:[{uid:'lost-ack',name:doc.name,size:doc.bytes,state:'interrupted',upload:100,process:0,batchId:'lost-ack-batch',error:{code:'NETWORK',message:'Vuelve a añadir el archivo para reintentar.',retryable:true}}],batch:{id:'lost-ack-batch',ids:['lost-ack'],started:Date.now(),finished:true},notified:['lost-ack-batch']}))''',indexed)
+        # A different local file can have the same name and byte count.
+        # A missing acknowledgement must not mark it as already indexed.
+        page.evaluate('''doc=>sessionStorage.setItem('rag-local-upload-queue-v2',JSON.stringify({entries:[{uid:'unconfirmed',name:doc.name,size:doc.bytes,state:'interrupted',error:{code:'NETWORK',retryable:true}}]}))''',indexed)
+        page.reload(wait_until='networkidle');page.locator('#nav-admin').click()
+        expect(page.locator('.queue-row[data-state="interrupted"]')).to_have_count(1)
+        expect(page.locator('.queue-row[data-state="indexed"]')).to_have_count(0)
+        page.locator('#nav-console').click()
+        page.evaluate('''doc=>sessionStorage.setItem('rag-local-upload-queue-v2',JSON.stringify({entries:[{uid:'lost-ack',name:doc.name,serverName:doc.name,documentId:doc.document_id,size:doc.bytes,state:'interrupted',upload:100,process:0,batchId:'lost-ack-batch',error:{code:'NETWORK',message:'Vuelve a añadir el archivo para reintentar.',retryable:true}}],batch:{id:'lost-ack-batch',ids:['lost-ack'],started:Date.now(),finished:true},notified:['lost-ack-batch']}))''',indexed)
         page.reload(wait_until='networkidle')
         page.locator('#nav-admin').click()
         expect(page.locator('.queue-row[data-state="indexed"]')).to_have_count(1)
@@ -743,6 +750,33 @@ def run_browser(url):
         page.locator('#chat-scope').select_option('')
         page.locator('#nav-admin').click();page.locator('#topic-filters [data-topic=""]').click()
         check('Categories/subcategories, bulk move without reindexing, contextual upload destination, scoped chat history, persistent selection and accessible full-width chat drawer')
+
+        # Shared server jobs must not become another tab's conversation. A known
+        # job may have finished while this tab was closed and must still be read.
+        recovery=context.new_page();recovery.on('pageerror',lambda error:errors.append(str(error)))
+        shared_status=page.request.get(url+'/api/status').json()
+        shared_status['jobs']=[{'id':'foreign-active','kind':'query','status':'running','question':'FOREIGN PRIVATE QUESTION','stage':'generate','phase':'Generando respuesta con Ollama'}]
+        recovery.route('**/api/status',lambda route:route.fulfill(json=shared_status))
+        detail_reads=[]
+        def recovered_job(route):
+            detail_reads.append(route.request.url.rsplit('/',1)[-1])
+            route.fulfill(json={'id':'owned-finished','kind':'query','status':'done','answer':'Respuesta recuperada de mi consulta.','sources':[],'metrics':{}})
+        recovery.route('**/api/jobs/*',recovered_job)
+        recovery.goto(url,wait_until='networkidle')
+        expect(recovery.locator('.chat-turn')).to_have_count(0)
+        assert not detail_reads,detail_reads
+        recovery.evaluate('''()=>sessionStorage.setItem('rag-local-chat-v3',JSON.stringify([
+            {id:'owned-turn',question:'Mi pregunta',status:'running',job_id:'owned-finished'},
+            {id:'unconfirmed-turn',question:'Pregunta sin confirmación',status:'queued'}
+        ]))''')
+        recovery.reload(wait_until='networkidle')
+        expect(recovery.locator('.chat-turn .answer').first).to_contain_text('Respuesta recuperada de mi consulta.')
+        expect(recovery.locator('.chat-turn .chat-state').last).to_contain_text('No se recibió la confirmación')
+        expect(recovery.locator('.chat-turn[aria-busy="true"]')).to_have_count(0)
+        expect(recovery.locator('#chat-thread')).not_to_contain_text('FOREIGN PRIVATE QUESTION')
+        assert detail_reads==['owned-finished'],detail_reads
+        recovery.close()
+        check('Chat recovery ignores foreign jobs, reads owned completed jobs and releases unacknowledged turns without resubmission')
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)
         page.set_viewport_size({"width":390,"height":844})

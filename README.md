@@ -6,7 +6,7 @@
 
 A local, multimodal document assistant for Windows and Linux. Chat with your PDF,
 text and image collection, inspect citations, and monitor processing in a web UI.
-Setup uses an OMP-style terminal wizard. The interface uses Spanish labels.
+Setup uses an OMP-style terminal wizard. The web interface supports English and Spanish.
 
 ## Install
 
@@ -54,8 +54,8 @@ bash configurar.sh
 5. **Listo:** click **Iniciar web**, then open **http://127.0.0.1:8765**.
 
 The wizard installs packages in `.venv`, uses its own environment in `.cache`,
-preserves existing data and creates configuration backups. Keep the server terminal
-open; **Ctrl+C** stops it. To start later: `Configurar.ps1 -Start` on Windows or
+preserves existing data and creates configuration backups. The server runs in the
+background. To start later: `Configurar.ps1 -Start` on Windows or
 `bash configurar.sh --start` on Linux. [Detailed instructions](docs/INSTALLATION.md).
 
 To manage the server in the background, use the project directory:
@@ -150,6 +150,7 @@ stay outside Git. Initial downloads need Internet. More: [installation](docs/INS
 [Spanish reference](docs/REFERENCE.es.md), [diagnostics](docs/DESARROLLO.md).
 The project's license is pending; third-party notices remain intact.
 Dependency advisories and local deployment boundaries: [security status](SECURITY.md).
+Implemented architecture, reviewed defects and remaining limits: [implementation audit](docs/AUDIT.md).
 
 The interface supports English and Spanish, automatic browser detection and a
 persistent language selector. New answers use the selected language through local

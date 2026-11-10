@@ -123,13 +123,13 @@ class RagSmokeTests(unittest.TestCase):
         junk=[(Document(page_content='---'),.1)]*24
         evidence=(Document(page_content='CPU: Supports Intel Core generation 12.'),.2)
         requested=[]
-        def search(question,k):
+        def search(question,k,**kwargs):
             requested.append(k)
             return (junk+[evidence])[:k]
         with tempfile.TemporaryDirectory() as directory:
             config=rag.Config(db=Path(directory))
             (config.db/f'{config.collection}-manifest.json').touch()
-            with patch.object(rag,'load_state'), patch.object(rag,'open_store',return_value=SimpleNamespace(similarity_search_with_score=search)):
+            with patch.object(rag,'load_state',return_value={'files':{'fixture':{'ids':['published']}}}), patch.object(rag,'open_store',return_value=SimpleNamespace(similarity_search_with_score=search)):
                 hits=rag.retrieve(config,'CPU admitidas',object(),1)
         self.assertEqual(hits,[evidence])
         self.assertGreater(len(requested),1)

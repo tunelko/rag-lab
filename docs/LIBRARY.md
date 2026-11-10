@@ -37,6 +37,7 @@ search applies a Chroma metadata filter before nearest-neighbor search. Global
 questions scan every indexed document in that scope. Inventory questions count
 only that scope. An empty or deleted topic never falls back to the whole library.
 Moving files while a question waits in the queue cannot expand its accepted scope.
+Queued queries and index jobs also retain the preferences captured at submission.
 
 Each chat turn retains its chosen sources. Switching topics preserves visible
 history, but dialogue from another topic is omitted from the next model request.
@@ -44,3 +45,20 @@ Reattempting a stopped/failed question retains its original topic.
 
 These are organization and retrieval controls in a shared personal application,
 not per-user access permissions. See [SECURITY.md](../SECURITY.md).
+
+## Index publication and recovery
+
+A collection-scoped OS lock excludes simultaneous CLI/web writers. New vectors
+are staged first; a flushed, atomically replaced manifest publishes their IDs.
+Focused and global retrieval read only published IDs. Old vectors are collected
+after publication. A failed write/cancellation preserves the previous published
+version; a hard interruption or failed cleanup can leave invisible orphan vectors
+on disk. This is not a distributed transaction or a resumable execution queue.
+
+The upload API indexes only the files in its accepted batch. Browser recovery
+requires a server-confirmed document identity; matching a filename and size alone
+cannot prove an interrupted upload succeeded. An unconfirmed upload stays retryable
+instead of being silently marked complete.
+
+There is currently no document-delete/trash operation in the API or UI. Removing
+an upload queue entry does not remove its original file or its published vectors.

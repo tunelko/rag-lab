@@ -39,6 +39,15 @@ class TopicWebTests(unittest.TestCase):
     setUp = test_web.WebTests.setUp
     tearDown = test_web.WebTests.tearDown
     wait = test_web.WebTests.wait
+
+    def test_empty_category_can_be_removed_after_its_file_is_removed_externally(self):
+        topic=self.topic('Temporary')
+        self.upload('gone.txt','A document subsequently removed outside the app.',topic)
+        service=self.client.app.state.service
+        (service.documents/'gone.txt').unlink()
+        response=self.client.delete('/api/admin/topics/'+topic,headers=self.headers)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertEqual(service.topics.assignments(),{})
     def topic(self,name,parent=None):
         result=self.client.post('/api/admin/topics',headers=self.headers,json={'name':name,'parent_id':parent})
         self.assertEqual(result.status_code,201,result.text)

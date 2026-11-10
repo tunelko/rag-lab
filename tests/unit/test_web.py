@@ -30,6 +30,49 @@ class OfflineService(RagService):
 
 
 class WebTests(unittest.TestCase):
+    def test_remote_model_metadata_is_excluded_from_response_choices(self):
+        import io,json
+        tags={'models':[{'name':'local:latest'},{'name':'cloud:CLOUD'},
+                        {'name':'hidden:latest','remote_model':'upstream'},
+                        {'name':'other:latest','remote_host':'https://example.invalid'}]}
+        with patch('web_app.open_ollama',side_effect=[io.BytesIO(json.dumps(tags).encode()),io.BytesIO(b'{"models":[]}')]):
+            state=RagService.ollama_status(self.client.app.state.service)
+        self.assertTrue(state['connected'])
+        self.assertEqual(state['models'],['local:latest'])
+
+    def test_queued_query_keeps_preferences_from_submission(self):
+        import threading
+        service=self.client.app.state.service
+        upload=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('manual.txt',b'Backups run every Friday.','text/plain'))],data={'auto_index':'true'})
+        self.wait(upload.json()['job_id'])
+        original=service.settings.get().model_copy(update={'response_mode':'manual','response_model':'test-local:latest'})
+        service.settings.save(original)
+        release=threading.Event();entered=threading.Event()
+        def hold(job_id):
+            entered.set();release.wait(5);return {}
+        service.start('prepare',hold);self.assertTrue(entered.wait(2))
+        try:
+            with patch.object(rag,'generate_ollama',return_value=('Friday [1].',{'output_tokens':5})) as generate:
+                response=self.client.post('/api/query',headers=self.headers,json={'question':'When are backups?'})
+                service.settings.save(original.model_copy(update={'response_model':'not-installed:latest'}))
+                release.set();self.wait(response.json()['job_id'])
+                self.assertEqual(generate.call_args.args[1],'test-local:latest')
+        finally:release.set()
+
+    def test_multi_file_upload_indexes_only_the_uploaded_batch(self):
+        service=self.client.app.state.service
+        first=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('existing.txt',b'Existing document remains untouched.','text/plain'))],data={'auto_index':'false'})
+        self.assertEqual(first.status_code,200)
+        result=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('new-a.txt',b'New document A.','text/plain')),('files',('new-b.txt',b'New document B.','text/plain'))],data={'auto_index':'true'})
+        self.wait(result.json()['job_id'])
+        documents={item['name']:item for item in service.list_documents()}
+        self.assertFalse(documents['existing.txt']['indexed'])
+        self.assertTrue(documents['new-a.txt']['indexed'])
+        self.assertTrue(documents['new-b.txt']['indexed'])
+
     def setUp(self):
         root = rag.ROOT / "data" / "test-chroma"
         root.mkdir(parents=True, exist_ok=True)

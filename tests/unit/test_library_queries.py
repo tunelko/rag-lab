@@ -64,7 +64,8 @@ class ScopeTests(unittest.TestCase):
                     'embeddings':np.array([[1.,0.],[.8,.2]])}
         store = SimpleNamespace(get=rows)
         embeddings = SimpleNamespace(embed_query=lambda question:[1.,0.])
-        with patch.object(rag,'open_store',return_value=store):
+        manifest={'files':{item['name']:{'ids':['a','b']} for item in documents}}
+        with patch.object(rag,'open_store',return_value=store),patch.object(rag,'load_state',return_value=manifest):
             hits, metrics = global_retrieve(rag.Config(context_chars=3000), documents, embeddings,
                 'De todos los documentos, enumera las CPU soportadas por cada placa.')
         self.assertEqual(len(hits),9)
@@ -79,7 +80,7 @@ class ScopeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'contexto configurado'):
             global_retrieve(rag.Config(context_chars=200),documents,embeddings,'Todos los documentos CPU')
         store = SimpleNamespace(get=lambda **kwargs:{'ids':[]})
-        with patch.object(rag,'open_store',return_value=store), self.assertRaisesRegex(ValueError, 'no omitir'):
+        with patch.object(rag,'open_store',return_value=store),patch.object(rag,'load_state',return_value={'files':{}}), self.assertRaisesRegex(ValueError, 'no omitir'):
             global_retrieve(rag.Config(),documents,embeddings,'Todos los documentos CPU')
 
 

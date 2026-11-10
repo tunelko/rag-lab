@@ -93,9 +93,10 @@ class RedesignTests(unittest.TestCase):
 
     def test_generation_can_cancel_on_a_stream_packet(self):
         packet = b'{"message":{"thinking":"still thinking"},"done":false}\n'
-        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(packet)):
+        checks=iter([False,True])
+        with patch("rag.open_ollama", return_value=io.BytesIO(packet)):
             with self.assertRaises(InterruptedError):
-                rag.generate_ollama([], "test", on_chunk=lambda text: None, cancelled=lambda: True)
+                rag.generate_ollama([], "test", on_chunk=lambda text: None, cancelled=lambda: next(checks))
 
     def test_filename_and_size_errors_are_structured(self):
         for name, code in [("bad.docx", "UNSUPPORTED_TYPE"), ("../bad.txt", "INVALID_NAME")]:

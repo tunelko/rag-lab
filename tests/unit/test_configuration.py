@@ -124,6 +124,31 @@ class ConfigurationTests(unittest.TestCase):
         (self.root / '.venv/Lib/site-packages/torch-2.14.1+cu130.dist-info').mkdir(parents=True)
         self.assertEqual(setup.load_plan(self.root).profile, 'cuda')
 
+    def test_probe_finds_managed_lan_server_and_reports_its_busy_queue(self):
+        directory=self.root/'.cache/servers';directory.mkdir(parents=True)
+        (directory/'8765.json').write_text(json.dumps({'host':'192.168.1.111','pid':123,'created':1}),encoding='utf-8')
+        def service(url,payload=None,**kwargs):
+            if url=='http://192.168.1.111:8765/api/session':return {'token':'test'}
+            if url=='http://192.168.1.111:8765/api/jobs?active=1':return {'jobs':[{'id':'busy'}]}
+            raise OSError('not listening')
+        with patch.object(setup,'local_json',side_effect=service):
+            state=setup.probe(self.root,self.plan)
+        self.assertEqual(state['servers'],[{'host':'192.168.1.111','port':8765,'active_jobs':1}])
+
+    def test_start_reports_existing_bind_and_uses_shared_controller(self):
+        from contextlib import redirect_stdout
+        import io
+        state={**fake_probe(self.root,self.plan),'servers':[{'host':'192.168.1.111','port':8765,'active_jobs':0}]}
+        output=io.StringIO()
+        with patch.object(setup,'probe',return_value=state),patch.object(setup.subprocess,'call') as execute,redirect_stdout(output):
+            self.assertEqual(setup.start_web(self.root),0)
+        execute.assert_not_called()
+        self.assertIn('http://192.168.1.111:8765',output.getvalue())
+        python=setup.venv_python(self.root);python.parent.mkdir(parents=True);python.touch()
+        with patch.object(setup,'probe',return_value=fake_probe(self.root,self.plan)),patch.object(setup.subprocess,'call',return_value=0) as execute:
+            self.assertEqual(setup.start_web(self.root),0)
+        self.assertEqual(execute.call_args.args[0],[str(python),str(self.root/'server_control.py'),'start','--root',str(self.root),'--port','8765'])
+
     def test_install_does_not_touch_running_servers(self):
         state = {**fake_probe(self.root, self.plan), 'servers': [{'port': 8765, 'active_jobs': 0}]}
         # platform.machine() may spawn Windows `ver` when its cache is cold;

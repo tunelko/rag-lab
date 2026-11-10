@@ -50,6 +50,7 @@ class TopicStore:
         try:
             with self.connect() as db:
                 if parent_id:
+                    db.execute('BEGIN IMMEDIATE')
                     parent = db.execute('SELECT parent_id FROM topics WHERE id=?', (parent_id,)).fetchone()
                     if parent is None or parent['parent_id'] is not None:
                         raise TopicError('La subcategoría debe pertenecer a una categoría principal existente.')
@@ -62,14 +63,20 @@ class TopicStore:
         name = self.clean_name(name)
         try:
             with self.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
                 if not db.execute('UPDATE topics SET name=?, name_key=? WHERE id=?', (name, name.casefold(), identifier)).rowcount:
                     raise TopicError('La categoría ya no está disponible.')
         except sqlite3.IntegrityError as error:
             raise TopicError('Ya existe ese nombre en este nivel.') from error
 
-    def remove(self, identifier):
+    def remove(self, identifier, *, existing_names=None):
         try:
             with self.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                if existing_names is not None:
+                    existing=set(existing_names)
+                    orphaned=[(row['name'],) for row in db.execute('SELECT name FROM assignments WHERE topic_id=?',(identifier,)) if row['name'] not in existing]
+                    db.executemany('DELETE FROM assignments WHERE name=?',orphaned)
                 if not db.execute('DELETE FROM topics WHERE id=?', (identifier,)).rowcount:
                     raise TopicError('La categoría ya no está disponible.')
         except sqlite3.IntegrityError as error:
@@ -77,6 +84,7 @@ class TopicStore:
 
     def assign(self, names, topic_id):
         with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
             # Check the destination in the same transaction, including for empty batches.
             if topic_id and not db.execute('SELECT 1 FROM topics WHERE id=?', (topic_id,)).fetchone():
                 raise TopicError('La categoría ya no está disponible.')

@@ -18,6 +18,7 @@ import urllib.request
 import zipfile
 
 from langchain_core.documents import Document
+from ollama_http import open_ollama
 
 IMAGES = {".png", ".jpg", ".jpeg", ".webp"}
 EXTENSIONS = {".pdf", ".zip", *IMAGES}
@@ -44,7 +45,7 @@ def describe_image(data: bytes, model: str, endpoint: str, cancelled=lambda: Fal
         "options": {"temperature": 0, "num_predict": 700},
     }).encode(), headers={"Content-Type": "application/json"})
     pieces, complete = [], False
-    with urllib.request.urlopen(request, timeout=600) as response:
+    with open_ollama(request, timeout=600) as response:
         for line in response:
             if cancelled():
                 raise InterruptedError("Descripción visual cancelada.")

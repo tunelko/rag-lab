@@ -127,5 +127,18 @@ export class Chat{
     catch(error){turn.status='error';turn.error_info={message:error.message};this.update(turn);this.save();}
     finally{this.active=null;this.submitting=false;this.stopping=false;this.controls();for(const item of this.turns)this.update(item);}
   }
-  restore(jobs){const job=jobs.find(item=>item.kind==='query');if(job&&!this.active){let turn=this.turns.find(item=>item.job_id===job.id);if(!turn){turn={id:randomId(),question:job.question||'',job_id:job.id,status:job.status};this.turns.push(turn);this.contextTurnId=turn.id;this.render();}this.follow(turn);}else if(!job&&!this.active){for(const turn of this.turns.filter(item=>busyStatus(item.status))){turn.status='cancelled';this.update(turn);}this.save();}}
+  async restore(jobs){
+    if(this.active)return;
+    // The shared queue also contains other tabs/devices. Only resume this chat's
+    // acknowledged requests, including jobs that finished while the tab was away.
+    for(const turn of this.turns.filter(item=>busyStatus(item.status))){
+      if(!turn.job_id){
+        turn.status='error';turn.error_info={message:s('query_unconfirmed')};this.update(turn);this.save();continue;
+      }
+      const job=jobs.find(item=>item.id===turn.job_id);
+      if(job&&'topic_id' in job)turn.topic_id=job.topic_id;
+      if(job&&'scope_label' in job)turn.scope_label=job.scope_label;
+      this.contextTurnId=turn.id;this.context();await this.follow(turn);
+    }
+  }
 }

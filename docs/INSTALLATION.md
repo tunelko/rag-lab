@@ -11,7 +11,8 @@ images, plus a terminal setup wizard inspired by OMP.
 
 **Start here:** install the prerequisites, download the project, run the wizard,
 choose a local model, then index a small document and ask a question. The steps
-below cover a fresh installation. The web UI and wizard currently use Spanish labels.
+below cover a fresh installation. The web UI supports English and Spanish;
+the terminal wizard uses Spanish labels.
 
 ## 1. Install the prerequisites
 
@@ -187,10 +188,11 @@ bash configurar.sh --start
 ```
 
 Open **http://127.0.0.1:8765** in your browser, or the port chosen in the wizard.
-Keep the server terminal open. **Ctrl+C** stops the server; closing the browser does
-not stop it. If the server is already running, the launcher prints its address.
+The wizard uses the same background controller as the lifecycle launchers below.
+Closing the browser or setup terminal does not stop it. If the server is already
+running, the launcher prints its actual address, including an explicit LAN bind.
 
-For background operation, use the lifecycle launcher instead:
+Manage this server with the lifecycle launcher:
 
 ```powershell
 .\Start-Web.ps1 start

@@ -110,12 +110,12 @@ class ParsingTests(unittest.TestCase):
 
     def test_visual_stream_requires_completion_and_supports_cancellation(self):
         packets = b'{"message":{"content":"42 grados"},"done":false}\n{"done":true}\n'
-        with patch("multimodal.urllib.request.urlopen", return_value=io.BytesIO(packets)):
+        with patch("multimodal.open_ollama", return_value=io.BytesIO(packets)):
             self.assertEqual(describe_image(png(), "fake", "http://localhost"), "42 grados")
-        with patch("multimodal.urllib.request.urlopen", return_value=io.BytesIO(packets)):
+        with patch("multimodal.open_ollama", return_value=io.BytesIO(packets)):
             with self.assertRaises(InterruptedError):
                 describe_image(png(), "fake", "http://localhost", cancelled=lambda: True)
-        with patch("multimodal.urllib.request.urlopen", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
+        with patch("multimodal.open_ollama", return_value=io.BytesIO(b'{"message":{"content":"partial"}}\n')):
             with self.assertRaises(VisualError):
                 describe_image(png(), "fake", "http://localhost")
 

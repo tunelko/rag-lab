@@ -54,8 +54,8 @@ bash configurar.sh
 5. **Listo:** pulsa **Iniciar web** y abre **http://127.0.0.1:8765**.
 
 El asistente instala paquetes en `.venv`, mantiene su propio entorno en `.cache`,
-conserva los datos y crea copias de configuración. Mantén abierta la consola del
-servidor; **Ctrl+C** lo cierra. Para volver a arrancar: `Configurar.ps1 -Start` en
+conserva los datos y crea copias de configuración. El servidor queda en segundo
+plano. Para volver a arrancar: `Configurar.ps1 -Start` en
 Windows o `bash configurar.sh --start` en Linux. [Guía detallada](docs/INSTALACION.md).
 
 Para controlar el servidor en segundo plano, desde el directorio del proyecto:
@@ -155,6 +155,7 @@ quedan fuera de Git. Las descargas iniciales necesitan Internet. Más:
 [instalación](docs/INSTALACION.md), [referencia completa](docs/REFERENCE.es.md),
 [diagnóstico](docs/DESARROLLO.md). Licencia propia pendiente; se conservan las de terceros.
 Avisos de dependencias y límites del despliegue local: [estado de seguridad](SECURITY.md).
+Arquitectura comprobada, fallos corregidos y límites pendientes: [revisión técnica](docs/AUDIT.md).
 
 Interfaz en español e inglés, detección del navegador y selector de idioma
 persistente. Las nuevas respuestas usan el idioma elegido mediante Ollama local.

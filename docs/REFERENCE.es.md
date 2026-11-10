@@ -136,8 +136,8 @@ si hay trabajos activos. Conserva documentos, índices y modelos.
 bash configurar.sh --start
 ```
 
-Abre **http://127.0.0.1:8765** o el puerto elegido. Mantén la consola del servidor
-abierta; Ctrl+C lo cierra. Cerrar el navegador no detiene el servidor.
+Abre **http://127.0.0.1:8765** o la dirección que indique el lanzador. El servidor
+queda en segundo plano; cerrar el navegador o la consola no lo detiene.
 
 ### 7. Probar con un documento pequeño
 
@@ -174,8 +174,8 @@ Desde PowerShell, sin activar el entorno:
 .\Start-Web.ps1
 ```
 
-Mantén esa consola abierta. Ctrl+C cierra el servidor. Si el puerto está ocupado,
-usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
+Usa `Start-Web.ps1 status`, `stop` o `restart` para controlar el servidor.
+Si el puerto está ocupado, usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 
 - **Chat:** http://127.0.0.1:8765/ — conversación sin estadísticas ni ajustes.
   Cada respuesta tiene **Fuentes consultadas**, plegado de entrada. Pulsar una cita

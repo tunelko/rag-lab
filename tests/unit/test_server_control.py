@@ -52,6 +52,9 @@ class ServerControlTests(unittest.TestCase):
         self.assertEqual(control.running_host(self.root,self.port),'127.0.0.2')
         self.assertEqual(control.active_jobs(self.port,'127.0.0.2'),[])
         self.assertTrue(control.port_in_use(self.port,'127.0.0.2'))
+        import json
+        state,_=control.paths(self.root,self.port)
+        self.assertEqual(json.loads(state.read_text('utf-8'))['host'],'127.0.0.2')
         control.stop(self.root,self.port,timeout=10)
         self.assertFalse(control.port_in_use(self.port,'127.0.0.2'))
 

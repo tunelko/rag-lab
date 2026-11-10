@@ -586,6 +586,7 @@
   "sentinel.reattach_image": "Vuelve a adjuntar la imagen para reintentar esta consulta.",
   "sentinel.query_progress": "Progreso de la consulta",
   "sentinel.query_error": "No se ha podido completar la consulta.",
+  "sentinel.query_unconfirmed": "No se recibió la confirmación de esta consulta. Reinténtala si sigue siendo necesaria.",
   "sentinel.query_stopped": "Consulta detenida. El texto parcial puede estar incompleto.",
   "sentinel.waiting_index": "En espera mientras termina la indexación de la biblioteca.",
   "sentinel.writing": "Escribiendo…",
