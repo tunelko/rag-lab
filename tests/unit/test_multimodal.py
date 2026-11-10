@@ -14,7 +14,7 @@ from langchain_core.documents import Document
 import rag
 from multimodal import VisualReader, VisualError, describe_image
 from settings_store import Preferences, SettingsStore
-import test_web
+from tests.unit import test_web
 
 
 def png():

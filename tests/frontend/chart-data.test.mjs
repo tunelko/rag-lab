@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mergeHistory,metricValue,chartSeries} from './dist/chart-data.js';
+import {mergeHistory,metricValue,chartSeries} from '../../dist/chart-data.js';
 
 const time='2026-11-10T10:00:00Z';
 const epoch=Date.parse(time);

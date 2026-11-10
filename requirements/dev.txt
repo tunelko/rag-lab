@@ -1,0 +1,5 @@
+# CPU development / tests. Install torch-cpu.txt first.
+-r ollama.txt
+-r wizard.txt
+# Browser acceptance tests use Microsoft Edge.
+playwright==1.64.1

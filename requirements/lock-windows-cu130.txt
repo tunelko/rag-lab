@@ -1,5 +1,5 @@
 # Complete environment snapshot for Windows x64 / Python 3.13.
-# Install requirements-cuda.txt first, or run Setup-Lab.ps1 -UseLock.
+# Install torch-cuda.txt first, or run Setup-Lab.ps1 -UseLock.
 accelerate==1.15.0
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.5

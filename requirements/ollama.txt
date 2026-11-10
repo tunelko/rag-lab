@@ -1,0 +1,2 @@
+# Local Ollama generation with CPU embeddings. Install torch-cpu.txt first.
+-r base.txt

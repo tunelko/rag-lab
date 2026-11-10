@@ -25,13 +25,13 @@ if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
 Invoke-Checked -Executable $venvPython -Arguments @('-m', 'pip', 'install', '--upgrade', 'pip')
 Invoke-Checked -Executable $venvPython -Arguments @(
     '-m', 'pip', 'install', '--only-binary=:all:',
-    '-r', (Join-Path $projectRoot 'requirements-cuda.txt'),
+    '-r', (Join-Path $projectRoot 'requirements/torch-cuda.txt'),
     '--report', (Join-Path $projectRoot 'install-cuda.json')
 )
-$requirements = Join-Path $projectRoot 'requirements.txt'
+$requirements = Join-Path $projectRoot 'requirements/cuda.txt'
 if ($UseLock) {
-    $requirements = Join-Path $projectRoot 'requirements-lock.txt'
-    if (-not (Test-Path -LiteralPath $requirements)) { throw 'requirements-lock.txt does not exist yet.' }
+    $requirements = Join-Path $projectRoot 'requirements/lock-windows-cu130.txt'
+    if (-not (Test-Path -LiteralPath $requirements)) { throw 'The Windows CUDA lock file does not exist.' }
 }
 Invoke-Checked -Executable $venvPython -Arguments @(
     '-m', 'pip', 'install', '--only-binary=:all:', '-r', $requirements,

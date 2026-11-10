@@ -9,7 +9,7 @@ from unittest.mock import patch
 from pypdf import PdfWriter
 
 import rag
-import test_web
+from tests.unit import test_web
 
 
 class RedesignTests(unittest.TestCase):

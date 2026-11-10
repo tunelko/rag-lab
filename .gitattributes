@@ -19,5 +19,4 @@
 /dist/vendor/** -text
 
 # Historical design material is kept in Git but omitted from source archives.
-rag-local-redesign/ export-ignore
-NOTAS-REDISENO.md export-ignore
+docs/archive/ export-ignore

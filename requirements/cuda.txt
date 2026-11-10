@@ -1,0 +1,4 @@
+# Advanced Transformers/NF4 profile. Install torch-cuda.txt first.
+-r base.txt
+accelerate==1.15.0
+bitsandbytes==0.50.2

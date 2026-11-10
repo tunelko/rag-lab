@@ -8,7 +8,7 @@ def main():
     parser.add_argument("--url",help="Read-only smoke check against an already running local server")
     args=parser.parse_args()
     if not args.url:
-        from qa_redesign import main as acceptance
+        from tests.browser.qa_redesign import main as acceptance
         acceptance()
         return
     if urlsplit(args.url).hostname not in {"127.0.0.1","localhost"}:

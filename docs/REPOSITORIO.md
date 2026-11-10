@@ -48,13 +48,13 @@ pesos de modelos ni derechos sobre los documentos que cada usuario añada.
 Con la interfaz ya preparada en Windows:
 
 ```powershell
-.\.cache\wizard-venv\Scripts\python.exe -m unittest -v test_configuration
+.\.cache\wizard-venv\Scripts\python.exe -m unittest -v tests.unit.test_configuration
 ```
 
 En Linux:
 
 ```bash
-.cache/wizard-venv/bin/python -m unittest -v test_configuration
+.cache/wizard-venv/bin/python -m unittest -v tests.unit.test_configuration
 ```
 
 Los tests usan directorios temporales y servicios falsos. Comprueban la navegación,

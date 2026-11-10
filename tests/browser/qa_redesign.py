@@ -15,7 +15,7 @@ import tempfile
 import time
 import urllib.request
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 
 MARKDOWN_RESPONSE = '''## Resumen técnico
 
@@ -536,7 +536,7 @@ def main():
         fixture_server(args.port);return
     reports=ROOT/"reports";reports.mkdir(exist_ok=True)
     with (reports/"redesign-qa-server.log").open("w",encoding="utf-8") as log:
-        process=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),"--server","--port",str(args.port)],cwd=ROOT,stdout=log,stderr=log,
+        process=subprocess.Popen([sys.executable,"-m","tests.browser.qa_redesign","--server","--port",str(args.port)],cwd=ROOT,stdout=log,stderr=log,
             creationflags=getattr(subprocess,"CREATE_NO_WINDOW",0),env=dict(os.environ,PYTHONUTF8="1"))
         url=f"http://127.0.0.1:{args.port}"
         try:

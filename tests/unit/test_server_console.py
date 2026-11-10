@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from server_console import ConsoleBuffer, ConsoleCapture, OutputTee, LineClassifier
 from server_console_reader import read_new_lines
-import test_web
+from tests.unit import test_web
 
 
 class ConsoleTests(unittest.TestCase):

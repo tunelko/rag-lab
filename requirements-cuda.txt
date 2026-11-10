@@ -1,3 +1,0 @@
-# Windows x64 / Python 3.13 / NVIDIA Ampere (RTX 3080).
---index-url https://download.pytorch.org/whl/cu130
-torch==2.14.1+cu130

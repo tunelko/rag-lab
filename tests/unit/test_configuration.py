@@ -30,10 +30,10 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(setup.venv_python(self.root, system='posix'), self.root / '.venv/bin/python')
         cpu = setup.installation_commands(self.root, 'ollama')
         cuda = setup.installation_commands(self.root, 'cuda')
-        self.assertIn('torch==2.14.1+cpu', cpu[1])
-        self.assertIn('torch==2.14.1+cu130', cuda[1])
-        self.assertTrue(cpu[2][-1].endswith('requirements-local.txt'))
-        self.assertTrue(cuda[2][-1].endswith('requirements.txt'))
+        self.assertEqual(Path(cpu[1][-1]).name, 'torch-cpu.txt')
+        self.assertEqual(Path(cuda[1][-1]).name, 'torch-cuda.txt')
+        self.assertEqual(Path(cpu[2][-1]).name, 'ollama.txt')
+        self.assertEqual(Path(cuda[2][-1]).name, 'cuda.txt')
         self.assertFalse(any('ollama' == argument or 'sudo' == argument for command in cpu for argument in command))
 
     def test_only_loopback_urls_and_valid_ranges(self):

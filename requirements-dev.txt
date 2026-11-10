@@ -1,2 +1,0 @@
-# Browser QA uses the Microsoft Edge already installed on this computer.
-playwright==1.64.1

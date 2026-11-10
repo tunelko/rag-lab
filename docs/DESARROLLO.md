@@ -11,7 +11,7 @@ Windows/Linux con Python 3.13 y Node 24:
 3. Ejecuta `python -m unittest discover -v`: persistencia Chroma real, vectores
    deterministas, modelos/sensores falsos, configuración y navegación del wizard.
 4. Ejecuta los tests de gráficas y comprueba sintaxis JS y Bash.
-5. En Linux instala Edge y ejecuta `qa_redesign.py` con un servidor y corpus propios.
+5. En Linux instala Edge y ejecuta `tests/browser/qa_redesign.py` con un servidor y corpus propios.
 6. Conserva registros/capturas como artefactos durante siete días, incluso si falla.
 
 No hay LLMs ni embeddings reales en las pruebas. CUDA queda oculta y el Hub HF en
@@ -22,17 +22,17 @@ Las Actions están fijadas a commits oficiales y el token de Actions solo tiene
 
 Para reproducir las pruebas completas sin añadir paquetes al entorno del RAG,
 usa un entorno de desarrollo propio con las dependencias CPU y las de
-`requirements-wizard.txt` y `requirements-dev.txt`. Desde ese entorno:
+`requirements/wizard.txt` y `requirements/dev.txt`. Desde ese entorno:
 
 ```text
 python -m unittest discover -v
-node --test test_chart_data.mjs
+node --test tests/frontend/*.test.mjs
 python -m playwright install msedge
-python qa_redesign.py
+python -m tests.browser.qa_redesign
 ```
 
 La QA abre y cierra su servidor en el puerto 8767. Usa `--port` si está ocupado.
-Para inspeccionar tu servidor existente sin generar respuestas: `python qa_web.py`.
+Para inspeccionar tu servidor existente sin generar respuestas: `python -m tests.browser.qa_web`.
 
 Referencias: [checkout](https://github.com/actions/checkout),
 [setup-python](https://github.com/actions/setup-python),

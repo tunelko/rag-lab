@@ -3,7 +3,7 @@ import threading
 import time
 import unittest
 
-import test_web
+from tests.unit import test_web
 
 
 class DiagnosticTests(unittest.TestCase):

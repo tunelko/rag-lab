@@ -20,7 +20,6 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parent
-TORCH_VERSION = '2.14.1'
 TEXTUAL_VERSION = '8.2.8'
 
 
@@ -178,14 +177,12 @@ def installation_commands(root: Path, profile: str):
     if profile not in ('ollama', 'cuda'):
         raise ValueError('Perfil no válido.')
     python = str(venv_python(root))
-    build, index = ('cpu', 'cpu') if profile == 'ollama' else ('cu130', 'cu130')
-    packages = [python, '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(root / 'requirements-local.txt')]
-    if profile == 'cuda':
-        packages.extend(['-r', str(root / 'requirements.txt')])
+    requirements = root / 'requirements'
+    torch_profile = 'torch-cpu.txt' if profile == 'ollama' else 'torch-cuda.txt'
+    packages = [python, '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(requirements / (profile + '.txt'))]
     return [
         [sys.executable, '-m', 'venv', str(root / '.venv')],
-        [python, '-m', 'pip', 'install', '--only-binary=:all:', f'torch=={TORCH_VERSION}+{build}',
-         '--index-url', 'https://download.pytorch.org/whl/' + index],
+        [python, '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(requirements / torch_profile)],
         packages,
         [python, '-m', 'pip', 'check'],
     ]
@@ -618,7 +615,7 @@ def bootstrap():
                            capture_output=True, text=True)
     if check.returncode or check.stdout.strip() != TEXTUAL_VERSION:
         subprocess.run([str(python), '-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:',
-                        '-r', str(ROOT / 'requirements-wizard.txt')], check=True,
+                        '-r', str(ROOT / 'requirements/wizard.txt')], check=True,
                        env=dict(os.environ, PIP_CACHE_DIR=str(ROOT / '.cache/pip'), PYTHONUTF8='1'))
     return subprocess.call([str(python), str(Path(__file__).resolve())], cwd=ROOT)
 

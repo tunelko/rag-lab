@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import hardware_monitor
-import test_web
+from tests.unit import test_web
 
 
 class HardwareTests(unittest.TestCase):
