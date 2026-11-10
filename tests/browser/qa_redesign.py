@@ -67,6 +67,16 @@ def fixture_server(port):
             return super().embed_documents(texts)
 
     class FixtureService(RagService):
+        def index(self, job_id, only_file=None):
+            if only_file and Path(only_file).name.startswith('cancelar-todo-'):
+                # Hold this fixture before index writes so cancellation tests do
+                # not race with a runner that finishes parsing/writing sooner.
+                self.update(job_id,stage='parse',phase='QA: esperando cancelación antes de escribir')
+                if not self.cancels[job_id].wait(60):
+                    raise AssertionError('QA did not request cancellation of the held index job')
+                self.check_cancel(job_id)
+            return super().index(job_id,only_file)
+
         def model_capabilities(self, model):
             return ["vision"] if model == "qa-vision:latest" else []
 
@@ -413,7 +423,14 @@ def run_browser(url):
         clear_queue(page)
         page.locator("#file-input").set_input_files([file(f"cancelar-todo-{index}.txt", large) for index in range(3)])
         page.locator("#upload-button").click()
-        expect(page.locator(".queue-row[data-state=uploading],.queue-row[data-state=uploaded],.queue-row[data-state=fragmenting],.queue-row[data-state=indexing]")).not_to_have_count(0)
+        for _ in range(200):
+            pending=page.request.get(url+'/api/jobs?active=1').json()['jobs']
+            pending=[job for job in pending if job.get('document_name','').startswith('cancelar-todo-')]
+            if len(pending)>=2 and any(job['status']=='running' and job['stage']=='parse' for job in pending):
+                break
+            page.wait_for_timeout(100)
+        else:
+            raise AssertionError(f'Cancellation fixture never became ready: {pending}')
         expect(page.locator("#cancel-pending")).to_have_text("Cancelar procesamiento")
         expect(page.locator("#cancel-pending")).to_be_enabled()
         page.locator("#cancel-pending").click()
@@ -428,6 +445,8 @@ def run_browser(url):
         expect(page.locator(".queue-row[data-state=cancelled] .status-pill", has_text="Cancelando")).to_have_count(0)
         expect(page.locator(".queue-row[data-state=uploading],.queue-row[data-state=uploaded],.queue-row[data-state=fragmenting],.queue-row[data-state=indexing]")).to_have_count(0)
         expect(page.locator("#cancel-pending")).to_be_disabled()
+        completed=page.request.get(url+'/api/status').json()['documents']
+        assert next(item for item in completed if item['name']=='recuperacion.txt')['indexed']
         dialog_close(page)
         check("Visible cancel-processing button stops uploads and queued parsing jobs while preserving completed index writes")
 
