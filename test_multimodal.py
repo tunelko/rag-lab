@@ -9,6 +9,7 @@ import zipfile
 
 from PIL import Image
 import pymupdf
+from langchain_core.documents import Document
 
 import rag
 from multimodal import VisualReader, VisualError, describe_image
@@ -222,6 +223,34 @@ class IntegrationTests(unittest.TestCase):
         record, = rag.load_state(service.config)["files"].values()
         self.assertEqual({visual["page"] for visual in record["visuals"]}, {1, 2})
         self.assertEqual(describe.call_count, 1)
+
+    def test_automatic_queries_switch_by_question_and_manual_override_is_honored(self):
+        service = self.client.app.state.service
+        available = {"connected": True, "models": ["test-local:latest", "test-vision"], "default_model": "test-local:latest", "loaded": []}
+        with patch.object(service, "ollama_status", return_value=available), patch.object(service, "model_capabilities", side_effect=lambda model: ["vision"] if model == "test-vision" else []), patch("multimodal.describe_image", return_value="Cuatro puertos USB"):
+            self.configure(multimodal=True, vision_model="test-vision", response_mode="automatic")
+            self.upload("routing.png", png())
+            # Both questions retrieve the same text from a page with an associated image.
+            text = Document(page_content="Garantía de dos años.", metadata={"file": "routing.png", "source": str(service.documents / "routing.png"), "page": 1})
+            calls = []
+            def generate(messages, model, **kwargs):
+                calls.append((model, bool(messages[-1].get("images"))))
+                return "Respuesta [1]", {"output_tokens": 2}
+            def ask(question, **extra):
+                response = self.client.post("/api/query", headers=self.headers, json={"question": question, **extra})
+                return self.wait(response.json()["job_id"])
+            with patch("rag.retrieve", return_value=[(text, .1)]), patch("rag.generate_ollama", side_effect=generate):
+                ordinary = ask("¿Cuánto dura la garantía?")
+                visual = ask("¿Qué muestra el gráfico?")
+                self.configure(multimodal=True, vision_model="test-vision", response_mode="manual")
+                manual = ask("¿Qué muestra el gráfico?")
+                explicit = ask("¿Qué muestra el gráfico?", model="test-vision")
+        self.assertEqual(calls, [("test-local:latest", False), ("test-vision", True), ("test-local:latest", False), ("test-vision", True)])
+        self.assertEqual(ordinary["metrics"]["visual_mode"], "text")
+        self.assertEqual(visual["metrics"]["routing_mode"], "automatic")
+        self.assertEqual(manual["metrics"]["routing_mode"], "manual")
+        self.assertEqual(explicit["metrics"]["routing_mode"], "explicit")
+        self.assertIn("inspección visual", visual["metrics"]["routing_reason"])
 
 
 if __name__ == "__main__":

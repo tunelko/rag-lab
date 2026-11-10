@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 
 class Preferences(BaseModel):
+    response_mode: Literal["automatic", "manual"] = "automatic"
     response_model: str = Field(default_factory=lambda: os.getenv("RAG_OLLAMA_MODEL", ""), max_length=300)
     k: Literal[2, 4, 6, 8] = 4
     search_only: bool = False

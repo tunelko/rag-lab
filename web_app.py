@@ -27,6 +27,7 @@ import rag
 from jobs_runtime import JobFailure, JobRuntime
 from settings_store import SettingsStore, Preferences
 import multimodal
+from model_routing import select_model
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -281,20 +282,22 @@ class RagService(JobRuntime):
         self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds})
         if query.search_only:
             return {"answer": "Fragmentos recuperados. No se ha solicitado una respuesta al modelo.", "sources": sources,
-                    "metrics": {"retrieval_seconds": retrieval_seconds}}
+                    "metrics": {"retrieval_seconds": retrieval_seconds, "routing_mode": "search_only", "routing_reason": "Búsqueda sin generación."}}
         available = self.ollama_status()
-        model = query.model or available["default_model"]
         if not available["connected"]:
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
-        if model not in available["models"]:
-            raise ValueError("Selecciona un modelo local instalado en Ollama.")
+        route = select_model(settings, query.question, hits[:len(sources)], bool(images), available,
+                             self.model_capabilities, requested=query.model, history=query.history)
+        model = route.model
         visual_mode = "descriptions" if any(document.metadata.get("asset_id") for document, _ in hits[:len(sources)]) else "text"
-        if settings.multimodal and images and "vision" in self.model_capabilities(model):
+        if route.images:
             messages[-1]["images"] = [base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images]
             messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(f"imagen {i}: fuente [{citation}]" for i, citation in enumerate(images.values(), 1))
             messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
             visual_mode = "images"
-        self.update(job_id, phase="Generando respuesta con Ollama", model=model)
+        routing = {"model": model, "routing_mode": route.mode, "routing_reason": route.reason}
+        self.update(job_id, phase="Generando respuesta con Ollama", model=model,
+                    metrics={"retrieval_seconds": retrieval_seconds, **routing})
 
         def on_chunk(piece):
             self.check_cancel(job_id)
@@ -309,7 +312,7 @@ class RagService(JobRuntime):
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", str(exc)) from exc
         if not answer.strip():
             raise ValueError("El modelo no devolvió texto visible. Prueba otro modelo o aumenta RAG_MAX_NEW_TOKENS en .env.")
-        return {"answer": answer, "sources": sources, "metrics": {**metrics, "retrieval_seconds": retrieval_seconds,
+        return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, "retrieval_seconds": retrieval_seconds,
                 "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0}}
 
 
@@ -407,8 +410,6 @@ def create_app(service=None):
         if not (service.config.db / f"{service.config.collection}-manifest.json").exists():
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
-        if "model" not in body.model_fields_set:
-            body.model = settings.response_model or None
         if "k" not in body.model_fields_set:
             body.k = settings.k
         if "search_only" not in body.model_fields_set:
