@@ -73,10 +73,10 @@ function statusView(status){
   $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
   const indexedAt=status.last_index_at||(state.lastIndex?new Date(state.lastIndex).toISOString():null);
   $('last-index').textContent=indexedAt?relativeTime(indexedAt):'—';$('last-index').title=indexedAt?new Date(indexedAt).toLocaleString(intlLocale()):'';
-  if(!queue?.entries.some(entry=>['queued','uploading','uploaded','fragmenting','indexing'].includes(entry.state))){$('nav-badge').textContent=status.document_count;$('nav-badge').classList.remove('queued');$('nav-badge').hidden=!status.document_count;}
   $('index-button').disabled=!status.document_count;renderDocuments();renderProcess();chat?.setStatus(status);
 }
-async function refreshStatus(){try{statusView(await api('/api/status'));}catch(error){toast(error.message);}}
+let statusRequest;
+function refreshStatus(){if(statusRequest)return statusRequest;statusRequest=api('/api/status').then(statusView).catch(error=>toast(error.message)).finally(()=>{statusRequest=null;});return statusRequest;}
 function relativeTime(value){
   if(!value)return '—';const seconds=Math.max(0,(Date.now()-Date.parse(value))/1000);
   if(seconds<60)return t("ui.now_078f91");if(seconds<3600)return t("ui.min_ago_7ddff1", {value1: (Math.floor(seconds/60))});if(seconds<86400)return t("ui.h_ago_27eb8e", {value1: (Math.floor(seconds/3600))});return t("ui.days_ago_50545b", {value1: (Math.floor(seconds/86400))});
@@ -204,7 +204,8 @@ async function init(){
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush());
     await loadSettings();
     await refreshStatus();chat.restore(state.status?.jobs||[]);
-    setInterval(()=>{if(!document.hidden){refreshStatus();if(state.view==='statistics')refreshStatistics();}},15000);
+    setInterval(()=>{if(!document.hidden)refreshStatus();},2000);
+    setInterval(()=>{if(!document.hidden&&state.view==='statistics')refreshStatistics();},15000);
   }catch(error){toast(error.message);}
 }
 init();

@@ -197,7 +197,13 @@ def start(root, port, timeout=30,host='127.0.0.1'):
     host=validate_host(host)
     processes = matching_processes(root, port)
     if processes:
-        current=running_host(root,port)
+        # Read the same worker snapshot. A Windows launcher can disappear between
+        # two enumerations just after stop; that must not become a loopback bind.
+        try:
+            current=validate_host(argument(processes[0][0].cmdline(),'--host') or '127.0.0.1')
+        except psutil.NoSuchProcess:
+            processes=[]
+    if processes:
         if current!=host:
             raise RuntimeError(f'El servidor ya escucha en {current}. Usa restart --host {host} para cambiarlo.')
         print(f'El servidor ya esta iniciado (PID {processes[0][0].pid}): http://{current}:{port}')

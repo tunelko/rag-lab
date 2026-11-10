@@ -109,6 +109,7 @@ class WebTests(unittest.TestCase):
         host={'Host':'192.168.1.111:8765'}
         token=client.get('/api/session',headers=host).json()['token']
         self.assertEqual(client.get('/api/status',headers=host).status_code,200)
+        self.assertEqual(client.get('/api/status',headers=host).json()['server'],{'bind_host':'192.168.1.111','access':'lan'})
         response=client.post('/api/query',headers={**host,'X-RAG-Token':token,'Origin':'http://192.168.1.112:8765'},json={'question':'example'})
         self.assertEqual(response.status_code,403)
         self.assertEqual(client.get('/api/status',headers={'Host':'192.168.1.112:8765'}).status_code,400)
@@ -154,6 +155,17 @@ class WebTests(unittest.TestCase):
         self.assertEqual(job['metrics']['output_tokens'],512)
         self.assertEqual(job['metrics']['done_reason'],'length')
         self.assertIn('512',job['error_info']['detail'])
+
+    def test_reasoning_model_receives_a_separate_output_budget(self):
+        uploaded=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('manual.txt',b'Backups run every Friday.','text/plain'))],data={'auto_index':'true'})
+        self.wait(uploaded.json()['job_id'])
+        with patch.object(self.client.app.state.service,'model_capabilities',return_value=['thinking']), \
+             patch.object(rag,'generate_ollama',return_value=('Friday [1].',{'output_tokens':20})) as generate, \
+             patch.dict(os.environ,{'RAG_MAX_NEW_TOKENS':'512','RAG_REASONING_MAX_NEW_TOKENS':'2048'}):
+            response=self.client.post('/api/query',headers=self.headers,json={'question':'When are backups?'})
+            self.wait(response.json()['job_id'])
+        self.assertEqual(generate.call_args.kwargs['max_output_tokens'],2048)
 
     def test_query_image_reaches_vision_model_without_becoming_a_document(self):
         import base64

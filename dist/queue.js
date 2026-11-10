@@ -40,7 +40,7 @@ export class UploadQueue {
     return this.documents.find(document=>entry.documentId?document.document_id===entry.documentId:entry.serverName?document.name===entry.serverName:document.name===entry.name&&document.bytes===entry.size);
   }
   recover(entry){
-    const candidate=entry.error?.code==='NETWORK'||entry.state==='interrupted'||['uploaded','fragmenting','indexing'].includes(entry.state);
+    const candidate=entry.error?.code==='NETWORK'||entry.state==='interrupted'||(!entry.jobId&&['uploaded','fragmenting','indexing'].includes(entry.state));
     const document=candidate&&this.serverDocument(entry);
     if(!document)return false;
     entry.serverName=document.name;entry.documentId=document.document_id;
@@ -180,6 +180,7 @@ export class UploadQueue {
       const known=new Set(jobs.map((job)=>job.id));
       for(const entry of this.entries.filter((entry)=>entry.jobId&&activeStates.has(entry.state)&&!known.has(entry.jobId))){try{this.applyJob(entry,await this.api(`/api/jobs/${entry.jobId}`));}catch(error){if(error.status===404){
         this.documents=(await this.api('/api/status')).documents||[];
+        entry.jobId=null;
         if(!this.recover(entry)){entry.state='interrupted';entry.cancelRequested=false;entry.error=errorData({code:'NETWORK',message:entry.serverName?t("ui.the_file_is_still_uploaded_retry_indexing_00d8ad"):t("ui.the_upload_could_not_be_confirmed_after_restarting_check_the_libr_5f713f")});entry.jobId=null;}
       }}}
       this.emit();this.finishCheck();
@@ -239,6 +240,6 @@ export class UploadQueue {
     const serverWork=(this.serverJobs||[]).some(job=>job.kind==='index'&&['queued','running'].includes(job.status)&&!job.cancel_requested&&(job.status==='queued'||job.cancellable!==false));
     $('cancel-pending').disabled=this.cancelling||(!localWork&&!serverWork);$('cancel-pending').textContent=this.cancelling?t("ui.cancelling_c5b0af"):t("ui.cancel_processing_141faf");
     $('clear-queue').disabled=!this.entries.some((entry)=>['indexed','cancelled'].includes(entry.state));
-    const count=this.entries.filter((entry)=>activeStates.has(entry.state)).length;$('nav-badge').classList.toggle('queued',count>0);if(count)$('nav-badge').textContent=t("ui.queued_3af7dc", {value1: (count)});
+    const count=this.entries.filter((entry)=>activeStates.has(entry.state)).length;window.dispatchEvent(new CustomEvent('rag:queue',{detail:{pending:count,uploading:this.entries.some(entry=>entry.state==='uploading'),percent:this.maxTotal}}));
   }
 }

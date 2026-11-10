@@ -232,11 +232,22 @@ queue**: questions wait while a batch is being indexed.
 
 | Area | Features |
 |---|---|
-| Chat | Streamed answers, Markdown tables/code, copy buttons and collapsible citations. |
-| Library | Upload, index, cancel, retry, search and status filtering. |
+| Chat | Streamed Markdown, topic source selection, copy buttons and a sliding citation panel. |
+| Library | Topic cabinets/drawers, bulk moves without reindexing, uploads, cancellation and retry. |
 | Settings | Text/vision routing, retrieved fragment count and processing limits. |
 | Statistics | CPU/GPU/RAM/VRAM charts, queue time, generation throughput and stage timings. |
 | Console | Read-only local server output with filtering, copy and download. |
+
+The top bar includes **Ctrl/Cmd+K** to find a document, prepare a chat question or
+navigate. The system button opens the real bind address, local/LAN exposure,
+Ollama models, GPU/VRAM readings and status refresh. VRAM above 90% is amber;
+above 97% or multiple loaded models is red. Missing readings stay unknown.
+The pipeline follows active jobs and reduces to a compact row on mobile.
+
+Reasoning models receive up to `RAG_REASONING_MAX_NEW_TOKENS=2048`, independent
+of the default 512-token budget for other models. Reasoning and the final answer
+share that allowance. This changes neither the selected model nor its context
+window. A blank completion reports a specific error and retains diagnostics.
 
 Supported inputs: PDF, UTF-8 TXT, Markdown, PNG/JPEG/WebP and supported MinerU ZIP
 exports. PDF parsing preserves text and tables; visual pages are rendered as whole

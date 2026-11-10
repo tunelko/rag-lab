@@ -273,10 +273,12 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
     request = urllib.request.Request(endpoint, data=body, headers={"Content-Type": "application/json"})
     started = time.perf_counter()
     first_content = None
+    thinking_characters = 0
     with urllib.request.urlopen(request, timeout=600) as response:
         if on_chunk is None:
             result = json.load(response)
             answer = result["message"]["content"]
+            thinking_characters = len(result.get('message', {}).get('thinking', ''))
         else:
             pieces = []
             result = None
@@ -288,6 +290,7 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
                 item = json.loads(line)
                 if item.get("error"):
                     raise RuntimeError(item["error"])
+                thinking_characters += len(item.get('message', {}).get('thinking', ''))
                 piece = item.get("message", {}).get("content", "")
                 if piece:
                     if first_content is None:
@@ -308,6 +311,7 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
         "first_content_seconds": round(first_content, 2) if first_content is not None else None,
         "input_tokens": result.get("prompt_eval_count", 0),
         "done_reason": result.get("done_reason"),
+        "thinking_characters": thinking_characters,
     }
 
 

@@ -110,7 +110,7 @@ export class Chat{
   }
   async follow(turn){
     if(this.active)return;this.active=turn.job_id;this.stopping=false;this.controls();
-    try{while(true){const job=await this.api(`/api/jobs/${turn.job_id}`);Object.assign(turn,{status:job.status,phase:job.phase,answer:job.answer||'',sources:job.sources||[],error_info:job.error_info,metrics:job.metrics||{},model:job.model,elapsed_seconds:job.elapsed_seconds});this.update(turn);
+    try{while(true){const job=await this.api(`/api/jobs/${turn.job_id}`);window.dispatchEvent(new CustomEvent('rag:job',{detail:job}));Object.assign(turn,{status:job.status,phase:job.phase,answer:job.answer||'',sources:job.sources||[],error_info:job.error_info,metrics:job.metrics||{},model:job.model,elapsed_seconds:job.elapsed_seconds});this.update(turn);
       if(['done','error','cancelled'].includes(job.status)){this.save();announce(s(job.status==='done'?'answer_ready':'query_stopped'),'query-announcements');this.changed();break;}await new Promise(resolve=>setTimeout(resolve,700));}}
     catch(error){turn.status='error';turn.error_info={message:error.message};this.update(turn);this.save();}
     finally{this.active=null;this.submitting=false;this.stopping=false;this.controls();for(const item of this.turns)this.update(item);}

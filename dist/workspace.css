@@ -5,7 +5,7 @@
 .context-drawer .context-aside{display:flex;flex-direction:column;gap:16px;padding:16px;min-width:0}
 .context-drawer .card__head{flex-wrap:wrap;gap:8px}.context-drawer #close-context{margin-left:auto;flex:none}.context-drawer .card-title{min-width:0;flex:1}
 .context-open{overflow:hidden}
-.app-header__bar{padding-right:clamp(24px,calc(100vw - 1050px),148px)!important}.brand{min-height:52px}.header-status{padding-bottom:4px}.header-status .chip{font-size:10px;gap:4px}.header-status .bar--micro{width:28px;min-width:28px}.nav a{font-size:11px}
+.console-toolbar .tabs{max-width:100%;flex:0 1 auto}.console-card{overflow:hidden}.log{min-width:0;max-width:100%}
 .conversation-card:has(.chat-empty:not([hidden])){height:auto;min-height:max(620px,calc(100dvh - 178px))}.chat-empty{flex:1 0 auto}
 .resource-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;font-size:10px;border-top:1px solid var(--border);padding-top:8px;margin:10px 0 0}.resource-summary>div{display:flex;gap:5px;align-items:baseline}.resource-summary dt{color:var(--text-muted)}.resource-summary dd{margin:0;color:var(--text)}.dialog-document>span:first-child{display:flex;gap:8px;align-items:center;min-width:0;overflow-wrap:anywhere}
 .scope-picker{display:flex;align-items:center;gap:8px;flex:1 1 240px;font-size:11px;color:var(--text-muted);min-width:0}.scope-picker .select{min-width:0;max-width:340px}.conversation-card>.card__head{flex-wrap:wrap}.turn-scope{font-size:10px;color:var(--text-muted);text-align:right;margin:-12px 0 20px}

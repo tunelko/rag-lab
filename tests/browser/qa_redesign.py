@@ -259,7 +259,7 @@ def run_browser(url):
         assert page_locations[3]['href'] == '/api/source?file=notes.txt'
         assert all(item['target'] == '_blank' for item in page_locations)
         check('PDF physical page navigation and independent document numbering')
-        expect(page.locator("#stat-engine")).to_have_text("Ollama conectado")
+        expect(page.locator("#ollama-header")).to_have_text("Ollama conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
         expect(page.locator("#empty-banner")).to_be_visible()
         assert page.evaluate("document.fonts.check('16px \\\"Orbitron\\\"')")
@@ -267,6 +267,38 @@ def run_browser(url):
         page.locator("#nav-admin").click()
         expect(page.locator("#admin-view h1")).to_have_text("Biblioteca")
         check("Empty states, local fonts and client-side navigation")
+
+        for width in [1440,1280,1024,800,640,390,320]:
+            page.set_viewport_size({'width':width,'height':1000})
+            assert page.evaluate('()=>document.documentElement.scrollWidth<=innerWidth+1'),(width,page.evaluate('()=>[...document.querySelectorAll("body *")].filter(e=>e.offsetWidth&&e.getBoundingClientRect().right>innerWidth+1).slice(0,16).map(e=>[e.tagName,e.id,e.className,e.getBoundingClientRect().right])'))
+            assert page.evaluate('''()=>{
+                const items=[...document.querySelector('.topbar__bar').children].filter(e=>e.offsetWidth&&e.offsetHeight).map(e=>e.getBoundingClientRect());
+                return items.every((a,i)=>items.every((b,j)=>i===j||a.right<=b.left+1||b.right<=a.left+1||a.bottom<=b.top+1||b.bottom<=a.top+1));
+            }'''),f'Overlapping header at {width}px'
+            if width>=1024:
+                assert page.locator('.topbar__bar').bounding_box()['height']==52
+                assert page.locator('.topnav').evaluate('e=>e.scrollWidth<=e.clientWidth+1'),width
+        page.set_viewport_size({'width':1440,'height':1100})
+        page.locator('#command-open').focus();page.keyboard.press('Control+k')
+        expect(page.locator('#command-palette')).to_be_visible();expect(page.locator('#command-query')).to_be_focused()
+        page.locator('#command-query').fill('Pregunta de prueba sin enviar');page.keyboard.press('Enter')
+        expect(page.locator('#question')).to_have_value('Pregunta de prueba sin enviar')
+        expect(page.locator('#question')).to_be_focused();page.locator('#question').fill('')
+        expect(page.locator('.chat-turn')).to_have_count(0)
+        page.locator('#system-button').click();expect(page.locator('#system-popover')).to_be_visible()
+        expect(page.locator('#exposure-detail')).to_contain_text('solo desde este equipo')
+        page.keyboard.press('Escape');expect(page.locator('#system-button')).to_be_focused()
+        sensor=page.request.get(url+'/api/telemetry?history_seconds=60').json()
+        sensor['gpu']['devices'][0]['memory_used_bytes']=9.5*1024**3
+        page.evaluate('data=>window.dispatchEvent(new CustomEvent("rag:telemetry",{detail:data}))',sensor)
+        expect(page.locator('#system-vram')).to_have_attribute('data-level','warn')
+        page.evaluate('()=>window.dispatchEvent(new CustomEvent("rag:job",{detail:{id:"header-qa",kind:"query",status:"running",model:"qa-local:latest",elapsed_seconds:2}}))')
+        expect(page.locator('.pstep[data-pipeline="5"]')).to_have_attribute('data-state','done')
+        expect(page.locator('.pstep[data-pipeline="6"]')).to_have_attribute('data-state','run')
+        page.evaluate('()=>window.dispatchEvent(new CustomEvent("rag:job",{detail:{id:"header-qa",kind:"query",status:"done",metrics:{routing_mode:"catalog"}}}))')
+        expect(page.locator('#pipeline-state')).to_have_text('Inactivo')
+        page.locator('#nav-admin').click()
+        check('Header has no overlapping controls at 1440/1280/1024/800/640/390/320px; command palette, keyboard focus, VRAM warning, loopback exposure and live pipeline')
 
         page.locator("#file-input").set_input_files([
             file("manual.txt"), file("guia.md"), file("procedimiento.markdown"), file("notas.txt"),
@@ -313,7 +345,7 @@ def run_browser(url):
         expect(page.locator("#dialog-title")).to_have_text("Modelo de búsqueda listo")
         assert page.evaluate("document.activeElement.textContent").startswith("Hacer una consulta")
         dialog_close(page)
-        assert page.locator("#prepare-button").evaluate("element=>element===document.activeElement")
+        expect(page.locator('#prepare-button')).to_be_focused()
         check("Upload without indexing, explicit indexing, preparation and success modal focus restoration")
 
         page.locator("#top-k [data-k='6']").click()
@@ -338,7 +370,9 @@ def run_browser(url):
         expect(page.locator("#open-context")).to_have_attribute("aria-expanded", "false")
         page.evaluate("() => {window.__sourceIdentity=document.querySelector('#sources .source');}")
         for _ in range(3):
+            page.locator('#system-button').click()
             with page.expect_response('**/api/status'):page.locator('#refresh-button').click()
+            page.keyboard.press('Escape')
             page.evaluate('() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             assert page.evaluate("() => document.querySelector('#sources .source')===window.__sourceIdentity"), 'Source panel was rebuilt during status refresh'
         page.locator(".trace-actions button[aria-label='Copiar respuesta']").last.click()

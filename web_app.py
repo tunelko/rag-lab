@@ -251,6 +251,8 @@ class RagService(JobRuntime):
         chunks = sum(len(file.get("ids", [])) for file in state["files"].values())
         return {"documents": documents, "document_count": len(documents), "chunk_count": chunks,
                 "library": self.topics.snapshot(documents),
+                "server": {"bind_host": getattr(self,'bind_host','127.0.0.1'),
+                           "access": 'loopback' if getattr(self,'bind_host','127.0.0.1').startswith('127.') else 'lan'},
                 "collection": self.config.collection, "embedding_model": self.config.embedding_model,
                 "embedding_device": self.config.embedding_device, "embedding_loaded": self.embeddings is not None,
                 "chunk_size": self.config.chunk_size, "chunk_overlap": self.config.chunk_overlap,
@@ -424,6 +426,12 @@ class RagService(JobRuntime):
                 'max_output_tokens': int(os.getenv('RAG_GLOBAL_MAX_NEW_TOKENS', '2048')),
                 'response_format': structured.schema,
             } if intent.mode == 'global' else {}
+            if intent.mode != 'global' and 'thinking' in self.model_capabilities(model):
+                # Reasoning shares num_predict with the final answer. A small text
+                # budget can end before message.content, even with think=False.
+                generation_options['max_output_tokens'] = max(
+                    int(os.getenv('RAG_MAX_NEW_TOKENS', '512')),
+                    int(os.getenv('RAG_REASONING_MAX_NEW_TOKENS', '2048')))
             answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id), **generation_options)
             if structured:
                 answer = structured.finish(answer)
@@ -462,6 +470,7 @@ def create_app(service=None):
 
     app = FastAPI(title="RAG Local", docs_url=None, redoc_url=None, lifespan=lifespan)
     bind_host=validate_host(os.getenv('RAG_WEB_HOST','127.0.0.1'))
+    service.bind_host=bind_host
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver",bind_host])
     app.state.service = service
 

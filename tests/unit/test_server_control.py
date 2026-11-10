@@ -31,6 +31,17 @@ def jobs():
 
 
 class ServerControlTests(unittest.TestCase):
+    def test_disappearing_windows_launcher_does_not_change_requested_host(self):
+        gone=SimpleNamespace(cmdline=lambda:(_ for _ in ()).throw(control.psutil.NoSuchProcess(123)))
+        fresh=SimpleNamespace(pid=456)
+        with patch.object(control,'matching_processes',side_effect=[[(gone,True)],[(fresh,True)]]), \
+             patch.object(control,'port_in_use',side_effect=[False,True]), \
+             patch.object(control,'python_executable',return_value=Path(sys.executable)), \
+             patch.object(control.subprocess,'Popen') as spawn:
+            control.start(self.root,self.port,host='127.0.0.2')
+        command=spawn.call_args.args[0]
+        self.assertEqual(command[command.index('--host')+1],'127.0.0.2')
+
     def test_host_accepts_only_loopback_or_private_ipv4(self):
         self.assertEqual(control.validate_host('192.168.1.111'),'192.168.1.111')
         for address in ('0.0.0.0','8.8.8.8','example.com','169.254.1.2'):

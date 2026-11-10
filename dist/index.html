@@ -15,6 +15,7 @@
   <link href="/assets/markdown.css" rel="stylesheet"/>
   <script src="/assets/app.js" type="module">
   </script>
+  <link href="/assets/header.css" rel="stylesheet"/>
  </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -122,6 +123,12 @@
      </path>
     </symbol>
    </defs>
+   <symbol id="i-wifi" viewbox="0 0 24 24">
+    <path d="M3 8a14 14 0 0 1 18 0M6 12a9 9 0 0 1 12 0M9 16a4 4 0 0 1 6 0">
+    </path>
+    <circle cx="12" cy="20" r=".5">
+    </circle>
+   </symbol>
   </svg>
   <a class="skip" href="#main">
    <span data-i18n="sentinel.skip">
@@ -129,17 +136,17 @@
    </span>
   </a>
   <div class="app">
-   <header class="app-header">
-    <div class="app-header__bar">
-     <a class="brand" href="/">
+   <header class="topbar app-header" id="topbar">
+    <div class="topbar__bar">
+     <a class="topbar__brand" href="/">
       <svg aria-hidden="true" class="icon">
        <use href="#i-network">
        </use>
       </svg>
       RAG Local
      </a>
-     <nav aria-label="Secciones" class="nav" data-i18n-aria-label="sentinel.sections">
-      <a href="/" class="nav-item" id="nav-query">
+     <nav aria-label="Secciones" class="topnav" data-i18n-aria-label="sentinel.sections">
+      <a class="nav-item" href="/" id="nav-query">
        <svg aria-hidden="true" class="icon">
         <use href="#i-chat">
         </use>
@@ -148,7 +155,7 @@
         Chat
        </span>
       </a>
-      <a href="/admin" class="nav-item" id="nav-admin">
+      <a class="nav-item" href="/admin" id="nav-admin">
        <svg aria-hidden="true" class="icon">
         <use href="#i-library">
         </use>
@@ -160,7 +167,7 @@
         0
        </span>
       </a>
-      <a href="/configuracion" class="nav-item" id="nav-settings">
+      <a class="nav-item" href="/configuracion" id="nav-settings">
        <svg aria-hidden="true" class="icon">
         <use href="#i-settings">
         </use>
@@ -169,7 +176,7 @@
         Configuración
        </span>
       </a>
-      <a href="/estadisticas" class="nav-item" id="nav-statistics">
+      <a class="nav-item" href="/estadisticas" id="nav-statistics">
        <svg aria-hidden="true" class="icon">
         <use href="#i-cpu">
         </use>
@@ -178,7 +185,7 @@
         Estadísticas
        </span>
       </a>
-      <a href="/consola" class="nav-item" id="nav-console">
+      <a class="nav-item" href="/consola" id="nav-console">
        <svg aria-hidden="true" class="icon">
         <use href="#i-console">
         </use>
@@ -188,132 +195,239 @@
        </span>
       </a>
      </nav>
-     <div class="header-status">
-      <span class="chip" id="stat-engine">
-       <i class="dot dot--warn">
+     <span class="topbar__spacer">
+     </span>
+     <button aria-controls="command-palette" aria-haspopup="dialog" class="cmdk" data-i18n-aria-label="header.command" id="command-open" type="button">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-search">
+       </use>
+      </svg>
+      <span class="cmdk__label" data-i18n="header.command">
+      </span>
+      <kbd class="kbd">
+       Ctrl K
+      </kbd>
+     </button>
+     <button aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" id="system-button" popovertarget="system-popover" type="button">
+      <span class="sysbtn__item">
+       <i class="dot" id="system-dot">
        </i>
        <span id="ollama-header">
-        —
        </span>
       </span>
-      <span class="chip num">
-       <span>
-        VRAM
-       </span>
-       <span id="header-vram">
-        —
-       </span>
-       <span class="bar bar--micro">
+      <i class="sysbtn__sep">
+      </i>
+      <span class="sysbtn__item lv" data-level="info" id="system-vram">
+       VRAM
+       <span class="meter-xs">
         <i id="header-vram-bar">
         </i>
        </span>
+       <span id="vram-percent">
+        —
+       </span>
       </span>
-      <span class="chip chip--local">
+      <i class="sysbtn__sep">
+      </i>
+      <span class="sysbtn__item lv" data-level="info" id="server-exposure">
        <svg aria-hidden="true" class="icon">
-        <use href="#i-lock">
+        <use href="#i-lock" id="exposure-icon">
         </use>
        </svg>
-       <span id="locality-label" data-i18n="sentinel.local">
-        Solo local
-       </span>
-       ·
-       <span id="server-address">
+       <span id="locality-label">
        </span>
       </span>
+     </button>
+     <label class="topbar-language" data-i18n-title="language.label" title="Idioma">
+      <img alt="" aria-hidden="true" id="language-flag" src="/assets/icons/flags/es.svg"/>
+      <select aria-label="Idioma" class="langbtn" data-i18n-aria-label="language.label" id="language-selection">
+       <option data-i18n="language.auto" value="auto">
+        Auto
+       </option>
+       <option lang="es" value="es">
+        ES
+       </option>
+       <option lang="en" value="en">
+        EN
+       </option>
+      </select>
+     </label>
+    </div>
+    <section aria-labelledby="system-title" class="syspop" id="system-popover" popover="auto">
+     <header class="syspop__head">
+      <h2 class="card-title" data-i18n="header.system" id="system-title">
+      </h2>
+      <button class="btn btn--secondary btn--icon" data-i18n-aria-label="header.close" popovertarget="system-popover" popovertargetaction="hide" type="button">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-x">
+        </use>
+       </svg>
+      </button>
+     </header>
+     <dl>
+      <div>
+       <dt>
+        Ollama
+       </dt>
+       <dd>
+        <span id="system-ollama">
+         —
+        </span>
+        <span class="syspop__hint" id="system-models">
+        </span>
+       </dd>
+      </div>
+      <div>
+       <dt>
+        VRAM
+       </dt>
+       <dd>
+        <span id="header-vram">
+         —
+        </span>
+        <progress id="system-vram-progress" max="100" value="0">
+        </progress>
+        <span class="syspop__hint" data-i18n="header.vram_hint">
+        </span>
+       </dd>
+      </div>
+      <div>
+       <dt>
+        GPU
+       </dt>
+       <dd id="system-gpu">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt>
+        Embeddings
+       </dt>
+       <dd id="system-embeddings">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt data-i18n="header.server">
+       </dt>
+       <dd>
+        <span id="server-address">
+        </span>
+        <span id="exposure-detail">
+        </span>
+        <span class="syspop__hint" id="exposure-hint">
+        </span>
+       </dd>
+      </div>
+     </dl>
+     <details class="syspop__pipeline" id="system-pipeline-detail"><summary data-i18n="header.pipeline">Estado del pipeline</summary><ol id="system-pipeline-stages"></ol></details>
+     <footer class="syspop__foot">
+      <a data-i18n="header.statistics" href="/estadisticas">
+      </a>
       <button aria-label="Actualizar estado" class="btn btn--secondary btn--icon" data-i18n-aria-label="sentinel.refresh_status" id="refresh-button">
        <svg aria-hidden="true" class="icon">
         <use href="#i-refresh">
         </use>
        </svg>
       </button>
-     </div>
-     <label class="language-picker" data-i18n-title="language.label" title="Idioma">
-      <img alt="" aria-hidden="true" id="language-flag" src="/assets/icons/flags/es.svg"/>
-      <select aria-label="Idioma" class="select language-picker__select" data-i18n-aria-label="language.label" id="language-selection">
-       <option data-i18n="language.auto" value="auto">
-        Auto
-       </option>
-       <option lang="es" value="es">
-        Español
-       </option>
-       <option lang="en" value="en">
-        English
-       </option>
-      </select>
-     </label>
-    </div>
-    <div aria-label="Pipeline RAG" class="pipeline">
-     <span class="label">
+     </footer>
+    </section>
+    <div class="pipeline2" id="pipeline-live">
+     <span class="pipeline2__title">
       PIPELINE
      </span>
-     <a class="pipeline__step" data-pipeline="1" href="/admin">
-      <b>
-       01 INGESTA
-      </b>
-      <span id="pipeline-docs">
-       —
+     <ol class="pipeline2__steps">
+      <li class="pstep" data-pipeline="1" data-stage="ingesta" data-state="idle">
+       <a href="/admin">
+        <span class="pstep__name">
+         01 INGESTA
+        </span>
+        <span class="pstep__value" id="pipeline-docs">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+      <li class="pstep" data-pipeline="2" data-stage="chunks" data-state="idle">
+       <a href="/configuracion">
+        <span class="pstep__name">
+         02 CHUNKS
+        </span>
+        <span class="pstep__value" id="pipeline-chunks">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+      <li class="pstep" data-pipeline="3" data-stage="embed" data-state="idle">
+       <a href="/configuracion">
+        <span class="pstep__name">
+         03 EMBED
+        </span>
+        <span class="pstep__value" id="pipeline-embedding">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+      <li class="pstep" data-pipeline="4" data-stage="vectores" data-state="idle">
+       <a href="/estadisticas">
+        <span class="pstep__name">
+         04 VECTORES
+        </span>
+        <span class="pstep__value" id="pipeline-vectors">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+      <li class="pstep" data-pipeline="5" data-stage="retrieval" data-state="idle">
+       <a href="/configuracion">
+        <span class="pstep__name">
+         05 RETRIEVAL
+        </span>
+        <span class="pstep__value" id="pipeline-retrieval">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+      <li class="pstep" data-pipeline="6" data-stage="llm" data-state="idle">
+       <a href="/configuracion">
+        <span class="pstep__name">
+         06 LLM
+        </span>
+        <span class="pstep__value" id="pipeline-llm">
+         —
+        </span>
+        <svg aria-hidden="true" class="icon pstep__check">
+         <use href="#i-check">
+         </use>
+        </svg>
+       </a>
+      </li>
+     </ol>
+     <button class="pipeline2__status" id="pipeline-status" popovertarget="system-popover" type="button">
+      <i class="dot">
+      </i>
+      <span id="pipeline-state">
       </span>
-     </a>
-     <svg aria-hidden="true" class="icon">
-      <use href="#i-chevron">
-      </use>
-     </svg>
-     <a class="pipeline__step" data-pipeline="2" href="/configuracion">
-      <b>
-       02 CHUNKS
-      </b>
-      <span id="pipeline-chunks">
-       —
-      </span>
-     </a>
-     <svg aria-hidden="true" class="icon">
-      <use href="#i-chevron">
-      </use>
-     </svg>
-     <a class="pipeline__step" data-pipeline="3" href="/configuracion">
-      <b>
-       03 EMBED
-      </b>
-      <span id="pipeline-embedding">
-       —
-      </span>
-     </a>
-     <svg aria-hidden="true" class="icon">
-      <use href="#i-chevron">
-      </use>
-     </svg>
-     <a class="pipeline__step" data-pipeline="4" href="/estadisticas">
-      <b>
-       04 VECTORES
-      </b>
-      <span id="pipeline-vectors">
-       —
-      </span>
-     </a>
-     <svg aria-hidden="true" class="icon">
-      <use href="#i-chevron">
-      </use>
-     </svg>
-     <a class="pipeline__step" data-pipeline="5" href="/configuracion">
-      <b>
-       05 RETRIEVAL
-      </b>
-      <span id="pipeline-retrieval">
-       —
-      </span>
-     </a>
-     <svg aria-hidden="true" class="icon">
-      <use href="#i-chevron">
-      </use>
-     </svg>
-     <a class="pipeline__step" data-pipeline="6" href="/configuracion">
-      <b>
-       06 LLM
-      </b>
-      <span id="pipeline-llm">
-       —
-      </span>
-     </a>
+     </button>
     </div>
    </header>
    <main id="main">
@@ -365,9 +479,17 @@
         </span>
         <span class="meta" id="settings-sync" role="status">
         </span>
-        <label class="scope-picker" for="chat-scope"><span data-i18n="library.sources">Fuentes</span><select class="select" id="chat-scope"></select></label>
-        <button class="btn btn--secondary context-toggle" id="open-context" type="button" aria-controls="context-panel" aria-expanded="false">
-         <span data-i18n="sentinel.context">Contexto recuperado</span>
+        <label class="scope-picker" for="chat-scope">
+         <span data-i18n="library.sources">
+          Fuentes
+         </span>
+         <select class="select" id="chat-scope">
+         </select>
+        </label>
+        <button aria-controls="context-panel" aria-expanded="false" class="btn btn--secondary context-toggle" id="open-context" type="button">
+         <span data-i18n="sentinel.context">
+          Contexto recuperado
+         </span>
         </button>
        </header>
        <div class="chat-empty" id="chat-empty">
@@ -442,8 +564,8 @@
        </form>
       </section>
      </div>
-      <dialog class="context-drawer" id="context-panel" aria-labelledby="context-title">
-       <div class="context-aside">
+     <dialog aria-labelledby="context-title" class="context-drawer" id="context-panel">
+      <div class="context-aside">
        <section class="card chat-sources" id="context-details">
         <header class="card__head">
          <h2 class="card-title" id="context-title">
@@ -454,8 +576,11 @@
          <span class="badge badge--neutral" id="context-count">
           0
          </span>
-         <button class="btn btn--secondary btn--icon" id="close-context" type="button" data-i18n-aria-label="sentinel.close_context" aria-label="Cerrar contexto">
-          <svg aria-hidden="true" class="icon"><use href="#i-x"></use></svg>
+         <button aria-label="Cerrar contexto" class="btn btn--secondary btn--icon" data-i18n-aria-label="sentinel.close_context" id="close-context" type="button">
+          <svg aria-hidden="true" class="icon">
+           <use href="#i-x">
+           </use>
+          </svg>
          </button>
         </header>
         <div class="card__body">
@@ -585,8 +710,8 @@
          </div>
         </div>
        </section>
-       </div>
-      </dialog>
+      </div>
+     </dialog>
      <div aria-live="polite" class="sr-only" id="query-announcements" role="status">
      </div>
     </section>
@@ -680,23 +805,49 @@
        </dd>
       </div>
      </dl>
-     <section class="card topic-library" aria-labelledby="topics-title">
+     <section aria-labelledby="topics-title" class="card topic-library">
       <header class="card__head">
-       <h2 class="card-title" id="topics-title" data-i18n="library.title">Temas de la biblioteca</h2>
-       <span class="meta" data-i18n="library.hint">Organiza tus documentos en armarios y cajones.</span>
-       <button class="btn btn--secondary" id="new-topic" type="button" data-i18n="library.new_cabinet">Nuevo armario</button>
+       <h2 class="card-title" data-i18n="library.title" id="topics-title">
+        Temas de la biblioteca
+       </h2>
+       <span class="meta" data-i18n="library.hint">
+        Organiza tus documentos en armarios y cajones.
+       </span>
+       <button class="btn btn--secondary" data-i18n="library.new_cabinet" id="new-topic" type="button">
+        Nuevo armario
+       </button>
       </header>
       <div class="card__body">
-       <div class="topic-filters" id="topic-filters"></div>
-       <div class="topic-grid" id="topic-tree"></div>
-       <p class="meta" id="topic-empty" data-i18n="library.empty">Crea un armario para empezar a organizar la biblioteca.</p>
-       <form id="topic-form" class="topic-form" hidden>
-        <label class="field" for="topic-name"><span data-i18n="library.name">Nombre</span><input class="input" id="topic-name" maxlength="80" required autocomplete="off"/></label>
-        <label class="field" for="topic-parent"><span data-i18n="library.location">Ubicación</span><select class="select" id="topic-parent"></select></label>
-        <button class="btn btn--primary" id="save-topic" type="submit" data-i18n="library.save">Guardar</button>
-        <button class="btn btn--secondary" id="cancel-topic" type="button" data-i18n="library.cancel">Cancelar</button>
+       <div class="topic-filters" id="topic-filters">
+       </div>
+       <div class="topic-grid" id="topic-tree">
+       </div>
+       <p class="meta" data-i18n="library.empty" id="topic-empty">
+        Crea un armario para empezar a organizar la biblioteca.
+       </p>
+       <form class="topic-form" hidden="" id="topic-form">
+        <label class="field" for="topic-name">
+         <span data-i18n="library.name">
+          Nombre
+         </span>
+         <input autocomplete="off" class="input" id="topic-name" maxlength="80" required=""/>
+        </label>
+        <label class="field" for="topic-parent">
+         <span data-i18n="library.location">
+          Ubicación
+         </span>
+         <select class="select" id="topic-parent">
+         </select>
+        </label>
+        <button class="btn btn--primary" data-i18n="library.save" id="save-topic" type="submit">
+         Guardar
+        </button>
+        <button class="btn btn--secondary" data-i18n="library.cancel" id="cancel-topic" type="button">
+         Cancelar
+        </button>
        </form>
-       <p class="form-error" id="topic-message" role="status" hidden></p>
+       <p class="form-error" hidden="" id="topic-message" role="status">
+       </p>
       </div>
      </section>
      <div class="split">
@@ -739,11 +890,22 @@
         </div>
        </header>
        <div class="library-organize">
-        <label class="composer__check"><input id="select-visible-documents" type="checkbox"/><span data-i18n="library.select_page">Seleccionar página</span></label>
-        <span class="meta" id="selected-documents" role="status"></span>
-        <label class="sr-only" for="move-topic" data-i18n="library.move_destination">Destino de los documentos seleccionados</label>
-        <select class="select" id="move-topic"></select>
-        <button class="btn btn--secondary" id="move-documents" type="button" disabled data-i18n="library.move">Mover</button>
+        <label class="composer__check">
+         <input id="select-visible-documents" type="checkbox"/>
+         <span data-i18n="library.select_page">
+          Seleccionar página
+         </span>
+        </label>
+        <span class="meta" id="selected-documents" role="status">
+        </span>
+        <label class="sr-only" data-i18n="library.move_destination" for="move-topic">
+         Destino de los documentos seleccionados
+        </label>
+        <select class="select" id="move-topic">
+        </select>
+        <button class="btn btn--secondary" data-i18n="library.move" disabled="" id="move-documents" type="button">
+         Mover
+        </button>
        </div>
        <div class="table-wrap">
         <table class="table documents-table">
@@ -828,7 +990,13 @@
            </span>
           </button>
          </div>
-         <label class="field" for="upload-topic"><span data-i18n="library.upload_destination">Guardar documentos nuevos en</span><select class="select" id="upload-topic"></select></label>
+         <label class="field" for="upload-topic">
+          <span data-i18n="library.upload_destination">
+           Guardar documentos nuevos en
+          </span>
+          <select class="select" id="upload-topic">
+          </select>
+         </label>
          <section aria-label="Cola de subida" class="ingest-queue" data-i18n-aria-label="ui.upload_queue_9a0772" hidden="" id="queue-section">
           <div class="queue-heading">
            <h3>
@@ -2163,5 +2331,20 @@
     </span>
    </button>
   </div>
+  <dialog aria-labelledby="command-title" class="command-palette" id="command-palette">
+   <form id="command-form">
+    <label class="sr-only" data-i18n="header.command" for="command-query" id="command-title">
+    </label>
+    <input autocomplete="off" class="input" data-i18n-placeholder="header.command" id="command-query" maxlength="6000" type="search"/>
+    <button class="btn btn--secondary btn--icon" data-i18n-aria-label="header.close" id="command-close" type="button">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-x">
+      </use>
+     </svg>
+    </button>
+   </form>
+   <div class="command-results" id="command-results">
+   </div>
+  </dialog>
  </body>
 </html>

@@ -214,6 +214,16 @@ las referencias. Toda la interfaz web, incluidas fuentes y librerías, se sirve 
 
 ## Uso en la red local
 
+La barra superior agrupa el estado real de Ollama, VRAM y acceso de red en un
+desplegable, donde está «Recargar estado». Ctrl/Cmd+K busca documentos, prepara
+una pregunta en el chat o cambia de sección. Los contadores de Biblioteca solo
+aparecen cuando hay trabajo o errores; el pipeline sigue las tareas activas.
+
+Los modelos de razonamiento disponen de `RAG_REASONING_MAX_NEW_TOKENS=2048` para
+razonamiento y respuesta. Los demás mantienen `RAG_MAX_NEW_TOKENS=512`. La ventana
+de contexto y el modelo seleccionado se conservan. Si el modelo termina sin texto
+visible, el chat muestra un error específico y se guardan los datos de diagnóstico.
+
 Para escuchar en una IP privada que tenga asignada este equipo:
 
 ```powershell
