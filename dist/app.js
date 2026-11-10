@@ -122,8 +122,10 @@ let searchTimer;$('document-search').addEventListener('input',()=>{clearTimeout(
 $('document-filters').addEventListener('click',(event)=>{const control=event.target.closest('[data-filter]');if(control){state.filter=control.dataset.filter;state.page=1;renderDocuments();}});
 $('previous-page').addEventListener('click',()=>{state.page--;renderDocuments();});$('next-page').addEventListener('click',()=>{state.page++;renderDocuments();});
 function responseMode(){
+  const automatic=$('model-selection').value==='automatic';
   const visual=modelList.find(item=>item.name===$('model').value)?.vision;
-  $('response-mode').textContent=visual?'Este modelo admite imágenes originales al responder.':'Este modelo responde con texto y descripciones visuales; no inspecciona las imágenes originales.';
+  $('response-model-label').textContent=automatic?'Modelo para consultas de texto':'Modelo de respuesta fijo';
+  $('response-mode').textContent=automatic?'El chat usa este modelo para texto. Si la pregunta necesita imágenes o la evidencia principal es visual, elige el modelo visual configurado abajo. La decisión y el motivo aparecen en Estadísticas.':visual?'El modelo fijo admite imágenes originales al responder.':'El modelo fijo responde con texto y descripciones visuales; no inspecciona las imágenes originales.';
 }
 function fillSelect(id,items,value){
   const select=$(id);select.replaceChildren();
@@ -135,19 +137,21 @@ function fillSelect(id,items,value){
 }
 async function loadSettings(){
   const result=await api('/api/settings');preferences=result.settings;modelList=result.models;
+  $('model-selection').value=preferences.response_mode;
   fillSelect('model',modelList,preferences.response_model);fillSelect('vision-model',modelList.filter(item=>item.vision),preferences.vision_model);
   state.k=preferences.k;$('search-only').checked=preferences.search_only;$('multimodal').checked=preferences.multimodal;
   $('max-images').value=preferences.max_images;$('max-visuals').value=preferences.max_visuals_per_document;
   $('top-k').querySelectorAll('button').forEach(control=>control.setAttribute('aria-pressed',String(Number(control.dataset.k)===state.k)));responseMode();
 }
 $('model').addEventListener('change',responseMode);
+$('model-selection').addEventListener('change',responseMode);
 $('top-k').addEventListener('click',event=>{const control=event.target.closest('[data-k]');if(!control)return;state.k=Number(control.dataset.k);$('top-k').querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button===control)));});
 $('settings-form').addEventListener('input',()=>{$('settings-message').textContent='Cambios sin guardar';});
 $('top-k').addEventListener('click',()=>{$('settings-message').textContent='Cambios sin guardar';});
 $('settings-form').addEventListener('submit',async event=>{
   event.preventDefault();$('save-settings').disabled=true;$('settings-message').textContent='Guardando…';
   try{
-    const settings={response_model:$('model').value,k:state.k,search_only:$('search-only').checked,multimodal:$('multimodal').checked,vision_model:$('vision-model').value,max_images:Number($('max-images').value),max_visuals_per_document:Number($('max-visuals').value)};
+    const settings={response_mode:$('model-selection').value,response_model:$('model').value,k:state.k,search_only:$('search-only').checked,multimodal:$('multimodal').checked,vision_model:$('vision-model').value,max_images:Number($('max-images').value),max_visuals_per_document:Number($('max-visuals').value)};
     const result=await api('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(settings)});
     preferences=result.settings;$('settings-message').textContent='Configuración guardada';toast('Configuración guardada');
   }catch(error){$('settings-message').textContent=error.message;}finally{$('save-settings').disabled=false;}
@@ -161,6 +165,7 @@ async function refreshStatistics(){
     for(const item of stats.recent){
       const metrics=item.metrics||{};const row=node('tr');
       for(const value of [item.question,metrics.model||'—',item.elapsed_seconds==null?'—':number(item.elapsed_seconds,1)+' s',metrics.generation_tok_s==null?'—':number(metrics.generation_tok_s,2),metrics.output_tokens??'—',metrics.visual_mode==='images'?metrics.images_used+' imágenes':metrics.visual_mode==='descriptions'?'Descripciones':'Texto',{done:'Completada',error:'Error',running:'En curso',queued:'En cola',cancelled:'Detenida'}[item.status]||item.status])row.append(node('td','',value));
+      const modelCell=row.children[1];if(metrics.routing_reason){modelCell.append(node('p','routing-reason',`${metrics.routing_mode==='automatic'?'Automática':metrics.routing_mode==='search_only'?'Solo búsqueda':'Manual'} · ${metrics.routing_reason}`));}
       $('query-statistics').append(row);
     }
     if(!stats.recent.length){const row=node('tr');const cell=node('td','','Todavía no hay consultas en este arranque del servidor.');cell.colSpan=7;row.append(cell);$('query-statistics').append(row);}

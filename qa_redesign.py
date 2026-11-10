@@ -178,6 +178,7 @@ def run_browser(url):
         expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
         page.reload(wait_until="networkidle")
         expect(page.locator("#top-k [data-k='6']")).to_have_attribute("aria-pressed", "true")
+        expect(page.locator("#model-selection")).to_have_value("automatic")
         page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)
         page.locator("#nav-query").click()
         expect(page.locator("#model")).not_to_be_visible()
@@ -297,7 +298,8 @@ def run_browser(url):
         page.locator("#nav-settings").click()
         page.locator("#multimodal").check()
         page.locator("#vision-model").select_option("qa-vision:latest")
-        page.locator("#model").select_option("qa-vision:latest")
+        page.locator("#model").select_option("qa-local:latest")
+        page.locator("#model-selection").select_option("automatic")
         page.locator("#save-settings").click()
         expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
         page.locator("#nav-admin").click()
@@ -323,7 +325,18 @@ def run_browser(url):
         page.screenshot(path=str(reports / "redesign-fuentes-multimodales.png"), full_page=True)
         page.locator("#nav-statistics").click()
         expect(page.locator("#query-statistics")).to_contain_text("1 imágenes")
-        check("Image upload, local visual adapter, collapsed thumbnails and direct vision metrics with fake models")
+        visual_metrics = page.request.get(url + "/api/statistics").json()["recent"][0]["metrics"]
+        assert visual_metrics["model"] == "qa-vision:latest"
+        assert visual_metrics["routing_mode"] == "automatic"
+        expect(page.locator("#query-statistics")).to_contain_text("Automática")
+        page.locator("#nav-query").click()
+        page.locator("#question").fill("La copia de seguridad se realiza cada viernes.")
+        page.locator("#ask-button").click()
+        expect(page.locator("#ask-button")).to_contain_text("Enviar")
+        text_metrics = page.request.get(url + "/api/statistics").json()["recent"][0]["metrics"]
+        assert text_metrics["model"] == "qa-local:latest"
+        assert text_metrics["images_used"] == 0
+        check("Image upload, collapsed thumbnails and automatic vision/text selection with visible routing reasons using fake models")
         page.locator("#nav-admin").click()
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)

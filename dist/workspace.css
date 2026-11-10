@@ -32,6 +32,7 @@
 .statistics-summary .nav-label,.statistics-summary small,.statistics-summary .sidebar-summary p,.statistics-summary .sidebar-count strong{color:var(--ink-2)}
 .statistics-summary .sidebar-system{color:var(--ink-2);border-color:var(--line)}
 .query-statistics>.help-text,.query-statistics>p{padding:var(--space-3) var(--space-6);font-size:var(--text-sm);color:var(--ink-3)}
+.routing-reason{font-size:var(--text-xs);color:var(--ink-3);line-height:1.6;margin-top:var(--space-2);min-width:180px;max-width:340px}
 #admin-view .content-column{flex-basis:100%}#admin-view .page-columns{display:block}
 .workspace-footer{margin-top:var(--space-6)}
 @media(max-width:1000px){.settings-layout,.statistics-layout{grid-template-columns:1fr}}

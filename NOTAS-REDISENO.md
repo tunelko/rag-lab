@@ -9,11 +9,17 @@ paleta, fuentes locales, accesibilidad y ejecución local del paquete se mantien
 
 - Nuevas rutas SPA: `/configuracion`, `/estadisticas`; las anteriores siguen funcionando.
 - `GET/PUT /api/settings`: preferencias persistentes y validación de modelos locales.
+  `response_mode` admite `automatic` (predeterminado) o `manual`. `response_model`
+  es el candidato textual en automático y el modelo fijo en manual; `vision_model`
+  sirve para indexar y para responder cuando la selección necesita visión.
 - `GET /api/statistics`: estadísticas derivadas de tareas reales conservadas en memoria.
 - `GET /api/figures/{sha256}`: imágenes PNG normalizadas, sin rutas arbitrarias.
 - `POST /api/query` mantiene sus parámetros y añade historial acotado. Si se omiten
   modelo/k/search_only, aplica las preferencias compartidas. Los clientes antiguos
   pueden seguir especificándolos. Las fuentes añaden tipo y referencias visuales.
+  Un `model` explícito mantiene prioridad sobre la selección automática. La selección
+  de `model_routing.py` usa reglas locales y las fuentes, sin inferencia previa;
+  `metrics.routing_mode/routing_reason/model` documentan la decisión real en Estadísticas.
 - `rag.ingest` añade lector, extensiones y política opcionales; el lector original
   sigue siendo el predeterminado. La política evita omitir PDFs que ahora necesitan
   extracción visual. Se conserva ChromaDB y el modelo/dimensión de embeddings.

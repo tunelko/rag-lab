@@ -20,7 +20,7 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   Cada respuesta tiene **Fuentes consultadas**, plegado de entrada. Pulsar una cita
   abre sus fuentes. El historial de hasta 30 turnos se conserva en esta pestaña.
 - **Biblioteca:** http://127.0.0.1:8765/admin — subir e indexar documentos.
-- **Configuración general:** http://127.0.0.1:8765/configuracion — modelo de respuesta,
+- **Configuración general:** http://127.0.0.1:8765/configuracion — selección automática/manual del modelo,
   2/4/6/8 fragmentos, búsqueda sin generación, procesamiento visual y sus límites.
   Un fragmento es un trozo del documento recuperado como evidencia para la pregunta.
   Los ajustes se guardan en `data/settings.json`, compartidos entre navegadores locales.
@@ -34,8 +34,8 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 
 1. Revisa Configuración. Para procesar imágenes, activa el modo multimodal y elige
    un **modelo visual instalado** (por ejemplo `qwen3.5:9b-q4_K_M`, detectado localmente).
-   Si quieres que la respuesta inspeccione también las imágenes originales,
-   selecciona un modelo con visión como **Modelo de respuesta**.
+   Deja **Selección del modelo → Automática según la consulta** para que el chat
+   elija entre el modelo de texto y el visual. También puedes elegir **Manual**.
 2. En Biblioteca, añade PDF, TXT, Markdown, PNG/JPEG/WebP o un ZIP de exportación MinerU.
 3. Pulsa **Subir e indexar**. Los embeddings usan CPU; su primera preparación puede
    descargar el modelo. Con el modo multimodal, las descripciones visuales se
@@ -43,9 +43,10 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
 4. En Chat, escribe la pregunta y pulsa **Enviar** o Ctrl+Enter.
 
 El arranque y el guardado de ajustes no ejecutan inferencias ni descargan modelos.
-En este equipo se ha guardado una configuración inicial multimodal con
-`qwen3.5:9b-q4_K_M` para indexar y responder. Solo se ha verificado su instalación
-y capacidad declarada de visión, sin ejecutar el modelo. Puedes cambiarlo en Configuración.
+En este equipo está activada la selección automática: BlackICE para texto y
+`qwen3.5:9b-q4_K_M` para imágenes/indexación visual. La decisión usa la pregunta
+y la evidencia recuperada. La instalación/capacidad de los modelos se ha comprobado
+sin ejecutar inferencias reales. Puedes cambiar los candidatos en Configuración.
 **Preparar modelo de búsqueda**, en Configuración, adelanta la descarga de embeddings CPU.
 No se instala MinerU completo ni se descarga ningún LLM automáticamente.
 
@@ -54,6 +55,30 @@ No se instala MinerU completo ni se descarga ningún LLM automáticamente.
 Referencia conceptual: [artículo de Joaquín Videla](https://www.joaquinvidela.com/blog/multimodal-rag-base-documentos-figuras)
 y [skrvidz/multimodal-rag-base](https://github.com/skrvidz/multimodal-rag-base).
 Implementación propia sobre el laboratorio existente; no se ha copiado su aplicación.
+
+### Selección de modelo por consulta
+
+El modo **Automático** usa reglas locales, sin ejecutar un clasificador ni otra
+inferencia. Primero recupera las fuentes y después elige:
+
+- Pregunta textual con evidencia textual: modelo para consultas de texto. Una
+  imagen incidental en la misma página no obliga a adjuntarla ni cambiar de modelo.
+- Pregunta sobre una imagen, gráfico, diagrama, ubicación o color, con imágenes
+  recuperadas: modelo visual. También se usa si la evidencia principal recuperada
+  es una descripción visual, para inspeccionar su original.
+- Una continuación breve puede conservar la intención visual de la pregunta anterior.
+- Sin imágenes originales relacionadas, con el modo multimodal desactivado o con
+  el modelo visual no disponible, usa el modelo de texto y registra el motivo.
+- Una petición explícita de usar solo texto evita el cambio automático a visión.
+
+Es una heurística y puede equivocarse. El modo **Manual** fija el modelo de respuesta;
+un cliente API que envíe `model` explícitamente también fuerza ese modelo. No hay
+descargas ni intentos con modelos alternativos arbitrarios. **Estadísticas** muestra
+el modelo realmente usado y el motivo de selección, incluso en los casos de reserva.
+La elección afecta solo a esta consulta y no exige reindexar. En 10 GB de VRAM,
+alternar dos modelos puede implicar que Ollama descargue uno de VRAM y cargue el otro.
+
+### Lectura, recuperación y respuesta visual
 
 - **PDF:** PyMuPDF extrae texto y tablas en CPU. Las páginas con imágenes, gráficos
   vectoriales o sin texto se conservan como vistas completas de página. No se
@@ -66,7 +91,7 @@ Implementación propia sobre el laboratorio existente; no se ha copiado su aplic
   No admite ZIP genéricos, extracción Office directa ni exportaciones solo Markdown.
 - **Recuperación:** embeddings textuales en ChromaDB; las descripciones permiten
   encontrar imágenes, pero no hay embeddings visuales ni búsqueda por imagen.
-- **Respuesta:** un modelo con visión recibe hasta el límite configurado de imágenes
+- **Respuesta:** cuando la selección elige visión, el modelo recibe hasta el límite configurado de imágenes
   de las páginas recuperadas. Un modelo de texto recibe los fragmentos/descripciones.
   La presencia de una miniatura en Fuentes no significa por sí sola que el modelo
   haya visto sus píxeles: el modo real aparece en Estadísticas.
@@ -185,7 +210,8 @@ Los archivos retirados del directorio no se eliminan automáticamente del índic
 para reconstruir un corpus limpio, selecciona una colección nueva y reingesta.
 Ejecuta una sola ingesta por colección a la vez.
 
-Los PDF escaneados sin texto necesitan OCR, que no forma parte de esta instalación.
+El CLI textual no realiza OCR de PDF escaneados. Usa la ingesta multimodal de la web
+para describir sus páginas con el modelo visual local.
 Los fragmentos son de 500 CARACTERES, no tokens. E5 limita su entrada a 512 tokens:
 para textos con símbolos o caracteres muy densos, reduce el tamaño de fragmento.
 
@@ -203,8 +229,9 @@ El modelo de embeddings debe estar ya descargado en la caché.
 ### 3. Generación con Ollama
 
 Esta fase sí envía una solicitud de inferencia a Ollama y usa la GPU según su configuración.
-La configuración inicial apunta al BlackICE que ya estaba cargado. Cámbialo en `.env`
-si prefieres otro modelo instalado. No se descarga ni selecciona otro automáticamente.
+El CLI apunta al BlackICE configurado en `.env`. Cámbialo allí si prefieres otro
+modelo instalado. La selección automática según la pregunta se aplica a la web;
+este comando CLI conserva su modelo fijo y no descarga otro automáticamente.
 
 ```powershell
 python rag.py ask '¿Qué especifica el documento sobre el procedimiento?'
