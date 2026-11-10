@@ -54,7 +54,12 @@ export function renderSources(sources, question, container = $('sources'), prefi
     const card = node('article', 'source'); card.id = `${prefix}-${source.citation}`;
     const top = node('div', 'source-top'); top.append(node('span', 'source-num', source.citation), node('strong', 'source-title', source.file), fileType(source.file));
     const meta = node('div', 'source-meta');
-    const location = [source.page ? `pág. ${source.page}` : (source.section ? `sección ${source.section}` : source.lines ? `líneas ${source.lines}` : 'Fragmento recuperado'), source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
+    const pdf = /\.pdf$/i.test(source.file);
+    const page = Number(source.page);
+    const hasPage = Number.isSafeInteger(page) && page > 0;
+    const pageLocation = hasPage ? `${pdf ? 'pág. PDF' : 'pág.'} ${page}` : (source.section ? `sección ${source.section}` : source.lines ? `líneas ${source.lines}` : 'Fragmento recuperado');
+    const pageLabel = pdf && hasPage && source.page_label && String(source.page_label) !== String(page) ? `numeración del documento: ${source.page_label}` : '';
+    const location = [pageLocation, pageLabel, source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
     meta.append(node('span', '', location));
     const score = Math.max(0, Math.min(1, source.relevance ?? (1 - Number(source.cosine_distance || 0))));
     const relevance = node('div', 'relevance'); relevance.title = 'Similitud de coseno recortada al intervalo 0–1; no es una probabilidad.';
@@ -64,10 +69,16 @@ export function renderSources(sources, question, container = $('sources'), prefi
     for (const figure of source.figures || []) {
       if (!/^\/api\/figures\/[a-f0-9]{64}$/.test(figure.url)) continue;
       const link = node('a', 'figure-link'); link.href = figure.url; link.target = '_blank'; link.rel = 'noopener';
-      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = `Vista documental de ${source.file}, página ${figure.page}`;
-      link.append(image, node('span', 'help-text', `Ver imagen · pág. ${figure.page}`)); card.append(link);
+      const figureLocation = `${pdf ? 'pág. PDF' : 'pág.'} ${figure.page}`;
+      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = `Vista documental de ${source.file}, ${figureLocation}`;
+      link.append(image, node('span', 'help-text', `Ver imagen · ${figureLocation}`)); card.append(link);
     }
-    if (source.url && source.url.startsWith('/api/source?')) { const link = node('a', 'source-link', 'Abrir en el documento'); link.href = source.url; link.append(icon('external')); card.append(link); }
+    if (source.url && source.url.startsWith('/api/source?')) {
+      const link = node('a', 'source-link', pdf && hasPage ? `Abrir página PDF ${page}` : 'Abrir en el documento');
+      // Also repair page links in conversations saved by earlier UI versions.
+      link.href = pdf && hasPage ? `${source.url.split('#')[0]}#page=${page}` : source.url;
+      link.target = '_blank'; link.rel = 'noopener'; link.append(icon('external')); card.append(link);
+    }
     container.append(card);
   }
 }

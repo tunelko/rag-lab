@@ -63,3 +63,10 @@ not changes to global Ollama settings.
 
 These changes reuse existing vectors and visual descriptions; reindexing is not
 required. Restart the RAG server after a Python update, then refresh the web UI.
+
+PDF citations retain the physical, one-based page position used during indexing.
+The UI labels it **pág. PDF** and also shows the PDF's declared document numbering
+when it differs (for example, physical page 164 may carry label 8 in a multilingual
+manual). Labels can repeat across language sections. They are read from the
+original PDF, never inferred from OCR. A missing label remains unknown. Opening
+a PDF source uses its physical `#page=` position in a new tab; no reindex is needed.

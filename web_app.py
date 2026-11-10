@@ -34,6 +34,7 @@ from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve, tokens
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
+from source_locations import pdf_page_label
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -319,6 +320,10 @@ class RagService(JobRuntime):
                 source["chunk"] = int(document.metadata["chunk"]) + 1
             path = Path(source.pop("source")).resolve()
             source["url"] = "/api/source?file=" + quote(path.relative_to(self.documents).as_posix(), safe="") if path.is_relative_to(self.documents) else None
+            if source["url"] and path.suffix.lower() == ".pdf":
+                source["page_label"] = pdf_page_label(path, source["page"])
+                if source["page"]:
+                    source["url"] += f"#page={source['page']}"
             source["item_type"] = document.metadata.get("item_type", "text")
             visuals = manifest["files"].get(str(path), {}).get("visuals", [])
             source["figures"] = []
@@ -579,7 +584,9 @@ def create_app(service=None):
         path = (service.documents / file).resolve()
         if not path.is_relative_to(service.documents) or not path.is_file() or path.suffix.lower() not in ALLOWED:
             raise HTTPException(404, "Documento no disponible.")
-        return FileResponse(path, filename=path.name, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+        return FileResponse(path, filename=path.name,
+                            content_disposition_type="inline" if path.suffix.lower() == ".pdf" else "attachment",
+                            media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream")
 
     return app
 

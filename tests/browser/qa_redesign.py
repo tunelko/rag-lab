@@ -192,6 +192,32 @@ def run_browser(url):
                 uploads.append(request.url)
         page.on("request", requested)
         page.goto(url, wait_until="networkidle")
+        # Exercise real source rendering, including an older saved conversation
+        # whose PDF URL did not contain a page fragment.
+        page_locations = page.evaluate('''async () => {
+            const {renderSources} = await import('/assets/ui.js');
+            const container = document.createElement('div');
+            renderSources([
+                {citation: 1, file: 'manual.pdf', page: 164, page_label: '8', url: '/api/source?file=manual.pdf'},
+                {citation: 2, file: 'manual.pdf', page: 169, page_label: '36', url: '/api/source?file=manual.pdf#page=36'},
+                {citation: 3, file: 'manual.pdf', page: 12, url: '/api/source?file=manual.pdf'},
+                {citation: 4, file: 'notes.txt', page: 0, url: '/api/source?file=notes.txt'},
+            ], '', container, 'qa-page');
+            return [...container.querySelectorAll('.source')].map(card => ({
+                location: card.querySelector('.source-meta > span').textContent,
+                href: card.querySelector('.source-link').getAttribute('href'),
+                target: card.querySelector('.source-link').target,
+            }));
+        }''')
+        assert 'pág. PDF 164 · numeración del documento: 8' == page_locations[0]['location']
+        assert 'pág. PDF 169 · numeración del documento: 36' == page_locations[1]['location']
+        assert page_locations[0]['href'].endswith('#page=164')
+        assert page_locations[1]['href'].endswith('#page=169')
+        assert page_locations[2]['location'] == 'pág. PDF 12'
+        assert page_locations[2]['href'].endswith('#page=12')
+        assert page_locations[3]['href'] == '/api/source?file=notes.txt'
+        assert all(item['target'] == '_blank' for item in page_locations)
+        check('PDF physical page navigation and independent document numbering')
         expect(page.locator("#stat-engine")).to_have_text("Ollama conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
         expect(page.locator("#empty-banner")).to_be_visible()

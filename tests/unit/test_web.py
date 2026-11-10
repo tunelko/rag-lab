@@ -102,6 +102,43 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/admin/prepare", headers={**self.headers, "Origin": "https://example.org"}).status_code, 403)
         self.assertEqual(self.client.get("/api/status", headers={"Host": "other.example"}).status_code, 400)
 
+    def test_pdf_sources_distinguish_physical_pages_and_repeated_document_labels(self):
+        import pymupdf
+        from langchain_core.documents import Document
+
+        service = self.client.app.state.service
+        path = service.documents / "manual multilingue.pdf"
+        with pymupdf.open() as pdf:
+            for _ in range(169):
+                pdf.new_page()
+            pdf.set_page_labels([
+                {"startpage": 0, "style": "D", "firstpagenum": 1},
+                {"startpage": 156, "style": "D", "firstpagenum": 1},
+                {"startpage": 168, "style": "D", "firstpagenum": 36},
+            ])
+            pdf.save(path)
+        documents = [Document(page_content=f"Vista de página {page}\nDescripción técnica de BIOS.",
+                     metadata={"page": page, "item_type": "page_image"}) for page in (164, 169)]
+        rag.ingest(service.config, service.documents, service.get_embeddings(), loader=lambda _: documents)
+        hits = [(Document(page_content=document.page_content,
+                 metadata={**document.metadata, "file": path.name, "source": str(path)}), .1)
+                for document in documents]
+        with patch.object(rag, "retrieve", return_value=hits), patch.object(rag, "generate_ollama") as generate:
+            request = self.client.post("/api/query", headers=self.headers,
+                                       json={"question": "Explica BIOS", "search_only": True})
+            self.assertEqual(request.status_code, 202, request.text)
+            reply = self.wait(request.json()["job_id"])
+            generate.assert_not_called()
+        self.assertEqual([(source["page"], source["page_label"]) for source in reply["sources"]],
+                         [(164, "8"), (169, "36")])
+        for source in reply["sources"]:
+            self.assertTrue(source["url"].endswith(f"#page={source['page']}"))
+            response = self.client.get(source["url"])
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.headers["content-type"], "application/pdf")
+            self.assertTrue(response.headers["content-disposition"].startswith("inline;"))
+            self.assertEqual(response.content, path.read_bytes())
+
     def test_file_paths_types_size_and_empty_index(self):
         for name in ("../../escape.txt", "script.html", "folder\\escape.txt"):
             response = self.client.post("/api/admin/upload", headers=self.headers,
