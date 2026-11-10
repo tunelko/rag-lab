@@ -38,7 +38,7 @@ export class UploadQueue {
     for(const file of list.slice(0,20)){
       const entry={uid:crypto.randomUUID(),name:file.name,size:file.size,file,state:'queued',upload:0,process:0,stageProgress:0,chunks:0,batchId:this.running?this.batch.id:null,autoIndex:$('auto-index').checked};
       const extension='.'+(file.name.split('.').pop()||'').toLowerCase();
-      if(!['.pdf','.txt','.md','.markdown'].includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:`Formato no compatible (${extension}).`});
+      if(!['.pdf','.txt','.md','.markdown','.png','.jpg','.jpeg','.webp','.zip'].includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:`Formato no compatible (${extension}).`});
       else if(file.size>20*1024*1024)entry.error=errorData({code:'FILE_TOO_LARGE',message:`Supera el límite de 20 MB por archivo (${size(file.size)}).`});
       else if(this.documents.some((doc)=>doc.indexed&&doc.name.toLowerCase()===file.name.toLowerCase()&&doc.bytes===file.size)||this.entries.some((item)=>!['error','rejected','cancelled','interrupted'].includes(item.state)&&item.name.toLowerCase()===file.name.toLowerCase()&&item.size===file.size))entry.error=errorData({code:'DUPLICATE'});
       if(entry.error){entry.state='rejected';announce(`${entry.name} con error`);}else valid++;

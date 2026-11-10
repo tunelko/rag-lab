@@ -32,13 +32,13 @@ export function errorData(input = {}) {
 }
 export async function copyText(text) { try { await navigator.clipboard.writeText(text); toast('Respuesta copiada'); } catch { toast('No se ha podido copiar. Selecciona el texto y usa Ctrl + C.'); } }
 
-export function renderText(container, text, citations = new Set()) {
+export function renderText(container, text, citations = new Set(), prefix = 'src') {
   container.replaceChildren();
   for (const part of String(text).split(/(\[\d+\]|\*\*[^*]+\*\*|`[^`]+`)/g)) {
     const match = part.match(/^\[(\d+)\]$/);
     if (match && citations.has(Number(match[1]))) {
-      const link = node('a', 'citation', match[1]); link.href = `#src-${match[1]}`; link.setAttribute('aria-label', `Ver fuente ${match[1]}`); container.append(link);
-    } else if (part.startsWith('**') && part.endsWith('**')) { const strong = node('strong'); renderText(strong, part.slice(2, -2), citations); container.append(strong); }
+      const link = node('a', 'citation', match[1]); link.href = `#${prefix}-${match[1]}`; link.setAttribute('aria-label', `Ver fuente ${match[1]}`); link.addEventListener('click', () => { const target = document.getElementById(`${prefix}-${match[1]}`); const details = target?.closest('details'); if (details) details.open = true; }); container.append(link);
+    } else if (part.startsWith('**') && part.endsWith('**')) { const strong = node('strong'); renderText(strong, part.slice(2, -2), citations, prefix); container.append(strong); }
     else if (part.startsWith('`') && part.endsWith('`')) container.append(node('code', '', part.slice(1, -1)));
     else container.append(document.createTextNode(part));
   }
@@ -54,10 +54,10 @@ export function highlighted(container, text, question) {
   }
   container.append(document.createTextNode(text.slice(previous)));
 }
-export function renderSources(sources, question) {
-  $('sources').replaceChildren(); $('source-count').textContent = sources.length; $('sources-empty').hidden = sources.length > 0;
+export function renderSources(sources, question, container = $('sources'), prefix = 'src') {
+  container.replaceChildren();
   for (const source of sources) {
-    const card = node('article', 'source'); card.id = `src-${source.citation}`;
+    const card = node('article', 'source'); card.id = `${prefix}-${source.citation}`;
     const top = node('div', 'source-top'); top.append(node('span', 'source-num', source.citation), node('strong', 'source-title', source.file), fileType(source.file));
     const meta = node('div', 'source-meta');
     const location = [source.page ? `pág. ${source.page}` : (source.section ? `sección ${source.section}` : source.lines ? `líneas ${source.lines}` : 'Fragmento recuperado'), source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
@@ -67,8 +67,14 @@ export function renderSources(sources, question) {
     relevance.append(progress(score * 100, score >= .85 ? 'moss' : score >= .75 ? '' : 'ochre', `Relevancia de ${source.file}`), node('span', '', number(score, 2))); meta.append(relevance);
     const excerpt = node('p', 'source-excerpt'); highlighted(excerpt, source.text || '', question);
     card.append(top, meta, excerpt);
+    for (const figure of source.figures || []) {
+      if (!/^\/api\/figures\/[a-f0-9]{64}$/.test(figure.url)) continue;
+      const link = node('a', 'figure-link'); link.href = figure.url; link.target = '_blank'; link.rel = 'noopener';
+      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = `Vista documental de ${source.file}, página ${figure.page}`;
+      link.append(image, node('span', 'help-text', `Ver imagen · pág. ${figure.page}`)); card.append(link);
+    }
     if (source.url && source.url.startsWith('/api/source?')) { const link = node('a', 'source-link', 'Abrir en el documento'); link.href = source.url; link.append(icon('external')); card.append(link); }
-    $('sources').append(card);
+    container.append(card);
   }
 }
 
