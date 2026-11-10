@@ -102,9 +102,12 @@ def fixture_server(port):
     real_retrieve = rag.retrieve
     def fixture_retrieve(config, question, embeddings, k):
         # Thousands of identical synthetic text vectors can swamp HNSW's candidates.
-        # Scope this UI image test to its real indexed fixture, not ANN recall quality.
-        if question.startswith("qa-figure\n"):
-            rows = rag.open_store(config, embeddings).get(where={"file": "qa-figure.png"})
+        # Scope routing UI tests to their real indexed fixtures, not ANN recall quality.
+        fixture_file = ('qa-figure.png' if question.startswith("qa-figure\n") else
+                        'manual.txt' if question == 'La copia de seguridad se realiza cada viernes.' else None)
+        if fixture_file:
+            rows = rag.open_store(config, embeddings).get(where={"file": fixture_file})
+            assert rows['ids'], f'Missing indexed routing fixture: {fixture_file}'
             return [(rag.Document(page_content=text, metadata=metadata), 0.0)
                     for text, metadata in zip(rows["documents"][:k], rows["metadatas"][:k])]
         return real_retrieve(config, question, embeddings, k)
@@ -452,7 +455,10 @@ def run_browser(url):
         dialog_close(page)
         page.locator("#nav-query").click()
         page.locator("#question").fill("qa-figure\nDescripción visual (puede contener errores de OCR):\nCaptura de prueba con 4 puertos USB.")
+        previous_turns = page.locator('.chat-turn').count()
         page.locator("#ask-button").click()
+        expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy', 'false')
         expect(page.locator("#ask-button")).to_contain_text("Enviar")
         source_details = page.locator(".chat-sources").last
         assert not source_details.evaluate("e=>e.open")
@@ -463,15 +469,18 @@ def run_browser(url):
         page.locator("#nav-statistics").click()
         expect(page.locator("#query-statistics")).to_contain_text("1 imágenes")
         visual_metrics = page.request.get(url + "/api/statistics").json()["recent"][0]["metrics"]
-        assert visual_metrics["model"] == "qa-vision:latest"
+        assert visual_metrics["model"] == "qa-vision:latest", visual_metrics
         assert visual_metrics["routing_mode"] == "automatic"
         expect(page.locator("#query-statistics")).to_contain_text("Automática")
         page.locator("#nav-query").click()
         page.locator("#question").fill("La copia de seguridad se realiza cada viernes.")
+        previous_turns = page.locator('.chat-turn').count()
         page.locator("#ask-button").click()
+        expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy', 'false')
         expect(page.locator("#ask-button")).to_contain_text("Enviar")
         text_metrics = page.request.get(url + "/api/statistics").json()["recent"][0]["metrics"]
-        assert text_metrics["model"] == "qa-local:latest"
+        assert text_metrics["model"] == "qa-local:latest", text_metrics
         assert text_metrics["images_used"] == 0
         check("Image upload, collapsed thumbnails and automatic vision/text selection with visible routing reasons using fake models")
 
