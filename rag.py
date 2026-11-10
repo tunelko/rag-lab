@@ -22,6 +22,7 @@ os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from file_fingerprints import sha256_file
 
 load_dotenv(ROOT / ".env", override=False)
 
@@ -137,7 +138,7 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
         if cancelled and cancelled():
             raise InterruptedError("Ingesta cancelada antes de modificar el índice.")
         key = str(path.resolve())
-        fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
+        fingerprint = sha256_file(path)
         previous = state["files"].get(key, {})
         policy_key = policy_for(path) if policy_for else None
         if previous.get("sha256") == fingerprint and same_parser_policy(previous.get("parser_policy"), policy_key):

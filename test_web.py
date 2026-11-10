@@ -81,6 +81,11 @@ class WebTests(unittest.TestCase):
             self.assertIn("viernes [1]", reply["answer"])
             self.assertEqual(reply["sources"][0]["file"], "manual.txt")
             self.assertEqual(reply["metrics"]["generation_tok_s"], 80)
+            for name in ('embedding_setup_seconds', 'vector_search_seconds', 'source_preparation_seconds', 'routing_seconds', 'generation_wall_seconds'):
+                self.assertGreaterEqual(reply['metrics'][name], 0)
+            self.assertGreaterEqual(reply['queue_seconds'], 0)
+            recent = self.client.get('/api/statistics').json()['recent'][0]
+            self.assertEqual(recent['queue_seconds'], reply['queue_seconds'])
             generate.assert_called_once()
         source = self.client.get(reply["sources"][0]["url"])
         self.assertEqual(source.status_code, 200)

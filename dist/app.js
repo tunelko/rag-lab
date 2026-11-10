@@ -181,6 +181,8 @@ async function refreshStatistics(){
     for(const item of stats.recent){
       const metrics=item.metrics||{};const row=node('tr');
       for(const value of [item.question,metrics.model||'—',item.elapsed_seconds==null?'—':number(item.elapsed_seconds,1)+' s',metrics.generation_tok_s==null?'—':number(metrics.generation_tok_s,2),metrics.output_tokens??'—',metrics.visual_mode==='images'?metrics.images_used+' imágenes':metrics.visual_mode==='descriptions'?'Descripciones':'Texto',{done:'Completada',error:'Error',running:'En curso',queued:'En cola',cancelled:'Detenida'}[item.status]||item.status])row.append(node('td','',value));
+      const timeCell=row.children[2];if(item.queue_seconds>=1)timeCell.append(node('p','routing-reason','Espera en cola: '+duration(item.queue_seconds)));
+      if(metrics.vector_search_seconds!=null)timeCell.title=`Embeddings: ${number(metrics.embedding_setup_seconds||0,3)} s · Búsqueda: ${number(metrics.vector_search_seconds,3)} s · Fuentes: ${number(metrics.source_preparation_seconds||0,3)} s · Selección/preparación: ${number(metrics.routing_seconds||0,3)} s · Generación: ${number(metrics.generation_wall_seconds||0,3)} s`;
       const modelCell=row.children[1];if(metrics.routing_reason){modelCell.append(node('p','routing-reason',`${metrics.routing_mode==='automatic'?'Automática':metrics.routing_mode==='search_only'?'Solo búsqueda':'Manual'} · ${metrics.routing_reason}`));}
       $('query-statistics').append(row);
     }

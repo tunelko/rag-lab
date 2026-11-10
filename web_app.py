@@ -30,6 +30,7 @@ import multimodal
 from model_routing import select_model
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
+from file_fingerprints import FileFingerprints
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -67,6 +68,7 @@ class RagService(JobRuntime):
         self.capabilities_cache = {}
         self.console = ConsoleBuffer()
         self.hardware = HardwareMonitor()
+        self.fingerprints = FileFingerprints()
         super().__init__()
 
     def get_embeddings(self, download=False):
@@ -160,7 +162,7 @@ class RagService(JobRuntime):
             if not path.is_file() or path.suffix.lower() not in ALLOWED or not path.resolve().is_relative_to(self.documents):
                 continue
             indexed = state["files"].get(str(path.resolve()), {})
-            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            digest = self.fingerprints.digest(path)
             name = path.relative_to(self.documents).as_posix()
             expected_policy = multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None
             ready = indexed.get("sha256") == digest and bool(indexed.get("ids")) and rag.same_parser_policy(indexed.get("parser_policy"), expected_policy)
@@ -229,25 +231,32 @@ class RagService(JobRuntime):
         jobs = [job for job in self.list_jobs()["jobs"] if job["kind"] == "query"]
         done = [job for job in jobs if job["status"] == "done"]
         files = rag.load_state(self.config)["files"]
-        return {"scope": "Consultas recientes conservadas en la memoria de este servidor (hasta 200 tareas).",
+        return {"scope": "Consultas recientes en memoria (hasta 200 tareas). El tiempo de ejecución y la espera en cola se muestran por separado.",
                 "queries": len(jobs), "completed": len(done), "errors": sum(job["status"] == "error" for job in jobs),
                 "output_tokens": sum(job.get("metrics", {}).get("output_tokens", 0) for job in done),
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
+                "diagnostics": {"fingerprints": self.fingerprints.snapshot()},
                 "recent": [{"question": job.get("question", ""), "status": job["status"], "created_at": job["created_at"],
-                            "elapsed_seconds": job.get("elapsed_seconds"), "metrics": job.get("metrics", {})} for job in reversed(jobs[-30:])]}
+                            "elapsed_seconds": job.get("elapsed_seconds"), "queue_seconds": job.get("queue_seconds"),
+                            "metrics": job.get("metrics", {})} for job in reversed(jobs[-30:])]}
 
     def query(self, job_id, query):
         started = time.perf_counter()
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
         self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
+        stage_started = time.perf_counter()
         try:
             embeddings = self.get_embeddings()
         except Exception as exc:
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
+        timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6)}
+        stage_started = time.perf_counter()
         hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k)
+        timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
-            return {"answer": "No hay fragmentos disponibles para responder. Revisa la biblioteca.", "sources": []}
+            return {"answer": "No hay fragmentos disponibles para responder. Revisa la biblioteca.", "sources": [], "metrics": timings}
+        stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars)
         # Previous dialogue helps follow-up questions without replacing retrieved evidence.
         if query.history:
@@ -283,10 +292,12 @@ class RagService(JobRuntime):
                 if asset not in images and len(images) < settings.max_images:
                     images[asset] = source["citation"]
         retrieval_seconds = round(time.perf_counter() - started, 2)
-        self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds})
+        timings["source_preparation_seconds"] = round(time.perf_counter() - stage_started, 6)
+        self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds, **timings})
         if query.search_only:
             return {"answer": "Fragmentos recuperados. No se ha solicitado una respuesta al modelo.", "sources": sources,
-                    "metrics": {"retrieval_seconds": retrieval_seconds, "routing_mode": "search_only", "routing_reason": "Búsqueda sin generación."}}
+                    "metrics": {"retrieval_seconds": retrieval_seconds, **timings, "routing_mode": "search_only", "routing_reason": "Búsqueda sin generación."}}
+        stage_started = time.perf_counter()
         available = self.ollama_status()
         if not available["connected"]:
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
@@ -300,14 +311,16 @@ class RagService(JobRuntime):
             messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
             visual_mode = "images"
         routing = {"model": model, "routing_mode": route.mode, "routing_reason": route.reason}
+        timings["routing_seconds"] = round(time.perf_counter() - stage_started, 6)
         self.update(job_id, phase="Generando respuesta con Ollama", model=model,
-                    metrics={"retrieval_seconds": retrieval_seconds, **routing})
+                    metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing})
 
         def on_chunk(piece):
             self.check_cancel(job_id)
             with self.lock:
                 self.jobs[job_id]["answer"] += piece
 
+        stage_started = time.perf_counter()
         try:
             answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id))
         except InterruptedError:
@@ -316,7 +329,8 @@ class RagService(JobRuntime):
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", str(exc)) from exc
         if not answer.strip():
             raise ValueError("El modelo no devolvió texto visible. Prueba otro modelo o aumenta RAG_MAX_NEW_TOKENS en .env.")
-        return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, "retrieval_seconds": retrieval_seconds,
+        timings["generation_wall_seconds"] = round(time.perf_counter() - stage_started, 6)
+        return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, **timings, "retrieval_seconds": retrieval_seconds,
                 "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0}}
 
 

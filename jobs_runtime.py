@@ -32,6 +32,7 @@ class JobRuntime:
         self.lock = threading.RLock()
         self.jobs = {}
         self.cancels = {}
+        self.enqueued_at = {}
         self.active = None
         self.closed = False
         self.activity = []
@@ -75,6 +76,7 @@ class JobRuntime:
                 "chunks": 0, "created_at": now(), "updated_at": now(), "answer": "", "sources": [],
                 "metrics": {}, "cancel_requested": False, "cancellable": True, **metadata}
             self.cancels[job_id] = threading.Event()
+            self.enqueued_at[job_id] = time.perf_counter()
             self.executor.submit(self._run, job_id, work)
             return {"job_id": job_id}
 
@@ -95,7 +97,8 @@ class JobRuntime:
             self.cancels[job_id].set()
             self.update(job_id, cancel_requested=True, phase="Cancelando…", cancellable=False)
             if job["status"] == "queued":
-                self.update(job_id, status="cancelled", state="cancelled", phase="Cancelado")
+                self.update(job_id, status="cancelled", state="cancelled", phase="Cancelado",
+                            queue_seconds=round(time.perf_counter() - self.enqueued_at[job_id], 6), elapsed_seconds=0)
             return self.snapshot(job_id)
 
     def list_jobs(self, active=False):
@@ -111,7 +114,8 @@ class JobRuntime:
             if self.jobs[job_id]["status"] == "cancelled":
                 return
             self.active = job_id
-        self.update(job_id, status="running", state="processing", phase="Preparando")
+        self.update(job_id, status="running", state="processing", phase="Preparando", started_at=now(),
+                    queue_seconds=round(started - self.enqueued_at[job_id], 6))
         try:
             self.check_cancel(job_id)
             result = work(job_id) or {}
@@ -128,9 +132,20 @@ class JobRuntime:
                         elapsed_seconds=round(time.perf_counter() - started, 2))
         finally:
             with self.lock:
+                job = self.jobs[job_id]
+                status, kind = job['status'], job['kind']
+                queue_seconds, elapsed_seconds = job.get('queue_seconds', 0), job.get('elapsed_seconds', 0)
+                stages = {key: value for key, value in job.get('metrics', {}).items()
+                          if key in {'embedding_setup_seconds', 'vector_search_seconds', 'source_preparation_seconds',
+                                     'routing_seconds', 'generation_wall_seconds'}}
                 self.active = None
                 # Keep active jobs and the last 200 terminal records for browser recovery.
                 terminal = [key for key, job in self.jobs.items() if job["status"] not in {"queued", "running"}]
                 for key in terminal[:-200]:
                     self.jobs.pop(key, None)
                     self.cancels.pop(key, None)
+                    self.enqueued_at.pop(key, None)
+            # Numeric diagnostics only: prompts, documents, tokens and credentials are not logged.
+            logging.getLogger('rag.performance').info(
+                'job_finished id=%s kind=%s status=%s queue_s=%.3f work_s=%.3f stages=%s',
+                job_id, kind, status, queue_seconds, elapsed_seconds, stages)
