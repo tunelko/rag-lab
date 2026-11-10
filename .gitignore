@@ -9,3 +9,6 @@ reports/
 __pycache__/
 *.pyc
 install-*.json
+data/settings.json
+data/settings.pending
+data/visual/

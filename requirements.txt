@@ -10,6 +10,8 @@ langchain-chroma==1.1.0
 langchain-huggingface==1.2.3
 chromadb==1.5.9
 pypdf==7.0.0
+PyMuPDF==2.1
+Pillow==13.0.0
 python-dotenv==1.2.4
 fastapi==0.162.2
 python-multipart==0.0.33

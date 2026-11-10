@@ -24,6 +24,13 @@ class OllamaStreamTests(unittest.TestCase):
         self.assertEqual(metrics["generation_tok_s"], 10)
         self.assertEqual(metrics["input_tokens"], 100)
         self.assertTrue(json.loads(request.call_args.args[0].data)["stream"])
+        self.assertFalse(json.loads(request.call_args.args[0].data)["think"])
+
+    def test_images_use_a_separate_explicit_context_budget(self):
+        body = b'{"message":{"content":"Respuesta"},"eval_count":1}'
+        with patch("rag.urllib.request.urlopen", return_value=io.BytesIO(body)) as request:
+            rag.generate_ollama([{"role": "user", "content": "Figura", "images": ["base64"]}], "test")
+        self.assertEqual(json.loads(request.call_args.args[0].data)["options"]["num_ctx"], 8192)
 
     def test_nonstream_cli_compatibility(self):
         body = json.dumps({"message": {"content": "Respuesta"}, "eval_count": 12, "eval_duration": 2_000_000_000}).encode()

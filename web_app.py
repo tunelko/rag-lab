@@ -5,13 +5,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import hashlib
+import base64
 import json
 import mimetypes
 import os
 from pathlib import Path
 import secrets
+import re
 import time
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote, urlsplit
 import urllib.request
 
@@ -23,8 +25,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 import rag
 from jobs_runtime import JobFailure, JobRuntime
+from settings_store import SettingsStore, Preferences
+import multimodal
 
-ALLOWED = {".pdf", ".txt", ".md", ".markdown"}
+ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
 
 
@@ -32,11 +36,17 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=3000)
+
+
 class Query(BaseModel):
     question: str = Field(min_length=1, max_length=6000)
     model: str | None = Field(default=None, max_length=300)
     k: int = Field(default=4, ge=1, le=12)
     search_only: bool = False
+    history: list[ChatMessage] = Field(default_factory=list, max_length=6)
 
 
 class IndexRequest(BaseModel):
@@ -49,6 +59,9 @@ class RagService(JobRuntime):
         self.documents = (documents or rag.ROOT / "data" / "documents").resolve()
         self.documents.mkdir(parents=True, exist_ok=True)
         self.embeddings = None
+        self.settings = SettingsStore(self.config.db.parent / "settings.json")
+        self.visual_root = self.config.db.parent / "visual"
+        self.capabilities_cache = {}
         super().__init__()
 
     def get_embeddings(self, download=False):
@@ -90,7 +103,7 @@ class RagService(JobRuntime):
             if event.get("skipped") or event.get("complete") or stage == "error":
                 record = {"name": document, "chunks": event.get("chunks", 0), "skipped": event.get("skipped", False)}
                 if stage == "error":
-                    record["error_info"] = {"code": "UNEXPECTED", "message": "Error inesperado al procesar el archivo.", "detail": event.get("error", "")}
+                    record["error_info"] = {"code": event.get("code", "UNEXPECTED"), "message": event.get("error") if event.get("code") == "VISUAL_IMPORT" else "No se ha podido procesar el archivo.", "detail": event.get("error", "")}
                 elif not record["chunks"]:
                     record["error_info"] = {"code": "NO_TEXT", "message": "No se ha podido extraer texto: parece un PDF escaneado.", "detail": "El documento no contiene texto extraíble. No hay OCR instalado."}
                 outcomes[document] = record
@@ -103,9 +116,29 @@ class RagService(JobRuntime):
                 current_document=document, chunks=event.get("chunks", 0), documents=list(outcomes.values()),
                 cancellable=stage != "indexing")
 
+        settings = self.settings.get()
+
+        def describe(data, model):
+            self.check_cancel(job_id)
+            if "vision" not in self.model_capabilities(model):
+                raise multimodal.VisualError("Selecciona un modelo visual instalado en Configuración.")
+            self.update(job_id, phase="Describiendo imágenes en local con Ollama", cancellable=True)
+            return multimodal.describe_image(data, model, os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434"), cancelled=lambda: self.cancelled(job_id))
+
+        reader = multimodal.VisualReader(self.visual_root, settings, describe, lambda: self.cancelled(job_id))
+
+        def loader(path):
+            if path.suffix.lower() in multimodal.EXTENSIONS:
+                if settings.multimodal:
+                    return reader.load(path)
+                if path.suffix.lower() != ".pdf":
+                    raise multimodal.VisualError("Activa el procesamiento multimodal en Configuración para indexar imágenes o exportaciones MinerU.")
+            return rag.read_documents(path)
+
         summary = rag.ingest(self.config, self.documents, embeddings,
             paths=[self.documents / document["name"] for document in documents], observer=observe,
-            cancelled=lambda: self.cancelled(job_id))
+            cancelled=lambda: self.cancelled(job_id), loader=loader, extensions=ALLOWED,
+            policy_for=lambda path: multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None)
         self.update(job_id, summary=summary, documents=list(outcomes.values()))
         failures = [item for item in outcomes.values() if item.get("error_info")]
         if failures:
@@ -115,6 +148,7 @@ class RagService(JobRuntime):
 
     def list_documents(self):
         state = rag.load_state(self.config)
+        settings = self.settings.get()
         jobs = self.list_jobs()["jobs"]
         items = []
         for path in sorted(self.documents.rglob("*")):
@@ -123,7 +157,8 @@ class RagService(JobRuntime):
             indexed = state["files"].get(str(path.resolve()), {})
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             name = path.relative_to(self.documents).as_posix()
-            ready = indexed.get("sha256") == digest and bool(indexed.get("ids"))
+            expected_policy = multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None
+            ready = indexed.get("sha256") == digest and bool(indexed.get("ids")) and indexed.get("parser_policy") == expected_policy
             related = [job for job in jobs if job.get("document_name") == name or job.get("current_document") == path.name or name in job.get("document_names", [])]
             latest = related[-1] if related else {}
             outcome = next((item for item in latest.get("documents", []) if item.get("name") in {name, path.name}), None)
@@ -163,6 +198,39 @@ class RagService(JobRuntime):
                 "active_job": self.active, "ollama": self.ollama_status(),
                 "activity": self.activity[-6:], "jobs": self.list_jobs(active=True)["jobs"]}
 
+    def model_capabilities(self, model):
+        cached = self.capabilities_cache.get(model)
+        if cached and time.monotonic() - cached[0] < 60:
+            return cached[1]
+        base = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+        request = urllib.request.Request(base + "/api/show", data=json.dumps({"model": model}).encode(), headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                capabilities = json.load(response).get("capabilities", [])
+        except (OSError, ValueError):
+            capabilities = []
+        self.capabilities_cache[model] = (time.monotonic(), capabilities)
+        return capabilities
+
+    def preferences(self):
+        value = self.settings.get()
+        available = self.ollama_status()
+        if not value.response_model:
+            value.response_model = available["default_model"]
+        return {"settings": value.model_dump(), "models": [{"name": name, "vision": "vision" in self.model_capabilities(name)} for name in available["models"]],
+                "connected": available["connected"]}
+
+    def statistics(self):
+        jobs = [job for job in self.list_jobs()["jobs"] if job["kind"] == "query"]
+        done = [job for job in jobs if job["status"] == "done"]
+        files = rag.load_state(self.config)["files"]
+        return {"scope": "Consultas recientes conservadas en la memoria de este servidor (hasta 200 tareas).",
+                "queries": len(jobs), "completed": len(done), "errors": sum(job["status"] == "error" for job in jobs),
+                "output_tokens": sum(job.get("metrics", {}).get("output_tokens", 0) for job in done),
+                "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
+                "recent": [{"question": job.get("question", ""), "status": job["status"], "created_at": job["created_at"],
+                            "elapsed_seconds": job.get("elapsed_seconds"), "metrics": job.get("metrics", {})} for job in reversed(jobs[-30:])]}
+
     def query(self, job_id, query):
         started = time.perf_counter()
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
@@ -176,12 +244,39 @@ class RagService(JobRuntime):
         if not hits:
             return {"answer": "No hay fragmentos disponibles para responder. Revisa la biblioteca.", "sources": []}
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars)
+        # Previous dialogue helps follow-up questions without replacing retrieved evidence.
+        if query.history:
+            history, remaining = [], 6000
+            for message in reversed(query.history):
+                if remaining <= 0:
+                    break
+                content = message.content[-remaining:]
+                history.append({"role": message.role, "content": content})
+                remaining -= len(content)
+            messages[1:1] = reversed(history)
+        manifest = rag.load_state(self.config)
+        settings = self.settings.get()
+        images = {}
         for source, (document, _) in zip(sources, hits):
             source["text"] = document.page_content
             if "chunk" in document.metadata:
                 source["chunk"] = int(document.metadata["chunk"]) + 1
             path = Path(source.pop("source")).resolve()
             source["url"] = "/api/source?file=" + quote(path.relative_to(self.documents).as_posix(), safe="") if path.is_relative_to(self.documents) else None
+            source["item_type"] = document.metadata.get("item_type", "text")
+            visuals = manifest["files"].get(str(path), {}).get("visuals", [])
+            source["figures"] = []
+            # Prefer the hit's own figure, then figures from that same page.
+            visuals = sorted(visuals, key=lambda value: value.get("asset_id") != document.metadata.get("asset_id"))
+            for visual in visuals:
+                asset = visual.get("asset_id", "")
+                if visual.get("page") != source["page"] or not re.fullmatch(r"[a-f0-9]{64}", asset):
+                    continue
+                if not (self.visual_root / f"{asset}.png").is_file():
+                    continue
+                source["figures"].append({"url": f"/api/figures/{asset}", "page": visual["page"], "kind": visual.get("item_type", "figure")})
+                if asset not in images and len(images) < settings.max_images:
+                    images[asset] = source["citation"]
         retrieval_seconds = round(time.perf_counter() - started, 2)
         self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds})
         if query.search_only:
@@ -193,6 +288,12 @@ class RagService(JobRuntime):
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
         if model not in available["models"]:
             raise ValueError("Selecciona un modelo local instalado en Ollama.")
+        visual_mode = "descriptions" if images else "text"
+        if settings.multimodal and images and "vision" in self.model_capabilities(model):
+            messages[-1]["images"] = [base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images]
+            messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(f"imagen {i}: fuente [{citation}]" for i, citation in enumerate(images.values(), 1))
+            messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
+            visual_mode = "images"
         self.update(job_id, phase="Generando respuesta con Ollama", model=model)
 
         def on_chunk(piece):
@@ -208,7 +309,8 @@ class RagService(JobRuntime):
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", str(exc)) from exc
         if not answer.strip():
             raise ValueError("El modelo no devolvió texto visible. Prueba otro modelo o aumenta RAG_MAX_NEW_TOKENS en .env.")
-        return {"answer": answer, "sources": sources, "metrics": {**metrics, "retrieval_seconds": retrieval_seconds}}
+        return {"answer": answer, "sources": sources, "metrics": {**metrics, "retrieval_seconds": retrieval_seconds,
+                "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0}}
 
 
 def create_app(service=None):
@@ -244,12 +346,40 @@ def create_app(service=None):
     @app.get("/")
     @app.get("/admin")
     @app.get("/biblioteca")
+    @app.get("/configuracion")
+    @app.get("/estadisticas")
     def page():
         return FileResponse(rag.ROOT / "dist" / "index.html")
 
     @app.get("/api/session")
     def session():
         return {"token": token}
+
+    @app.get("/api/settings")
+    def settings():
+        return service.preferences()
+
+    @app.put("/api/settings")
+    def save_settings(body: Preferences):
+        available = service.ollama_status()
+        if body.response_model and available["connected"] and body.response_model not in available["models"]:
+            raise HTTPException(422, "El modelo de respuesta no está instalado en Ollama.")
+        if body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
+            raise HTTPException(422, "Selecciona un modelo visual local instalado antes de activar el modo multimodal.")
+        return {"settings": service.settings.save(body).model_dump()}
+
+    @app.get("/api/statistics")
+    def statistics():
+        return service.statistics()
+
+    @app.get("/api/figures/{asset}")
+    def figure(asset: str):
+        if not re.fullmatch(r"[a-f0-9]{64}", asset):
+            raise HTTPException(404, "Figura no disponible.")
+        path = (service.visual_root / f"{asset}.png").resolve()
+        if not path.is_relative_to(service.visual_root.resolve()) or not path.is_file():
+            raise HTTPException(404, "Figura no disponible.")
+        return FileResponse(path, media_type="image/png")
 
     @app.get("/api/status")
     def status():
@@ -276,8 +406,15 @@ def create_app(service=None):
             raise HTTPException(422, "Escribe una pregunta.")
         if not (service.config.db / f"{service.config.collection}-manifest.json").exists():
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
+        settings = service.settings.get()
+        if "model" not in body.model_fields_set:
+            body.model = settings.response_model or None
+        if "k" not in body.model_fields_set:
+            body.k = settings.k
+        if "search_only" not in body.model_fields_set:
+            body.search_only = settings.search_only
         return service.start("query", lambda job_id: service.query(job_id, body),
-                             question=body.question, search_only=body.search_only)
+                             question=body.question, search_only=body.search_only, k=body.k)
 
     @app.post("/api/admin/prepare", status_code=202)
     def prepare():

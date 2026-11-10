@@ -17,6 +17,9 @@ from web_app import RagService, create_app
 
 
 class OfflineService(RagService):
+    def model_capabilities(self, model):
+        return []
+
     def ollama_status(self):
         return {"connected": True, "models": ["test-local:latest"], "default_model": "test-local:latest", "loaded": []}
 

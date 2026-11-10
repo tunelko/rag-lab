@@ -104,7 +104,8 @@ def read_documents(path: Path):
     return [Document(page_content=path.read_text(encoding="utf-8-sig"), metadata={"page": 0})]
 
 
-def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=None, cancelled=None):
+def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=None, cancelled=None,
+           loader=None, extensions=None, policy_for=None):
     source = source.resolve()
     if not source.is_dir():
         raise ValueError(f"Document directory does not exist: {source}")
@@ -117,7 +118,7 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
     summary = {"indexed_files": 0, "skipped_files": 0, "chunks": 0, "errors": 0}
     selected = sorted(paths) if paths is not None else sorted(source.rglob("*"))
     for path in selected:
-        if not path.is_file() or path.suffix.lower() not in {".txt", ".md", ".markdown", ".pdf"}:
+        if not path.is_file() or path.suffix.lower() not in (extensions or {".txt", ".md", ".markdown", ".pdf"}):
             continue
         # Do not follow a symlink that escapes the document directory.
         if not path.resolve().is_relative_to(source):
@@ -127,15 +128,19 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
         key = str(path.resolve())
         fingerprint = hashlib.sha256(path.read_bytes()).hexdigest()
         previous = state["files"].get(key, {})
-        if previous.get("sha256") == fingerprint:
+        policy_key = policy_for(path) if policy_for else None
+        if previous.get("sha256") == fingerprint and previous.get("parser_policy") == policy_key:
             summary["skipped_files"] += 1
             if observer:
                 observer(stage="indexing", stage_progress=100, document=path.name, chunks=len(previous.get("ids", [])), skipped=True)
             continue
         try:
+            if loader is None and previous.get("parser_policy"):
+                raise ValueError("Este archivo tiene un índice multimodal. Actualízalo desde la interfaz web para conservar sus figuras.")
             if observer:
                 observer(stage="chunking", stage_progress=0, document=path.name, chunks=0)
-            chunks = splitter.split_documents(read_documents(path))
+            documents = (loader or read_documents)(path)
+            chunks = splitter.split_documents(documents)
             chunks = [chunk for chunk in chunks if chunk.page_content.strip()]
             if observer:
                 observer(stage="chunking", stage_progress=100, document=path.name, chunks=len(chunks))
@@ -145,7 +150,7 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
             for index, chunk in enumerate(chunks):
                 chunk.metadata.update({"source": key, "file": path.relative_to(source).as_posix(),
                                        "sha256": fingerprint, "chunk": index})
-                ids.append(hashlib.sha256(f"{key}:{fingerprint}:{index}".encode()).hexdigest())
+                ids.append(hashlib.sha256(f"{key}:{fingerprint}:{policy_key or ''}:{index}".encode()).hexdigest())
             # Upsert new chunks BEFORE removing obsolete ones. Retry remains idempotent.
             for start in range(0, len(chunks), 64):
                 if observer:
@@ -156,7 +161,10 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
             stale = sorted(set(previous.get("ids", [])) - set(ids))
             if stale:
                 store.delete(ids=stale)
-            state["files"][key] = {"sha256": fingerprint, "ids": ids}
+            visuals = {(doc.metadata["asset_id"], doc.metadata.get("page", 0), doc.metadata.get("item_type", "figure")): doc.metadata
+                       for doc in documents if doc.metadata.get("asset_id")}
+            state["files"][key] = {"sha256": fingerprint, "ids": ids, "parser_policy": policy_key,
+                                    "visuals": list(visuals.values())}
             save_state(config, state)
             summary["indexed_files"] += 1
             summary["chunks"] += len(chunks)
@@ -168,7 +176,7 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
         except Exception as exc:
             summary["errors"] += 1
             if observer:
-                observer(stage="error", stage_progress=0, document=path.name, error=str(exc))
+                observer(stage="error", stage_progress=0, document=path.name, error=str(exc), code=getattr(exc, "code", "UNEXPECTED"))
             print(f"ERROR {path.name}: {exc}", file=sys.stderr)
     print(json.dumps(summary, ensure_ascii=False))
     return summary
@@ -209,8 +217,12 @@ def build_messages(question: str, hits, max_chars: int):
 
 def generate_ollama(messages, model: str, on_chunk=None, cancelled=None):
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
+    options = {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}
+    if any(message.get("images") for message in messages):
+        options["num_ctx"] = int(os.getenv("RAG_OLLAMA_VISION_CONTEXT", "8192"))
     body = json.dumps({"model": model, "messages": messages, "stream": on_chunk is not None,
-                       "options": {"temperature": 0.1, "num_predict": int(os.getenv("RAG_MAX_NEW_TOKENS", "512"))}}).encode()
+                       "think": False,
+                       "options": options}).encode()
     request = urllib.request.Request(endpoint, data=body, headers={"Content-Type": "application/json"})
     started = time.perf_counter()
     first_content = None
