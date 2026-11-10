@@ -51,6 +51,9 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(best_evidence(['Use a CPU fan approved by Intel. Hook the support bracket to the CPU socket.',
             'Summary of features\nCPU\nSocket 370 processor\nIntel Pentium III, Intel Celeron, VIA Cyrix III.'],
             np.array([.99,.7]),'cpu admitidas',[{'item_type':'page_image'},{'item_type':'text'}]),1)
+        self.assertEqual(best_evidence(['Processor | Intel Celeron 800 MHz\nWinbench CPU mark: 51',
+            'Summary Of Features\nCPU\nSocket 370 processor\nIntel Pentium III and Intel Celeron.'],
+            np.array([.99,.7]),'cpu admitidas',[{'item_type':'table'},{'item_type':'text'}]),1)
 
     def test_global_retrieval_covers_every_document_with_a_bounded_context(self):
         documents = [{'name':f'board-{n}.txt', 'indexed':True} for n in range(9)]

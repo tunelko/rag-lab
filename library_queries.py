@@ -79,9 +79,14 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
               and (all(counts[index][term] for term in terms) or cpu_support and cpu_values.search(text))]
     native_fields = [index for index in fields if metadata and metadata[index].get('item_type') in ('text', 'table')]
     native_specs=[index for index in native_fields if cpu_support and cpu_values.search(texts[index])]
+    # A benchmark's "Processor | Celeron" is a test configuration, not a support list.
+    # Prefer native specification/socket fields when the same manual supplies them.
+    specification=re.compile(r'specifications|summary\s+of\s+features|especificaciones|caracteristicas|'
+        r'socket\s*(?:[0-9]|lga|am[0-9])|lga\s*[0-9]|\bam[0-9]\b',re.IGNORECASE)
+    typed_specs=[index for index in native_specs if specification.search(normalize(texts[index]))]
     native = [index for index in exact if metadata and metadata[index].get('item_type') in ('text', 'table')]
     complete = [index for index in valid if all(counts[index][term] for term in terms)]
-    candidates = native_specs or native_fields or fields or native or exact or complete or valid
+    candidates = typed_specs or native_specs or native_fields or fields or native or exact or complete or valid
     return max(candidates, key=lambda index: fused[index])
 
 
