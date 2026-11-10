@@ -42,7 +42,9 @@ export class Chat {
     const e = this.elements.get(turn.id) || this.create(turn); const sources = turn.sources || [];
     renderText(e.answer, turn.answer || '', new Set(sources.map(source => Number(source.citation))), `turn-${turn.id}`);
     const busy = ['queued', 'running'].includes(turn.status);
-    e.state.textContent = turn.status === 'error' ? (turn.error_info?.message || 'No se ha podido completar la consulta.') : turn.status === 'cancelled' ? 'Consulta detenida. El texto parcial puede estar incompleto.' : busy ? turn.status === 'queued' ? 'En cola…' : turn.answer ? 'Escribiendo…' : 'Buscando y preparando la respuesta…' : '';
+    const indexing=this.status?.jobs?.find(job=>job.kind==='index'&&job.status==='running');
+    const waiting=indexing?`En espera mientras se indexa la biblioteca${indexing.document_names?.length?` (${indexing.documents?.length||0}/${indexing.document_names.length} documentos procesados)`:''}. La pregunta se atenderá al terminar ese trabajo.`:'En cola…';
+    e.state.textContent = turn.status === 'error' ? (turn.error_info?.message || 'No se ha podido completar la consulta.') : turn.status === 'cancelled' ? 'Consulta detenida. El texto parcial puede estar incompleto.' : busy ? turn.status === 'queued' ? waiting : turn.answer ? 'Escribiendo…' : 'Buscando y preparando la respuesta…' : '';
     e.state.hidden = !e.state.textContent; e.details.hidden = !sources.length; e.summary.textContent = `Fuentes consultadas (${sources.length})`;
     const key = JSON.stringify(sources); if (e.sourceKey !== key) { renderSources(sources, turn.question, e.sources, `turn-${turn.id}`); e.sourceKey = key; }
     e.copy.disabled = busy || !turn.answer; e.retry.hidden = !['error', 'cancelled'].includes(turn.status); e.retry.disabled = Boolean(this.active || this.submitting);
