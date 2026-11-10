@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 
 import psutil
-from server_console import ConsoleBuffer
+from server_console import ConsoleBuffer, LineClassifier
 
 ROOT = Path(__file__).resolve().parent
 
@@ -61,6 +61,7 @@ def main():
     files = [(ROOT / "reports" / "rag-server-runtime.log", "stdout"),
              (ROOT / "reports" / "rag-server-runtime-errors.log", "stderr")]
     states = {str(path): (0, "") for path, _ in files}
+    classifiers = {origin: LineClassifier() for _, origin in files}
     output = ROOT / "dist" / "runtime-console.json"
     previous_jobs = {}
     next_probe = 0
@@ -86,8 +87,7 @@ def main():
                 position, partial, lines = read_new_lines(path, *states[str(path)])
                 states[str(path)] = (position, partial)
                 for line in lines:
-                    match = re.search(r"\b(DEBUG|INFO|WARNING|ERROR|CRITICAL)\b", line)
-                    buffer.append(line, origin, match[1] if match else "ERROR" if origin == "stderr" else "INFO")
+                    buffer.append(line, origin, classifiers[origin].classify(line), time_source="read")
             try:
                 with urllib.request.urlopen("http://127.0.0.1:8765/api/jobs?active=1", timeout=2) as response:
                     result = json.load(response)
@@ -96,7 +96,7 @@ def main():
                     if previous_jobs.get(job["id"]) != state:
                         previous_jobs[job["id"]] = state
                         name = job.get("current_document") or job.get("document_name") or job.get("kind", "tarea")
-                        buffer.append(f"{name} · {job.get('phase', job['status'])}", "job", "ERROR" if job["status"] == "error" else "INFO")
+                        buffer.append(f"{name} · {job.get('phase', job['status'])}", "job", "ERROR" if job["status"] == "error" else "INFO", time_source="read")
                 previous_jobs = dict(list(previous_jobs.items())[-200:])
             except (OSError, ValueError):
                 pass

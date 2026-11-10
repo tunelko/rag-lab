@@ -2,9 +2,31 @@
 from collections import deque
 from datetime import datetime, timezone
 import logging
+import re
 import secrets
 import sys
 import threading
+
+
+class LineClassifier:
+    """stderr is an output channel, not a severity; preserve actual tracebacks."""
+    def __init__(self):
+        self.traceback = False
+
+    def classify(self, text):
+        if re.search(r"\b(Traceback|Exception in callback)\b", text):
+            self.traceback = True
+            return "ERROR"
+        if self.traceback:
+            if re.match(r"^[\w.]+(?:Error|Exception):", text):
+                self.traceback = False
+            return "ERROR"
+        match = re.search(r"(?:^|\s)(DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL)(?:\s|:|$)", text, re.IGNORECASE)
+        if match:
+            return "WARNING" if match[1].upper() == "WARN" else match[1].upper()
+        if re.search(r"\b(?:[\w.]+(?:Error|Exception)|error|exception|fallo)\b", text, re.IGNORECASE):
+            return "ERROR"
+        return "INFO"
 
 
 class ConsoleBuffer:
@@ -14,15 +36,17 @@ class ConsoleBuffer:
         self.instance = secrets.token_hex(8)
         self.sequence = 0
 
-    def append(self, text, stream="stdout", level="INFO"):
+    def append(self, text, stream="stdout", level="INFO", *, time_source="event"):
         text = str(text).replace("\x00", "").rstrip("\r\n")
-        if not text:
+        if not text.strip():
             return
         with self.lock:
             for line in text.splitlines():
+                if not line.strip():
+                    continue
                 self.sequence += 1
                 self.entries.append({"id": self.sequence, "time": datetime.now(timezone.utc).isoformat(),
-                                     "stream": stream, "level": level, "text": line[:4000]})
+                                     "stream": stream, "level": level, "text": line[:4000], "time_source": time_source})
 
     def snapshot(self, after=0, limit=200):
         with self.lock:
@@ -39,6 +63,7 @@ class OutputTee:
         self.original, self.buffer, self.stream = original, buffer, stream
         self.partial = ""
         self.lock = threading.RLock()
+        self.classifier = LineClassifier()
 
     def write(self, text):
         with self.lock:
@@ -47,10 +72,10 @@ class OutputTee:
             self.partial += text
             while "\n" in self.partial:
                 line, self.partial = self.partial.split("\n", 1)
-                self.buffer.append(line, self.stream, "ERROR" if self.stream == "stderr" else "INFO")
+                self.buffer.append(line, self.stream, self.classifier.classify(line))
             # Bound output without newlines as well as complete log lines.
             if len(self.partial) > 4000:
-                self.buffer.append(self.partial[:4000], self.stream)
+                self.buffer.append(self.partial[:4000], self.stream, self.classifier.classify(self.partial))
                 self.partial = self.partial[-4000:]
             return result
 
@@ -64,7 +89,7 @@ class OutputTee:
     def finish(self):
         with self.lock:
             if self.partial:
-                self.buffer.append(self.partial, self.stream)
+                self.buffer.append(self.partial, self.stream, self.classifier.classify(self.partial))
                 self.partial = ""
 
 

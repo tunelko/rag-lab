@@ -36,6 +36,9 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   Conserva las últimas 1000 líneas en memoria y limita la longitud de cada línea.
   Limpiar la vista no borra archivos ni el registro del servidor. Se consulta solo
   mientras está visible y se adapta también a móvil.
+  El canal stderr no implica ERROR: los avisos y las barras de carga se clasifican
+  por su contenido. Las horas con ≈ son horas de lectura de una salida recuperada,
+  no la hora original demostrada del mensaje.
 
 La captura integrada se inicia con el servidor. Para que una instancia anterior siga
 indexando sin reiniciarla, `server_console_reader.py` lee los archivos fijos de salida

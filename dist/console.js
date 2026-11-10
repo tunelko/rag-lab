@@ -16,8 +16,9 @@ export class ServerConsole {
   render(){
     const container=$('console-output');const previous=container.scrollTop;const follow=$('console-follow').checked;
     const lines=this.visibleLines();container.replaceChildren();
-    for(const line of lines){const row=node('div',`console-line console-${line.level.toLowerCase()}`);const time=node('time','',new Date(line.time).toLocaleTimeString('es-ES'));time.dateTime=line.time;row.append(time,node('span','console-origin',`${line.stream} · ${line.level}`),node('span','console-message',line.text));container.append(row);}
+    for(const line of lines){const row=node('div',`console-line console-${line.level.toLowerCase()}`);const time=node('time','',(line.time_source==='read'?'≈ ':'')+new Date(line.time).toLocaleTimeString('es-ES'));time.dateTime=line.time;time.title=line.time_source==='read'?'Hora de lectura del registro: el mensaje puede ser anterior.':'Hora de recepción del mensaje';row.append(time,node('span','console-origin',`${line.stream} · ${line.level}:`),node('span','console-message',line.text));container.append(row);}
     $('console-empty').hidden=lines.length>0;$('console-count').textContent=`${lines.length} líneas visibles · últimas 1000 del servidor`;
+    $('console-time-note').hidden=!lines.some(line=>line.time_source==='read');
     container.scrollTop=follow?container.scrollHeight:previous;
   }
   setActive(active){this.active=active;this.schedule(0);}

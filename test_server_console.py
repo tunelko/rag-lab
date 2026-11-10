@@ -7,12 +7,31 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from server_console import ConsoleBuffer, ConsoleCapture, OutputTee
+from server_console import ConsoleBuffer, ConsoleCapture, OutputTee, LineClassifier
 from server_console_reader import read_new_lines
 import test_web
 
 
 class ConsoleTests(unittest.TestCase):
+    def test_stderr_warnings_and_weight_progress_are_not_errors(self):
+        classifier = LineClassifier()
+        self.assertEqual(classifier.classify("Warning: You are sending unauthenticated requests to the HF Hub."), "WARNING")
+        self.assertEqual(classifier.classify("Loading weights: 100%|199/199"), "INFO")
+        self.assertEqual(classifier.classify("INFO: Application startup complete."), "INFO")
+
+    def test_actual_traceback_is_preserved_as_error(self):
+        classifier = LineClassifier()
+        for line in ("Exception in callback _ProactorBasePipeTransport._call_connection_lost()", "Traceback (most recent call last):", '  File "events.py", line 89', "    self._sock.shutdown(socket.SHUT_RDWR)", "ConnectionResetError: [WinError 10054] Connection reset"):
+            self.assertEqual(classifier.classify(line), "ERROR")
+        self.assertEqual(classifier.classify("Loading weights: 100%"), "INFO")
+
+    def test_read_times_are_marked_and_blank_lines_are_omitted(self):
+        buffer = ConsoleBuffer()
+        buffer.append("\r\n   \n")
+        self.assertFalse(buffer.snapshot()["entries"])
+        buffer.append("old startup", time_source="read")
+        self.assertEqual(buffer.snapshot()["entries"][0]["time_source"], "read")
+
     def test_compatibility_reader_handles_appends_and_truncated_logs(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "server.log"
