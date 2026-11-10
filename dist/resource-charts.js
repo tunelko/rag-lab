@@ -23,10 +23,10 @@ export class ResourceChart {
     this.card=this.root.closest('.resource-card');this.maximizeButton=this.card.querySelector('[data-maximize]');
     this.maximizeButton.addEventListener('click',()=>this.maximize());
     this.root.setAttribute('role','group');
-    this.svg=svg('svg',{viewBox:'0 0 640 180',preserveAspectRatio:'none','aria-hidden':'true'});
+    this.svg=svg('svg',{class:'resource-svg',viewBox:'0 0 640 180',preserveAspectRatio:'none','aria-hidden':'true'});
     const defs=svg('defs');const gradient=svg('linearGradient',{id:`fill-${key}`,x1:0,y1:0,x2:0,y2:1});
     gradient.append(svg('stop',{offset:'0%','stop-color':'var(--resource-line)','stop-opacity':'.22'}),svg('stop',{offset:'100%','stop-color':'var(--resource-line)','stop-opacity':'.02'}));defs.append(gradient);
-    this.grid=svg('g',{class:'resource-grid-lines'});
+    this.grid=svg('g',{class:'resource-grid resource-grid-lines'});
     for(let x=0;x<=10;x++)this.grid.append(svg('line',{x1:12+x*58.4,x2:12+x*58.4,y1:10,y2:168}));
     for(let y=0;y<=4;y++)this.grid.append(svg('line',{x1:12,x2:596,y1:10+y*39.5,y2:10+y*39.5}));
     this.paths=svg('g');this.axis=node('div','resource-y-axis');this.axis.setAttribute('aria-hidden','true');this.cross=svg('g',{class:'resource-crosshair',visibility:'hidden'});
@@ -73,7 +73,7 @@ export class ResourceChart {
     this.paths.replaceChildren();
     for(const segment of this.series.segments){
       const d=segment.map((point,index)=>`${index?'L':'M'}${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
-      if(segment.length>1){this.paths.append(svg('path',{d:`${d} L${segment.at(-1).x.toFixed(2)},168 L${segment[0].x.toFixed(2)},168 Z`,class:'resource-area',fill:`url(#fill-${this.key})`}),svg('path',{d,class:'resource-line'}));}
+      if(segment.length>1){this.paths.append(svg('path',{d,class:'resource-line'}));}
       else this.paths.append(svg('circle',{cx:segment[0].x,cy:segment[0].y,r:3,class:'resource-single'}));
     }
     this.axis.replaceChildren();for(const value of [max,max/2,0])this.axis.append(node('span','',max>0?this.format(value):'—'));

@@ -28,6 +28,8 @@ export function translateStatic(root = document) {
   }
   const select = root.querySelector('#language-selection');
   if (select) select.value = preference;
+  const flag = root.querySelector('#language-flag');
+  if (flag) flag.src = `/assets/icons/flags/${language}.svg`;
 }
 
 export function setLanguage(choice, {persist = true} = {}) {

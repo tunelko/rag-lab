@@ -24,7 +24,7 @@ export class Telemetry {
       let data;try{data=await this.api(`/api/telemetry?history_seconds=${requestedWindow}`);}catch(error){if(error.status!==404)throw error;data=(await this.api('/assets/runtime-console.json')).telemetry;}
       if(!data)throw new Error(t("ui.preparing_readings_36b52b"));
       if(requestedWindow!==this.window)return;
-      this.history=mergeHistory(this.history,data);this.latest=data;
+      this.history=mergeHistory(this.history,data);this.latest=data;window.dispatchEvent(new CustomEvent("rag:telemetry",{detail:data}));
       if(!this.paused||this.rangeChanged)this.render(data);this.rangeChanged=false;
     }catch(error){if(!this.paused)$('hardware-status').textContent=t("ui.waiting_for_hardware_readings_40063e");}
     finally{this.loading=false;this.schedule(requestedWindow!==this.window?0:2000);}

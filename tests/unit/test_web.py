@@ -102,6 +102,17 @@ class WebTests(unittest.TestCase):
         self.assertEqual(self.client.post("/api/admin/prepare", headers={**self.headers, "Origin": "https://example.org"}).status_code, 403)
         self.assertEqual(self.client.get("/api/status", headers={"Host": "other.example"}).status_code, 400)
 
+    def test_explicit_lan_host_keeps_host_and_origin_validation(self):
+        with patch.dict(os.environ,{'RAG_WEB_HOST':'192.168.1.111'}):
+            app=create_app(self.client.app.state.service)
+        client=TestClient(app)
+        host={'Host':'192.168.1.111:8765'}
+        token=client.get('/api/session',headers=host).json()['token']
+        self.assertEqual(client.get('/api/status',headers=host).status_code,200)
+        response=client.post('/api/query',headers={**host,'X-RAG-Token':token,'Origin':'http://192.168.1.112:8765'},json={'question':'example'})
+        self.assertEqual(response.status_code,403)
+        self.assertEqual(client.get('/api/status',headers={'Host':'192.168.1.112:8765'}).status_code,400)
+
     def test_chroma_server_collection_endpoints_are_not_exposed(self):
         endpoint = '/api/v2/tenants/default_tenant/databases/default_database/collections'
         for method, path in (('GET', endpoint), ('POST', endpoint), ('PATCH', endpoint + '/unused-id')):
@@ -127,6 +138,58 @@ class WebTests(unittest.TestCase):
         response = self.client.post('/api/query', headers=self.headers,
             json={'question': 'When are backups?', 'language': 'fr'})
         self.assertEqual(response.status_code, 422)
+
+    def test_reasoning_model_empty_answer_keeps_metrics_and_reports_a_specific_error(self):
+        uploaded=self.client.post('/api/admin/upload',headers=self.headers,
+            files=[('files',('manual.txt',b'Backups run every Friday.','text/plain'))],data={'auto_index':'true'})
+        self.wait(uploaded.json()['job_id'])
+        with patch.object(rag,'generate_ollama',return_value=('',{'output_tokens':512,'done_reason':'length'})):
+            response=self.client.post('/api/query',headers=self.headers,json={'question':'When are backups?'})
+            for _ in range(100):
+                job=self.client.get('/api/jobs/'+response.json()['job_id']).json()
+                if job['status']=='error':break
+                time.sleep(.02)
+        self.assertEqual(job['status'],'error')
+        self.assertEqual(job['error_info']['code'],'EMPTY_RESPONSE')
+        self.assertEqual(job['metrics']['output_tokens'],512)
+        self.assertEqual(job['metrics']['done_reason'],'length')
+        self.assertIn('512',job['error_info']['detail'])
+
+    def test_query_image_reaches_vision_model_without_becoming_a_document(self):
+        import base64
+        from tests.unit.test_query_images import picture
+        service=self.client.app.state.service
+        upload=self.client.post('/api/admin/upload',headers=self.headers,files=[('files',('manual.txt',b'The connector supplies 12 volts.','text/plain'))],data={'auto_index':'true'})
+        self.wait(upload.json()['job_id'])
+        encoded='data:image/png;base64,'+base64.b64encode(picture()).decode()
+        with patch.object(service,'model_capabilities',return_value=['vision']):
+            settings=service.settings.get().model_copy(update={'vision_model':'test-local:latest','max_images':1})
+            service.settings.save(settings)
+            def generate(messages,model,**kwargs):
+                self.assertEqual(model,'test-local:latest')
+                self.assertEqual(len(messages[-1]['images']),1)
+                self.assertIn('aportada por el usuario',messages[-1]['content'])
+                return '12 volts [1]',{'output_tokens':5}
+            with patch.object(rag,'generate_ollama',side_effect=generate):
+                request=self.client.post('/api/query',headers=self.headers,json={'question':'What connector is shown?','images':[encoded]})
+                self.assertEqual(request.status_code,202,request.text);job=self.wait(request.json()['job_id'])
+        self.assertEqual(job['metrics']['images_used'],1)
+        self.assertEqual(job['metrics']['visual_mode'],'images')
+        self.assertEqual(self.client.get('/api/status').json()['document_count'],1)
+        archive=self.client.get('/api/statistics').json()['recent']
+        self.assertNotIn(encoded,str(archive))
+        for body in [{'question':'connector','images':[encoded,encoded]}, {'question':'connector','images':[encoded],'search_only':True}]:
+            self.assertEqual(self.client.post('/api/query',headers=self.headers,json=body).status_code,422)
+
+    def test_query_trace_filter_cannot_include_other_queries(self):
+        from datetime import datetime,timezone
+        service=self.client.app.state.service
+        for identifier in ['first','second']:
+            service.statistics_archive.save_job({'id':identifier,'kind':'query','created_at':datetime.now(timezone.utc).isoformat(),'status':'done','question':identifier,'metrics':{}})
+        result=self.client.get('/api/statistics?query_id=second').json()
+        self.assertEqual(result['queries'],1)
+        self.assertEqual([row['id'] for row in result['recent']],['second'])
+        self.assertEqual(self.client.get('/api/statistics',params={'query_id':"' OR 1=1--"}).json()['queries'],0)
 
     def test_pdf_sources_distinguish_physical_pages_and_repeated_document_labels(self):
         import pymupdf

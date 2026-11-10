@@ -113,17 +113,17 @@ def fixture_server(port):
 
     rag.generate_ollama = fake_generate
     real_retrieve = rag.retrieve
-    def fixture_retrieve(config, question, embeddings, k):
+    def fixture_retrieve(config, question, embeddings, k, *, files=None):
         # Thousands of identical synthetic text vectors can swamp HNSW's candidates.
         # Scope routing UI tests to their real indexed fixtures, not ANN recall quality.
         fixture_file = ('qa-figure.png' if question.startswith("qa-figure\n") else
                         'manual.txt' if question == 'La copia de seguridad se realiza cada viernes.' else None)
-        if fixture_file:
+        if fixture_file and (files is None or fixture_file in files):
             rows = rag.open_store(config, embeddings).get(where={"file": fixture_file})
             assert rows['ids'], f'Missing indexed routing fixture: {fixture_file}'
             return [(rag.Document(page_content=text, metadata=metadata), 0.0)
                     for text, metadata in zip(rows["documents"][:k], rows["metadatas"][:k])]
-        return real_retrieve(config, question, embeddings, k)
+        return real_retrieve(config, question, embeddings, k, files=files)
     rag.retrieve = fixture_retrieve
     import multimodal
     multimodal.describe_image = lambda *args, **kwargs: "Captura de prueba con 4 puertos USB."
@@ -181,6 +181,7 @@ def run_browser(url):
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
         context = browser.new_context(locale="es-ES", viewport={"width": 1440, "height": 1100}, reduced_motion="reduce", permissions=["clipboard-read", "clipboard-write"])
+        context.add_init_script("Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true})")
         page = context.new_page()
         page.set_default_timeout(30000)
         page.on("pageerror", lambda error: errors.append(str(error)))
@@ -193,50 +194,45 @@ def run_browser(url):
         page.on("request", requested)
         page.goto(url, wait_until="networkidle")
         english = browser.new_context(locale='en-US', viewport={'width':390,'height':844})
-        english_page = english.new_page()
-        locale_mutations = []
-        english_page.on('request', lambda request: locale_mutations.append(request.url)
-                        if request.method in {'POST','PUT','DELETE','PATCH'} else None)
-        english_page.goto(url, wait_until='networkidle')
+        english_page = english.new_page();locale_mutations=[]
+        english_page.on('request',lambda request:locale_mutations.append(request.url) if request.method in {'POST','PUT','DELETE','PATCH'} else None)
+        english_page.goto(url,wait_until='networkidle')
         expect(english_page.locator('html')).to_have_attribute('lang','en')
         expect(english_page.locator('#nav-admin [data-i18n]')).to_have_text('Library')
+        expect(english_page.locator('#language-flag')).to_have_attribute('src','/assets/icons/flags/en.svg')
         english_page.locator('#question').fill('Keep this unsent question <script>literal</script>')
-        english_page.locator('#nav-settings').click()
-        english_page.locator('#max-visuals').fill('240')
-        english_page.locator('#model-selection').select_option('manual')
+        english_page.locator('#nav-settings').click();english_page.locator('#max-visuals').fill('240')
+        english_page.locator('[data-response-mode=manual]').click()
+        expect(english_page.locator('#settings-message')).to_have_text('Automatically saved')
+        before_locale=len(locale_mutations)
         english_page.locator('#language-selection').select_option('es')
         expect(english_page.locator('#nav-admin [data-i18n]')).to_have_text('Biblioteca')
+        expect(english_page.locator('#language-flag')).to_have_attribute('src','/assets/icons/flags/es.svg')
         expect(english_page.locator('#max-visuals')).to_have_value('240')
         expect(english_page.locator('#model-selection')).to_have_value('manual')
         expect(english_page.locator('#question')).to_have_value('Keep this unsent question <script>literal</script>')
         english_page.locator('#language-selection').select_option('en')
-        expect(english_page.locator('#model-selection option').first).to_have_text('Automatic, based on the query')
+        assert len(locale_mutations)==before_locale
         assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
         english_page.screenshot(path=str(reports/'redesign-english-mobile.png'),full_page=True)
+        english_page.locator('#max-visuals').fill('500');english_page.locator('[data-response-mode=automatic]').click()
+        expect(english_page.locator('#settings-message')).to_have_text('Automatically saved')
+        before_locale=len(locale_mutations)
         english_page.reload(wait_until='networkidle')
         expect(english_page.locator('html')).to_have_attribute('lang','en')
         expect(english_page.locator('#language-selection')).to_have_value('en')
         english_page.locator('#language-selection').select_option('auto')
         expect(english_page.locator('html')).to_have_attribute('lang','en')
-        for control, heading in [('#nav-statistics','Statistics'),('#nav-console','Console'),('#nav-admin','Your library, locally.')]:
-            english_page.locator(control).click()
-            expect(english_page.locator('h1:visible')).to_have_text(heading)
-            assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'), heading
-        translated_phase = english_page.evaluate('''async () => {
-            const {serverText} = await import('/assets/i18n.js');
-            return serverText('Generando tabla · 1/2 documentos');
-        }''')
-        assert translated_phase == 'Generating table · 1/2 documents', translated_phase
-        assert not locale_mutations, locale_mutations
+        for control,heading in [('#nav-statistics','Statistics'),('#nav-console','Console'),('#nav-admin','Library')]:
+            english_page.locator(control).click();expect(english_page.locator('h1:visible')).to_have_text(heading)
+            assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),heading
+        assert len(locale_mutations)==before_locale
         english.close()
-        fallback = browser.new_context(locale='en-US')
-        fallback_page = fallback.new_page()
-        fallback_page.route('**/assets/locales/en.json', lambda route: route.fulfill(status=404, body='unavailable'))
-        fallback_page.goto(url,wait_until='networkidle')
-        expect(fallback_page.locator('html')).to_have_attribute('lang','es')
-        expect(fallback_page.locator('#nav-admin [data-i18n]')).to_have_text('Biblioteca')
-        fallback.close()
-        check('Local i18n: browser detection, live selection, persistence, missing-locale fallback, mobile layout and no mutation requests')
+        fallback=browser.new_context(locale='en-US');fallback_page=fallback.new_page()
+        fallback_page.route('**/assets/locales/en.json',lambda route:route.fulfill(status=404,body='unavailable'))
+        fallback_page.goto(url,wait_until='networkidle');expect(fallback_page.locator('html')).to_have_attribute('lang','es')
+        expect(fallback_page.locator('#nav-admin [data-i18n]')).to_have_text('Biblioteca');fallback.close()
+        check('Local i18n and flags: detection, live selection, persistence, autosaved settings and no language-induced mutation')
         # Exercise real source rendering, including an older saved conversation
         # whose PDF URL did not contain a page fragment.
         page_locations = page.evaluate('''async () => {
@@ -266,10 +262,10 @@ def run_browser(url):
         expect(page.locator("#stat-engine")).to_have_text("Ollama conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
         expect(page.locator("#empty-banner")).to_be_visible()
-        assert page.evaluate("document.fonts.check('16px \\\"Instrument Sans\\\"')")
+        assert page.evaluate("document.fonts.check('16px \\\"Orbitron\\\"')")
         page.screenshot(path=str(reports / "redesign-consulta.png"), full_page=True)
         page.locator("#nav-admin").click()
-        expect(page.locator("#breadcrumb-current")).to_have_text("Biblioteca")
+        expect(page.locator("#admin-view h1")).to_have_text("Biblioteca")
         check("Empty states, local fonts and client-side navigation")
 
         page.locator("#file-input").set_input_files([
@@ -295,7 +291,7 @@ def run_browser(url):
             assert page.evaluate("document.getElementById('result-dialog').contains(document.activeElement)")
         page.screenshot(path=str(reports / "redesign-modal-error.png"), full_page=True)
         dialog_close(page)
-        assert page.evaluate("document.activeElement !== document.body")
+        expect(page.locator(".nav-item[aria-current=page]")).to_be_focused()
         check("6-file batch: 4 real uploads, 2 client rejections, monotonic total, error modal and focus trap")
 
         clear_queue(page)
@@ -321,8 +317,7 @@ def run_browser(url):
         check("Upload without indexing, explicit indexing, preparation and success modal focus restoration")
 
         page.locator("#top-k [data-k='6']").click()
-        page.locator("#save-settings").click()
-        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        expect(page.locator("#settings-message")).to_have_text("Guardado automático")
         page.reload(wait_until="networkidle")
         expect(page.locator("#top-k [data-k='6']")).to_have_attribute("aria-pressed", "true")
         expect(page.locator("#model-selection")).to_have_value("automatic")
@@ -334,24 +329,30 @@ def run_browser(url):
         page.locator("#question").press("Control+Enter")
         expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false")
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
-        assert not page.locator(".chat-sources").last.evaluate("e=>e.open")
+        expect(page.locator("#context-panel")).not_to_be_visible()
         page.locator(".chat-turn .citation").last.click()
         expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
         assert page.locator(".chat-sources mark").count() > 0
-        page.locator(".chat-actions button[aria-label='Copiar respuesta']").last.click()
+        page.keyboard.press("Escape")
+        expect(page.locator("#context-panel")).not_to_be_visible()
+        expect(page.locator("#open-context")).to_have_attribute("aria-expanded", "false")
+        page.evaluate("() => {window.__sourceIdentity=document.querySelector('#sources .source');}")
+        for _ in range(3):
+            with page.expect_response('**/api/status'):page.locator('#refresh-button').click()
+            page.evaluate('() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+            assert page.evaluate("() => document.querySelector('#sources .source')===window.__sourceIdentity"), 'Source panel was rebuilt during status refresh'
+        page.locator(".trace-actions button[aria-label='Copiar respuesta']").last.click()
         expect(page.locator("#toast")).to_contain_text("Respuesta copiada")
         page.locator("#nav-settings").click()
         page.locator("#search-only").check()
-        page.locator("#save-settings").click()
-        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        expect(page.locator("#settings-message")).to_have_text("Guardado automático")
         page.locator("#nav-query").click()
         page.locator("#question").fill("Busca copias de seguridad")
         page.locator("#ask-button").click()
         expect(page.locator(".chat-turn .answer").last).to_contain_text("Fragmentos recuperados")
         page.locator("#nav-settings").click()
         page.locator("#search-only").uncheck()
-        page.locator("#save-settings").click()
-        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        expect(page.locator("#settings-message")).to_have_text("Guardado automático")
         page.locator("#nav-query").click()
         page.locator("#question").fill("__QA_ERROR__")
         page.locator("#ask-button").click()
@@ -443,7 +444,7 @@ def run_browser(url):
         assert '<script>literal</script>' in page.evaluate("navigator.clipboard.readText()")
         answer.locator(".citation").first.click()
         expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
-        page.locator(".chat-sources").last.locator("summary").click()
+        page.locator("#close-context").click()
         answer.evaluate("e=>{const thread=e.closest('.chat-thread');thread.scrollTop=e.offsetTop-thread.offsetTop;}")
         page.screenshot(path=str(reports / "redesign-markdown.png"),full_page=True)
         page.set_viewport_size({"width":390,"height":844})
@@ -528,33 +529,32 @@ def run_browser(url):
         page.locator("#upload-button").click()
         expect(page.locator("#result-dialog")).to_be_visible()
         expect(page.locator(".dialog-error-card>strong")).to_have_text(evil)
-        assert page.locator("img").count() == 0
+        assert page.locator('#documents-table img,.dialog-error-card img,.queue-row img').count() == 0
+        expect(page.locator('#language-flag')).to_have_count(1)
         dialog_close(page)
         clear_queue(page)
         page.locator("#auto-index").uncheck()
-        page.locator("#file-input").set_input_files([file(f"extra-{i:02}.txt") for i in range(20)])
-        page.locator("#upload-button").click()
-        expect(page.locator("#result-dialog")).to_be_visible()
-        dialog_close(page)
-        expect(page.locator("#documents-table tr")).to_have_count(20)
-        page.locator("#next-page").click()
-        assert page.locator("#documents-table tr").count() < 20
+        for offset in (0,20):
+            clear_queue(page)
+            page.locator("#file-input").set_input_files([file(f"extra-{i:02}.txt") for i in range(offset,offset+20)])
+            page.locator("#upload-button").click();expect(page.locator("#result-dialog")).to_be_visible();dialog_close(page)
+        expect(page.locator("#documents-table tr")).to_have_count(50)
+        page.locator("#next-page").click();assert 0<page.locator("#documents-table tr").count()<50
         page.locator("#document-search").fill("extra-19")
         expect(page.locator("#documents-table tr")).to_have_count(1)
         expect(page.locator("#documents-table")).to_contain_text("extra-19")
         page.locator("#document-search").fill("")
         page.locator("[data-filter=indexed]").click()
-        expect(page.locator("#documents-table .status-dot.moss")).not_to_have_count(0)
+        expect(page.locator("#documents-table .status-dot.success")).not_to_have_count(0)
         page.locator("[data-filter=all]").click()
-        check("Literal hostile filenames, 20-document pagination, debounced search and status filters")
+        check("Literal hostile filenames, 50-document pagination, debounced search and status filters")
 
         page.locator("#nav-settings").click()
         page.locator("#multimodal").check()
         page.locator("#vision-model").select_option("qa-vision:latest")
         page.locator("#model").select_option("qa-local:latest")
-        page.locator("#model-selection").select_option("automatic")
-        page.locator("#save-settings").click()
-        expect(page.locator("#settings-message")).to_have_text("Configuración guardada")
+        page.locator("[data-response-mode=automatic]").click()
+        expect(page.locator("#settings-message")).to_have_text("Guardado automático")
         page.locator("#nav-admin").click()
         clear_queue(page)
         page.locator("#auto-index").check()
@@ -574,17 +574,17 @@ def run_browser(url):
         expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy', 'false')
         expect(page.locator("#ask-button")).to_contain_text("Enviar")
         source_details = page.locator(".chat-sources").last
-        assert not source_details.evaluate("e=>e.open")
-        source_details.locator("summary").click()
+        page.locator("#open-context").click()
         expect(source_details.locator(".source-figure").first).to_be_visible()
         assert source_details.locator(".source-figure").first.evaluate("e=>e.complete&&e.naturalWidth>0")
         page.screenshot(path=str(reports / "redesign-fuentes-multimodales.png"), full_page=True)
+        page.locator("#close-context").click()
         page.locator("#nav-statistics").click()
-        expect(page.locator("#query-statistics")).to_contain_text("1 imágenes")
+        expect(page.locator("#query-statistics")).to_contain_text("VISUAL")
         visual_metrics = page.request.get(url + "/api/statistics").json()["recent"][0]["metrics"]
         assert visual_metrics["model"] == "qa-vision:latest", visual_metrics
         assert visual_metrics["routing_mode"] == "automatic"
-        expect(page.locator("#query-statistics")).to_contain_text("Automática")
+        assert visual_metrics["images_used"]==1, visual_metrics
         page.locator("#nav-query").click()
         page.locator("#question").fill("La copia de seguridad se realiza cada viernes.")
         previous_turns = page.locator('.chat-turn').count()
@@ -655,12 +655,50 @@ def run_browser(url):
                 route.fulfill(status=403,content_type='application/json',body=json.dumps({'detail':'Recarga esta página antes de continuar.'}))
             else:route.continue_()
         page.route('**/api/settings',expired_token)
-        page.locator('#save-settings').click()
-        expect(page.locator('#settings-message')).to_have_text('Configuración guardada')
+        page.locator('#max-visuals').fill('300');page.locator('#max-visuals').press('Tab')
+        expect(page.locator('#settings-message')).to_have_text('Guardado automático')
         assert denied['count']==1
         page.unroute('**/api/settings',expired_token)
         check('Indexed upload queue survives lost acknowledgements/reloads without duplicate uploads; expired session token refreshes safely')
         page.locator("#nav-admin").click()
+
+        # Virtual organization must not re-embed or alter the existing manifest.
+        before_library=page.request.get(url+'/api/status').json()
+        page.locator('#new-topic').click();page.locator('#topic-name').fill('Hardware QA');page.locator('#save-topic').click()
+        expect(page.locator('#topic-tree')).to_contain_text('Hardware QA')
+        library=page.request.get(url+'/api/library').json()
+        cabinet=next(item['id'] for item in library['topics'] if item['name']=='Hardware QA')
+        page.locator('.topic-cabinet').filter(has_text='Hardware QA').get_by_role('button',name='+ Cajón',exact=True).click()
+        page.locator('#topic-name').fill('Manuales');page.locator('#save-topic').click()
+        expect(page.locator('#topic-tree')).to_contain_text('Manuales')
+        library=page.request.get(url+'/api/library').json();drawer=next(item['id'] for item in library['topics'] if item['name']=='Manuales')
+        page.locator('#document-search').fill('manual.txt')
+        expect(page.locator('#documents-table tr')).to_have_count(1)
+        page.locator('#documents-table .document-select').check();page.locator('#move-topic').select_option(drawer);page.locator('#move-documents').click()
+        expect(page.locator('#selected-documents')).to_have_text('0 seleccionados')
+        page.locator('#document-search').fill('')
+        page.locator(f'#topic-tree [data-topic="{cabinet}"]').click()
+        expect(page.locator('#documents-table tr')).to_have_count(1)
+        expect(page.locator('#documents-table')).to_contain_text('Hardware QA / Manuales')
+        after_library=page.request.get(url+'/api/status').json()
+        assert before_library['chunk_count']==after_library['chunk_count']
+        assert before_library['document_count']==after_library['document_count']
+        page.locator('#nav-query').click();page.locator('#chat-scope').select_option(cabinet)
+        page.locator('#question').fill('Lista de documentos indexados')
+        with page.expect_request('**/api/query') as scoped_request:page.locator('#ask-button').click()
+        assert scoped_request.value.post_data_json['topic_id']==cabinet
+        assert scoped_request.value.post_data_json['history']==[], 'A new topic must not inherit another topic history'
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')
+        expect(page.locator('.chat-turn .answer').last).to_contain_text('1 documento indexado')
+        expect(page.locator('.chat-turn .answer').last).to_contain_text('manual.txt')
+        page.reload(wait_until='networkidle');expect(page.locator('#chat-scope')).to_have_value(cabinet)
+        expect(page.locator('#context-panel')).not_to_be_visible()
+        assert page.locator('.conversation-card').bounding_box()['width']>1300
+        page.locator('#open-context').click();expect(page.locator('#context-panel')).to_be_visible()
+        page.keyboard.press('Escape');expect(page.locator('#open-context')).to_be_focused()
+        page.locator('#chat-scope').select_option('')
+        page.locator('#nav-admin').click();page.locator('#topic-filters [data-topic=""]').click()
+        check('Cabinets/drawers, bulk move without reindexing, scoped chat inventory/history, persistent selection and accessible full-width chat drawer')
 
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)
         page.set_viewport_size({"width":390,"height":844})
@@ -668,11 +706,11 @@ def run_browser(url):
         page.screenshot(path=str(reports / "redesign-biblioteca-mobile.png"), full_page=True)
         page.locator("#nav-query").click()
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-        assert page.locator(".sidebar").bounding_box()["y"] == 0
+        assert page.locator(".app-header").bounding_box()["y"] == 0
         expect(page.locator("#stat-docs")).not_to_be_visible()
         page.locator("#nav-statistics").click()
         # Read both positions in the same layout; telemetry can resize cards between calls.
-        page.wait_for_function("document.querySelector('#stat-chunks').getBoundingClientRect().top > document.querySelector('#stat-docs').getBoundingClientRect().top")
+        page.wait_for_function("()=>(document.querySelector('.resource-charts .resource-card:nth-child(2)').getBoundingClientRect().top > document.querySelector('.resource-charts .resource-card').getBoundingClientRect().top)")
         page.locator("#nav-query").click()
         page.screenshot(path=str(reports / "redesign-consulta-mobile.png"), full_page=True)
         assert page.locator("#ask-button").evaluate("e=>getComputedStyle(e).transitionDuration") in {"0s", "0s, 0s"}

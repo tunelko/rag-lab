@@ -84,6 +84,18 @@ el original. Prueba después un PDF corto antes de indexar lotes grandes.
 
 ## RAG multimodal
 
+El chat ocupa todo el espacio de trabajo. Las citas abren un panel lateral de
+fuentes, que se cierra con Escape. El número de fragmentos y «Solo recuperación»
+están en Configuración, con guardado automático. El selector con bandera está
+arriba a la derecha; fuentes tipográficas y traducciones se sirven localmente.
+
+En **Biblioteca**, organiza los documentos en **armarios** temáticos y **cajones**.
+Puedes mover una selección de documentos o elegir el destino antes de subirlos.
+En el chat, **Fuentes** permite consultar toda la biblioteca, un armario con todos
+sus cajones, un cajón o los documentos sin clasificar. Esta organización se guarda
+en `data/` y conserva PDF, vectores y descripciones ya procesadas.
+[Organización de la biblioteca](docs/LIBRARY.md).
+
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
   Un modelo visual local describe las imágenes; texto y descripciones entran en ChromaDB.
 - **Recuperación:** busca en texto y descripciones con embeddings multilingües.
@@ -134,7 +146,9 @@ python -m tests.browser.qa_redesign
 en Windows/Linux y QA de navegador en Linux con modelos falsos y corpus aislado.
 Ollama gestiona la GPU independientemente de los embeddings CPU.
 
-El servidor escucha en loopback. Documentos, modelos, índices y ajustes privados
+El servidor escucha en loopback por defecto. `-Host`/`--host` permite el acceso
+desde una LAN de confianza; consulta la [instalación](docs/INSTALACION.md#uso-en-la-red-local).
+Documentos, modelos, índices y ajustes privados
 quedan fuera de Git. Las descargas iniciales necesitan Internet. Más:
 [instalación](docs/INSTALACION.md), [referencia completa](docs/REFERENCE.es.md),
 [diagnóstico](docs/DESARROLLO.md). Licencia propia pendiente; se conservan las de terceros.

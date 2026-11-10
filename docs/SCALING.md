@@ -6,6 +6,10 @@ documents, embedded Chroma, SQLite statistics, CPU embeddings and Ollama generat
 The language selector and per-request response language do not make the service
 multi-user or enable cloud deployment.
 
+An optional explicit private-LAN bind shares this same personal application with
+trusted devices. It adds no accounts, roles or tenant isolation. Topic cabinets
+and drawers filter retrieval; they do not enforce access permissions.
+
 ## 1. Measure and improve one machine
 
 Use the existing seven-day telemetry and ingestion/query history to establish

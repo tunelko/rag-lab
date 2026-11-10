@@ -6,6 +6,7 @@ only by this project's exact directory, app and port. Ollama is never managed.
 """
 import argparse
 import json
+import ipaddress
 import os
 from pathlib import Path
 import socket
@@ -21,6 +22,19 @@ import psutil
 
 ROOT = Path(__file__).resolve().parent
 CONTROLLER = Path(__file__).resolve()
+
+
+def validate_host(value):
+    address=ipaddress.IPv4Address(value)
+    networks=('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')
+    if not address.is_loopback and not any(address in ipaddress.IPv4Network(network) for network in networks):
+        raise ValueError('Host debe ser una IPv4 de loopback o de la red local privada.')
+    return str(address)
+
+
+def running_host(root,port):
+    processes=matching_processes(root,port)
+    return validate_host(argument(processes[0][0].cmdline(),'--host') or '127.0.0.1') if processes else '127.0.0.1'
 
 
 def default_port(root):
@@ -77,10 +91,10 @@ def matching_processes(root, port):
     return [(process, managed) for process, managed in matched if process.pid not in parents]
 
 
-def active_jobs(port):
+def active_jobs(port,host='127.0.0.1'):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with opener.open(f'http://127.0.0.1:{port}/api/jobs?active=1', timeout=3) as response:
+        with opener.open(f'http://{host}:{port}/api/jobs?active=1', timeout=3) as response:
             payload = json.load(response)
         if not isinstance(payload.get('jobs'), list):
             raise RuntimeError('No se puede verificar la cola del servidor; no se detendra.')
@@ -91,10 +105,10 @@ def active_jobs(port):
         raise RuntimeError(f'No se puede comprobar la cola: {error}') from error
 
 
-def port_in_use(port):
+def port_in_use(port,host='127.0.0.1'):
     with socket.socket() as connection:
         connection.settimeout(.25)
-        return connection.connect_ex(('127.0.0.1', port)) == 0
+        return connection.connect_ex((host, port)) == 0
 
 
 def atomic_json(path, value):
@@ -116,7 +130,8 @@ def stop(root, port, timeout=30):
     if not processes:
         print(f'Servidor detenido (puerto {port}).')
         return
-    jobs = active_jobs(port)
+    host=running_host(root,port)
+    jobs = active_jobs(port,host)
     if jobs:
         raise RuntimeError(f'Hay {len(jobs)} tareas activas. Cancela o espera su finalizacion antes de stop/restart.')
     # Capture old in-memory metrics once when upgrading a server without durable history.
@@ -126,10 +141,10 @@ def stop(root, port, timeout=30):
         from tools.history_bridge import capture
         archive=StatisticsStore(root/'data/statistics.sqlite3')
         try:
-            capture(f'http://127.0.0.1:{port}',archive,seed=True)
+            capture(f'http://{host}:{port}',archive,seed=True)
         finally:
             archive.close()
-        if active_jobs(port):
+        if active_jobs(port,host):
             raise RuntimeError('Hay tareas activas nuevas; no se ha detenido el servidor.')
     state_path, stop_path = paths(root, port)
     for process, managed in processes:
@@ -161,7 +176,7 @@ def wait_for_idle(root, port, interval=2):
         if current!=original:
             print('El servidor original ha cambiado; se cancela el reinicio diferido.',flush=True)
             return False
-        jobs=active_jobs(port)
+        jobs=active_jobs(port,running_host(root,port))
         if not jobs: return True
         state=tuple((job['id'],job.get('status')) for job in jobs)
         if state!=last:
@@ -178,12 +193,18 @@ def python_executable(root):
     return python
 
 
-def start(root, port, timeout=30):
+def start(root, port, timeout=30,host='127.0.0.1'):
+    host=validate_host(host)
     processes = matching_processes(root, port)
     if processes:
-        print(f'El servidor ya esta iniciado (PID {processes[0][0].pid}): http://127.0.0.1:{port}')
+        current=running_host(root,port)
+        if current!=host:
+            raise RuntimeError(f'El servidor ya escucha en {current}. Usa restart --host {host} para cambiarlo.')
+        print(f'El servidor ya esta iniciado (PID {processes[0][0].pid}): http://{current}:{port}')
         return
-    if port_in_use(port):
+    if not ipaddress.IPv4Address(host).is_loopback and host not in {address.address for values in psutil.net_if_addrs().values() for address in values if address.family==socket.AF_INET}:
+        raise ValueError(f'La IP {host} no pertenece a ninguna interfaz de este equipo.')
+    if port_in_use(port,host):
         raise RuntimeError(f'El puerto {port} esta ocupado por otro proceso; no se ha detenido ni sustituido.')
     python = python_executable(root)
     state_path, stop_path = paths(root, port)
@@ -199,26 +220,27 @@ def start(root, port, timeout=30):
     kwargs = ({'creationflags': subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP}
               if os.name == 'nt' else {'start_new_session': True})
     with output.open('ab') as stdout, errors.open('ab') as stderr:
-        subprocess.Popen([str(python), str(CONTROLLER), '_run', '--root', str(root), '--port', str(port)],
+        subprocess.Popen([str(python), str(CONTROLLER), '_run', '--root', str(root), '--port', str(port),'--host',host],
                          cwd=root, env=environment, stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr, **kwargs)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         processes = matching_processes(root, port)
-        if processes and port_in_use(port):
-            print(f'Servidor iniciado (PID {processes[0][0].pid}): http://127.0.0.1:{port}')
+        if processes and port_in_use(port,host):
+            print(f'Servidor iniciado (PID {processes[0][0].pid}): http://{host}:{port}')
             print(f'Registros: {output}\nErrores:   {errors}')
             return
         time.sleep(.2)
     raise RuntimeError(f'No se ha confirmado el arranque. Consulta {errors} y ejecuta status antes de reintentar.')
 
 
-def run_server(root, port):
+def run_server(root, port,host='127.0.0.1'):
     import uvicorn
     sys.path.insert(0, str(root))
     state_path, stop_path = paths(root, port)
     identity = {'pid': os.getpid(), 'created': psutil.Process().create_time()}
     atomic_json(state_path, identity)
-    server = uvicorn.Server(uvicorn.Config('web_app:app', host='127.0.0.1', port=port, access_log=False))
+    os.environ['RAG_WEB_HOST']=validate_host(host)
+    server = uvicorn.Server(uvicorn.Config('web_app:app', host=host, port=port, access_log=False))
     finished = threading.Event()
 
     def watch_stop():
@@ -250,12 +272,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description='Control del servidor RAG local; no modifica Ollama.')
     parser.add_argument('action', nargs='?', default='start', choices=('start', 'stop', 'restart', 'status', '_run'))
     parser.add_argument('--port', type=int, help='Puerto; por defecto RAG_WEB_PORT en .env o 8765.')
+    parser.add_argument('--host',type=validate_host,help='IPv4 local en la que escuchar; por defecto 127.0.0.1. Requiere una red de confianza.')
     parser.add_argument('--when-idle',action='store_true',help='Esperar a que termine la cola antes de stop/restart.')
     parser.add_argument('--root', type=Path, default=ROOT, help=argparse.SUPPRESS)
     arguments = parser.parse_args(argv)
     root = arguments.root.resolve()
     try:
         port = arguments.port if arguments.port is not None else default_port(root)
+        host=arguments.host or (running_host(root,port) if matching_processes(root,port) else validate_host(os.getenv('RAG_WEB_HOST','127.0.0.1')))
         if not 1024 <= port <= 65535:
             raise ValueError('El puerto debe estar entre 1024 y 65535.')
         if arguments.when_idle and arguments.action not in ('stop','restart'):
@@ -263,12 +287,12 @@ def main(argv=None):
         if arguments.when_idle and not wait_for_idle(root,port):
             return 0
         if arguments.action == '_run':
-            run_server(root, port)
+            run_server(root, port,host)
         elif arguments.action == 'status':
             processes = matching_processes(root, port)
             if processes:
-                print(f'Servidor iniciado (PID {processes[0][0].pid}): http://127.0.0.1:{port}')
-            elif port_in_use(port):
+                print(f'Servidor iniciado (PID {processes[0][0].pid}): http://{running_host(root,port)}:{port}')
+            elif port_in_use(port,host):
                 print(f'Servidor RAG detenido; el puerto {port} esta ocupado por otro proceso.')
             else:
                 print(f'Servidor detenido (puerto {port}).')
@@ -276,7 +300,7 @@ def main(argv=None):
             if arguments.action in ('stop', 'restart'):
                 stop(root, port)
             if arguments.action in ('start', 'restart'):
-                start(root, port)
+                start(root, port,host=host)
         return 0
     except (OSError, ValueError, RuntimeError, psutil.Error) as error:
         print(f'Error: {error}', file=sys.stderr)

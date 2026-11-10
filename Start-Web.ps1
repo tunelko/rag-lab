@@ -4,6 +4,8 @@ param(
     [string]$Action = 'start',
     [ValidateRange(1024, 65535)]
     [int]$Port,
+    [Alias('Host')]
+    [string]$BindAddress,
     [Alias('h')]
     [switch]$Help,
     [switch]$Start,
@@ -18,6 +20,7 @@ $Action = $Action.TrimStart('-').ToLowerInvariant()
 if ($Help -or $Action -eq 'help') {
     Write-Output @'
 Uso: Start-Web.ps1 [start|stop|restart|status] [-Port 8765]
+     Start-Web.ps1 -Restart -Host 192.168.1.111 -WhenIdle
      Start-Web.ps1 [--start|--stop|--restart|--status]
      Start-Web.ps1 [-Start|-Stop|-Restart|-Status]
      Start-Web.ps1 -h   (tambien --help o -Help)
@@ -43,6 +46,7 @@ if (-not (Test-Path -LiteralPath $pythonExe)) { throw 'Run Configurar.ps1 first 
 $env:PYTHONUTF8 = '1'
 $controllerArguments = @((Join-Path $PSScriptRoot 'server_control.py'), $Action)
 if ($PSBoundParameters.ContainsKey('Port')) { $controllerArguments += @('--port', "$Port") }
+if ($PSBoundParameters.ContainsKey('BindAddress')) { $controllerArguments += @('--host', $BindAddress) }
 if ($WhenIdle) { $controllerArguments += '--when-idle' }
 & $pythonExe @controllerArguments
 exit $LASTEXITCODE

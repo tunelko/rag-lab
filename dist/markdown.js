@@ -14,7 +14,7 @@ const cache=new WeakMap();
 function citation(number,prefix){
   const link=document.createElement('a');link.className='citation';link.textContent=String(number);link.href=`#${prefix}-${number}`;
   link.setAttribute('aria-label',t("ui.view_source_7ad4a8", {value1: (number)}));
-  link.addEventListener('click',()=>{const target=document.getElementById(`${prefix}-${number}`);const details=target?.closest('details');if(details)details.open=true;});
+  link.addEventListener('click',event=>{event.preventDefault();window.dispatchEvent(new CustomEvent('rag:source',{detail:{prefix,number}}));});
   return link;
 }
 

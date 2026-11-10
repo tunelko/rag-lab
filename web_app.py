@@ -36,6 +36,9 @@ from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
 from localization import text as localized
+from query_images import normalize_query_images
+from server_control import validate_host
+from library_topics import TopicStore, TopicError
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -53,14 +56,26 @@ class ChatMessage(BaseModel):
 class Query(BaseModel):
     question: str = Field(min_length=1, max_length=6000)
     language: Literal["es", "en"] = "es"
+    images: list[Annotated[str, Field(max_length=4*1024**2+100)]] = Field(default_factory=list, max_length=4)
     model: str | None = Field(default=None, max_length=300)
     k: int = Field(default=4, ge=1, le=12)
     search_only: bool = False
     history: list[ChatMessage] = Field(default_factory=list, max_length=6)
+    topic_id: str | None = Field(default=None, max_length=64)
 
 
 class IndexRequest(BaseModel):
     file: str | None = None
+
+
+class TopicRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    parent_id: str | None = Field(default=None, max_length=64)
+
+
+class AssignmentRequest(BaseModel):
+    names: list[Annotated[str, Field(min_length=1, max_length=1000)]] = Field(min_length=1, max_length=500)
+    topic_id: str | None = Field(default=None, max_length=64)
 
 
 class RagService(JobRuntime):
@@ -76,6 +91,7 @@ class RagService(JobRuntime):
         self.statistics_archive = StatisticsStore(self.config.db.parent / 'statistics.sqlite3')
         self.hardware = HardwareMonitor(archive=self.statistics_archive)
         self.fingerprints = FileFingerprints()
+        self.topics = TopicStore(self.config.db / f'{self.config.collection}-topics.sqlite3')
         super().__init__()
 
     def record_job(self, job):
@@ -182,6 +198,7 @@ class RagService(JobRuntime):
         settings = self.settings.get()
         jobs = self.list_jobs()["jobs"]
         items = []
+        assignments = self.topics.assignments()
         for path in sorted(self.documents.rglob("*")):
             if not path.is_file() or path.suffix.lower() not in ALLOWED or not path.resolve().is_relative_to(self.documents):
                 continue
@@ -198,6 +215,8 @@ class RagService(JobRuntime):
                 error = {"code": "NO_TEXT", "message": "Necesita OCR" if path.suffix.lower() == ".pdf" else "Sin texto extraíble", "detail": "No se han obtenido fragmentos."}
             processing = latest.get("status") in {"queued", "running"}
             items.append({"name": name, "bytes": path.stat().st_size, "indexed": ready,
+                "topic_id": assignments.get(name),
+                "needs_reindex": bool(indexed.get('ids')) and indexed.get('sha256') == digest and not rag.same_parser_policy(indexed.get('parser_policy'), expected_policy),
                 "chunks": len(indexed.get("ids", [])), "updated_at": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
                 "document_id": hashlib.sha256(name.encode()).hexdigest()[:24],
                 "status": "processing" if processing else ("error" if error else ("indexed" if ready else "pending")),
@@ -220,12 +239,24 @@ class RagService(JobRuntime):
 
     def status(self):
         state = rag.load_state(self.config)
+        dimensions=getattr(self,'_embedding_dimensions',None)
+        if dimensions is None and any(item.get('ids') for item in state['files'].values()):
+            try:
+                vectors=rag.open_store(self.config,None)._collection.get(limit=1,include=['embeddings']).get('embeddings')
+                if vectors is not None and len(vectors):
+                    dimensions=self._embedding_dimensions=len(vectors[0])
+            except (OSError,RuntimeError,ValueError):
+                pass
         documents = self.list_documents()
         chunks = sum(len(file.get("ids", [])) for file in state["files"].values())
         return {"documents": documents, "document_count": len(documents), "chunk_count": chunks,
+                "library": self.topics.snapshot(documents),
                 "collection": self.config.collection, "embedding_model": self.config.embedding_model,
                 "embedding_device": self.config.embedding_device, "embedding_loaded": self.embeddings is not None,
                 "chunk_size": self.config.chunk_size, "chunk_overlap": self.config.chunk_overlap,
+                "embedding_dimensions": dimensions,
+                "visual_count": sum(len(item.get('visuals',[])) for item in state['files'].values()),
+                "last_index_at": self.statistics_archive.last_index_time(),
                 "active_job": self.active, "ollama": self.ollama_status(),
                 "activity": self.activity[-6:], "jobs": self.list_jobs(active=True)["jobs"]}
 
@@ -251,22 +282,28 @@ class RagService(JobRuntime):
         return {"settings": value.model_dump(), "models": [{"name": name, "vision": "vision" in self.model_capabilities(name)} for name in available["models"]],
                 "connected": available["connected"]}
 
-    def statistics(self, seconds=RETENTION, page=1, per_page=50, ingestion_page=1):
+    def statistics(self, seconds=RETENTION, page=1, per_page=50, ingestion_page=1, query_id=None):
         files = rag.load_state(self.config)["files"]
         label='1 día' if seconds==86400 else f'{seconds//86400} días'
         return {"scope": f'Histórico local en disco · últimos {label}. Ejecución y espera en cola por separado.',
-                **self.statistics_archive.queries(seconds,page=page,per_page=per_page),
+                **self.statistics_archive.queries(seconds,page=page,per_page=per_page,query_id=query_id),
                 'ingestions':self.statistics_archive.ingestions(seconds,page=ingestion_page,per_page=per_page),
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query(self, job_id, query):
+    def query(self, job_id, query, document_names=None, scope_label=None):
         started = time.perf_counter()
+        documents = self.list_documents()
+        if document_names is not None:
+            documents = [item for item in documents if item['name'] in document_names]
+        scope_metrics = {'topic_id': query.topic_id, 'scope_label': scope_label, 'scope_documents': len(documents)}
         intent = query_intent(query.question)
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
-            answer, metrics = catalog_answer(self.list_documents(), intent.mode, language=query.language)
-            return {'answer': answer, 'sources': [], 'metrics': metrics}
+            answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
+            return {'answer': answer, 'sources': [], 'metrics': {**metrics, **scope_metrics}}
+        if not any(item.get('indexed') for item in documents):
+            return {'answer': localized('answer.empty', query.language), 'sources': [], 'metrics': scope_metrics}
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
         self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
@@ -275,14 +312,15 @@ class RagService(JobRuntime):
             embeddings = self.get_embeddings()
         except Exception as exc:
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
-        timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6)}
+        timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics}
         stage_started = time.perf_counter()
         if intent.mode == 'global':
-            hits, scope = global_retrieve(self.config, self.list_documents(), embeddings, query.question,
+            hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
-            hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k)
+            hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k,
+                                files=document_names)
             scope = {'retrieval_mode': 'focused'}
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
@@ -338,7 +376,7 @@ class RagService(JobRuntime):
                 if not (self.visual_root / f"{asset}.png").is_file():
                     continue
                 source["figures"].append({"url": f"/api/figures/{asset}", "page": visual["page"], "kind": visual.get("item_type", "figure")})
-                if asset not in images and len(images) < settings.max_images:
+                if asset not in images and len(images) < settings.max_images-len(query.images):
                     images[asset] = source["citation"]
         retrieval_seconds = round(time.perf_counter() - started, 2)
         timings["source_preparation_seconds"] = round(time.perf_counter() - stage_started, 6)
@@ -351,18 +389,20 @@ class RagService(JobRuntime):
         if not available["connected"]:
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
         route = select_model(settings, query.question, hits[:len(sources)], bool(images), available,
-                             self.model_capabilities, requested=query.model, history=query.history)
+                             self.model_capabilities, requested=query.model, history=query.history, input_images=bool(query.images))
         model = route.model
         visual_mode = "descriptions" if any(document.metadata.get("asset_id") for document, _ in hits[:len(sources)]) else "text"
         if route.images:
-            messages[-1]["images"] = [base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images]
-            messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(f"imagen {i}: fuente [{citation}]" for i, citation in enumerate(images.values(), 1))
+            messages[-1]["images"] = [*query.images, *(base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images)]
+            labels=[f'imagen {i}: aportada por el usuario como parte de la pregunta' for i in range(1,len(query.images)+1)]
+            labels += [f'imagen {i}: fuente [{citation}]' for i,citation in enumerate(images.values(),len(query.images)+1)]
+            messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(labels)
             messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
             visual_mode = "images"
         routing = {"model": model, "routing_mode": route.mode, "routing_reason": route.reason}
         timings["routing_seconds"] = round(time.perf_counter() - stage_started, 6)
         self.update(job_id, phase="Generando respuesta con Ollama", model=model,
-                    metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing})
+                    metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing, 'images_used':len(messages[-1].get('images',[])), 'visual_mode':visual_mode})
 
         structured = GlobalAnswer(sources,cpu_guard={'cpu','support'}.issubset(tokens(intent.topic)),language=query.language) if intent.mode == 'global' else None
         if structured:
@@ -394,10 +434,14 @@ class RagService(JobRuntime):
         except OSError as exc:
             raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", str(exc)) from exc
         if not answer.strip():
-            raise ValueError("El modelo no devolvió texto visible. Prueba otro modelo o aumenta RAG_MAX_NEW_TOKENS en .env.")
+            self.update(job_id, metrics={**metrics, **routing, **timings})
+            raise JobFailure('EMPTY_RESPONSE', 'El modelo terminó sin devolver una respuesta visible.',
+                f"Modelo: {model}. Tokens generados: {metrics.get('output_tokens', 'desconocido')}. "
+                f"Motivo de fin: {metrics.get('done_reason', 'desconocido')}. "
+                'Un modelo de razonamiento puede agotar el límite antes de responder. Revisa RAG_MAX_NEW_TOKENS.')
         timings["generation_wall_seconds"] = round(time.perf_counter() - stage_started, 6)
         return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, **timings, "retrieval_seconds": retrieval_seconds,
-                "visual_mode": visual_mode, "images_used": len(images) if visual_mode == "images" else 0, "language": query.language}}
+                "visual_mode": visual_mode, "images_used": len(messages[-1].get('images',[])), "language": query.language}}
 
 
 def create_app(service=None):
@@ -417,14 +461,15 @@ def create_app(service=None):
                 service.close()
 
     app = FastAPI(title="RAG Local", docs_url=None, redoc_url=None, lifespan=lifespan)
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver"])
+    bind_host=validate_host(os.getenv('RAG_WEB_HOST','127.0.0.1'))
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "testserver",bind_host])
     app.state.service = service
 
     @app.middleware("http")
     async def local_requests(request: Request, call_next):
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             origin = request.headers.get("origin")
-            if origin and urlsplit(origin).netloc != request.headers.get("host"):
+            if origin and (urlsplit(origin).scheme not in {'http','https'} or urlsplit(origin).netloc != request.headers.get("host")):
                 return JSONResponse({"detail": "Origen no permitido."}, status_code=403)
             if not secrets.compare_digest(request.headers.get("x-rag-token", ""), token):
                 return JSONResponse({"detail": "Recarga esta página antes de continuar."}, status_code=403)
@@ -474,8 +519,9 @@ def create_app(service=None):
     @app.get("/api/statistics")
     def statistics(history_seconds: int = QueryParameter(default=RETENTION, ge=86400, le=RETENTION),
                    page: int = QueryParameter(default=1, ge=1), per_page: int = QueryParameter(default=50, ge=1, le=200),
-                   ingestion_page: int = QueryParameter(default=1, ge=1)):
-        return service.statistics(history_seconds,page,per_page,ingestion_page)
+                   ingestion_page: int = QueryParameter(default=1, ge=1),
+                   query_id: str | None = QueryParameter(default=None, max_length=80)):
+        return service.statistics(history_seconds,page,per_page,ingestion_page,query_id=query_id)
 
     @app.get("/api/figures/{asset}")
     def figure(asset: str):
@@ -509,6 +555,12 @@ def create_app(service=None):
     def query(body: Query):
         if not body.question.strip():
             raise HTTPException(422, "Escribe una pregunta.")
+        try:
+            documents, scope_label = service.topics.scope(body.topic_id, service.list_documents())
+        except TopicError as error:
+            raise HTTPException(404, str(error)) from error
+        # Freeze membership when accepted: moving files while queued cannot broaden a query.
+        document_names = frozenset(item['name'] for item in documents)
         if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
@@ -516,8 +568,56 @@ def create_app(service=None):
             body.k = settings.k
         if "search_only" not in body.model_fields_set:
             body.search_only = settings.search_only
-        return service.start("query", lambda job_id: service.query(job_id, body),
-                             question=body.question, search_only=body.search_only, k=body.k, language=body.language)
+        if body.images:
+            if body.search_only or query_intent(body.question).mode.startswith('catalog_'):
+                raise HTTPException(422,'Las imágenes adjuntas necesitan una consulta con generación, no solo recuperación o inventario.')
+            try:
+                body.images=normalize_query_images(body.images,settings.max_images)
+            except ValueError as error:
+                raise HTTPException(422,str(error)) from error
+        return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label),
+                             question=body.question, search_only=body.search_only, k=body.k, language=body.language,
+                             image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
+
+    @app.get('/api/library')
+    def library():
+        return service.topics.snapshot(service.list_documents())
+
+    @app.post('/api/admin/topics', status_code=201)
+    def create_topic(body: TopicRequest):
+        try:
+            return {'id': service.topics.create(body.name, body.parent_id)}
+        except TopicError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.patch('/api/admin/topics/{topic_id}')
+    def rename_topic(topic_id: str, body: TopicRequest):
+        if body.parent_id is not None:
+            raise HTTPException(422, 'Para organizar documentos, usa la acción Mover.')
+        try:
+            service.topics.rename(topic_id, body.name)
+            return {'ok': True}
+        except TopicError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.delete('/api/admin/topics/{topic_id}')
+    def remove_topic(topic_id: str):
+        try:
+            service.topics.remove(topic_id)
+            return {'ok': True}
+        except TopicError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.post('/api/admin/library/assign')
+    def assign_documents(body: AssignmentRequest):
+        available = {item['name'] for item in service.list_documents()}
+        if not set(body.names) <= available:
+            raise HTTPException(404, 'Algún documento ya no está disponible. Actualiza la biblioteca.')
+        try:
+            service.topics.assign(body.names, body.topic_id)
+            return {'ok': True, 'assigned': len(set(body.names))}
+        except TopicError as error:
+            raise HTTPException(409, str(error)) from error
 
     @app.post("/api/admin/prepare", status_code=202)
     def prepare():
@@ -536,9 +636,16 @@ def create_app(service=None):
 
     @app.post("/api/admin/upload")
     async def upload(files: Annotated[list[UploadFile], File()], auto_index: Annotated[bool, Form()] = True,
-                     batch_id: Annotated[str, Form()] = ""):
+                     batch_id: Annotated[str, Form()] = "", topic_id: Annotated[str, Form(max_length=64)] = ""):
         if not 1 <= len(files) <= 20:
             raise HTTPException(422, "Selecciona entre 1 y 20 documentos.")
+        if topic_id:
+            try:
+                service.topics.scope(topic_id, [])
+            except TopicError as error:
+                raise HTTPException(422, str(error)) from error
+            if topic_id == 'unassigned':
+                raise HTTPException(422, 'Selecciona un armario o un cajón como destino.')
         # Validate all names before saving any file. Existing documents are never overwritten.
         for file in files:
             name = file.filename or ""
@@ -548,6 +655,7 @@ def create_app(service=None):
             if Path(name).name != name or ".." in name or any(ord(char) < 32 or char in '\\/:*?"<>|' for char in name) or name.endswith((".", " ")) or name.split('.')[0].upper() in reserved:
                 return JSONResponse({"detail": "Nombre de archivo no válido.", "error_info": {"code": "INVALID_NAME", "message": "El nombre contiene caracteres o rutas no válidos.", "detail": name}}, status_code=422)
         saved = []
+        created = []
         total = 0
         payloads = []
         for file in files:
@@ -565,6 +673,7 @@ def create_app(service=None):
                     with target.open("xb") as output:
                         output.write(content)
                     saved.append(target.name)
+                    created.append(target.name)
                     break
                 except FileExistsError:
                     if target.is_file() and hashlib.sha256(target.read_bytes()).digest() == hashlib.sha256(content).digest():
@@ -573,6 +682,12 @@ def create_app(service=None):
                     continue
             else:
                 raise HTTPException(409, "Demasiados documentos con el mismo nombre.")
+        if topic_id:
+            try:
+                # Re-uploading identical content keeps the existing organization.
+                service.topics.assign(created, topic_id)
+            except TopicError as error:
+                raise HTTPException(409, str(error)) from error
         result = {"saved": saved, "document_id": hashlib.sha256(saved[0].encode()).hexdigest()[:24]}
         if auto_index:
             name = saved[0] if len(saved) == 1 else None

@@ -40,5 +40,8 @@ test('all static UI attributes and literal translation calls reference existing 
     const source = readFileSync(new URL(`../../dist/${file}`, import.meta.url), 'utf8');
     const keys = [...source.matchAll(/\bt\(['"]([^'"]+)['"]/g), ...source.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)];
     for (const match of keys) assert.ok(Object.hasOwn(catalogs.es, match[1]), `${file}: ${match[1]}`);
+    const prefix=file==='topics.js'?'library.':'sentinel.';
+    for(const match of source.matchAll(/\b(?:s|text)\(['"]([a-z_]+)['"]\s*[,)]/g))
+      assert.ok(Object.hasOwn(catalogs.es,prefix+match[1]),`${file}: ${prefix+match[1]}`);
   }
 });

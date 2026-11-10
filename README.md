@@ -78,10 +78,21 @@ jobs; cancel or finish them first. These commands leave Ollama and documents alo
 
 In **Configuración**, click **Preparar modelo de búsqueda** to download the CPU
 embeddings. Upload a small TXT through **Biblioteca → Subir e indexar**. Wait for
-**Indexado**, ask a question in **Chat**, and expand **Fuentes consultadas** to
+**Indexado**, ask a question in **Chat**, and open **Contexto recuperado** to
 verify the original source. Start with a short PDF before indexing large batches.
 
 ## Multimodal RAG
+
+The chat uses the full workspace width. Citations open a sliding source panel;
+Escape closes it. Configure fragment counts and retrieval-only mode in Settings.
+Settings save automatically. The top-right flag selector switches Spanish/English;
+fonts and translations are served locally.
+
+In **Biblioteca**, create topic **cabinets** and **drawers**, select documents and
+move them in bulk, or choose a destination before uploading. The chat's **Sources**
+selector searches the entire library, one cabinet (including its drawers), one
+drawer, or unassigned documents. Organization is stored under `data/` and preserves
+existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md).
 
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local
   vision model describes the images; descriptions and text enter ChromaDB.
@@ -132,7 +143,8 @@ python -m tests.browser.qa_redesign
 Windows/Linux and browser QA on Linux with fake models and an isolated corpus.
 Ollama handles GPU generation independently of CPU embeddings.
 
-The server listens on loopback. Documents, models, indexes and private settings
+The server defaults to loopback. An explicit `-Host`/`--host` enables trusted LAN
+access; see [installation](docs/INSTALLATION.md#trusted-lan-access). Documents, models, indexes and private settings
 stay outside Git. Initial downloads need Internet. More: [installation](docs/INSTALLATION.md),
 [Spanish reference](docs/REFERENCE.es.md), [diagnostics](docs/DESARROLLO.md).
 The project's license is pending; third-party notices remain intact.

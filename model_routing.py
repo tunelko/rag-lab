@@ -34,9 +34,15 @@ class Route:
     reason: str
 
 
-def select_model(settings, question, hits, has_images, available, capabilities, requested=None, history=()):
+def select_model(settings, question, hits, has_images, available, capabilities, requested=None, history=(), input_images=False):
     names = available["models"]
     text_model = settings.response_model or available["default_model"]
+    if input_images:
+        model = requested or (text_model if settings.response_mode == 'manual' else settings.vision_model)
+        if model not in names or 'vision' not in capabilities(model):
+            raise ValueError('La imagen adjunta necesita un modelo con visión instalado. Revísalo en Configuración.')
+        return Route(model, True, 'explicit' if requested else settings.response_mode,
+                     'La consulta incluye una imagen del usuario; se usa un modelo con visión.')
     if requested or settings.response_mode == "manual":
         model = requested or text_model
         if model not in names:

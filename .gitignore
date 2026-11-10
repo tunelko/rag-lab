@@ -36,3 +36,6 @@ data/visual/
 /lista.txt
 dist/runtime-console.json
 dist/runtime-console.pending
+
+# Local design source package.
+/rag-local-rediseno/

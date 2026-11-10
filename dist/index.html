@@ -1,152 +1,2167 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <title>Consulta · RAG Local</title>
-  <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="/assets/design/fonts.css">
-  <link rel="stylesheet" href="/assets/design/tokens.css">
-  <link rel="stylesheet" href="/assets/app.css">
-  <link rel="stylesheet" href="/assets/workspace.css">
-  <link rel="stylesheet" href="/assets/markdown.css">
-  <script src="/assets/app.js" type="module"></script>
-</head>
-<body>
-<svg class="svg-defs" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
-  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z"/></symbol>
-  <symbol id="i-library" viewBox="0 0 24 24"><path d="M4 4v16M9 4v16m5-16 5 16M14 4h3l5 16h-3"/></symbol>
-  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6"/></symbol>
-  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
-  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 16v4h16v-4"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
-  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/></symbol>
-  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.1 3M4.8 15a8 8 0 0 0 13.1 3"/></symbol>
-  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
-  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 3H3v12"/></symbol>
-  <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.5"/></symbol>
-  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 3h7v7m0-7L10 14M11 4H4v16h16v-7"/></symbol>
-  <symbol id="i-maximize" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
-</defs></svg>
-<a class="skip" href="#main"><span data-i18n="ui.skip_to_content_fdab69">Saltar al contenido</span></a>
-<div class="app-shell">
-<aside class="sidebar">
-  <a class="brand" href="/"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>RAG Local<small><span data-i18n="ui.your_knowledge_workspace_120d6a">Tu espacio de conocimiento</span></small></span></a>
-  <p class="nav-label"><span data-i18n="ui.workspace_662ff1">ESPACIO DE TRABAJO</span></p>
-  <nav aria-label="Principal" data-i18n-aria-label="ui.main_navigation_afc19f">
-    <a id="nav-query" class="nav-item" href="/"><svg class="icon" aria-hidden="true"><use href="#i-chat"/></svg>Chat<span class="nav-current" aria-hidden="true">•</span></a>
-    <a id="nav-admin" class="nav-item" href="/admin"><svg class="icon" aria-hidden="true"><use href="#i-library"/></svg><span data-i18n="ui.library_c9169c">Biblioteca</span><span id="nav-badge" class="nav-badge" hidden>0</span></a>
-  <a id="nav-settings" class="nav-item" href="/configuracion"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span data-i18n="ui.settings_bb5071">Configuración</span></a>
-    <a id="nav-statistics" class="nav-item" href="/estadisticas"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg><span data-i18n="ui.statistics_bb847b">Estadísticas</span></a>
-    <a id="nav-console" class="nav-item" href="/?vista=consola"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg><span data-i18n="ui.console_e0236e">Consola</span></a></nav>
-
-
-</aside>
-<div class="workspace">
-  <header class="topbar"><div class="breadcrumbs"><span data-i18n="ui.laboratory_4787d7">Laboratorio</span> <span>/</span><strong id="breadcrumb-current"><span data-i18n="ui.query_b10d9b">Consulta</span></strong></div><div class="topbar-actions"><label class="language-control"><span class="sr-only" data-i18n="language.label">Idioma</span><select id="language-selection" aria-label="Idioma" data-i18n-aria-label="language.label"><option value="auto" data-i18n="language.auto">Idioma del navegador</option><option value="es" lang="es">Español</option><option value="en" lang="en">English</option></select></label><span class="privacy-pill"><i class="status-dot"></i><span data-i18n="ui.data_and_queries_stay_on_your_computer_bb3ada">Datos y consultas en tu equipo</span></span><button id="refresh-button" class="icon-button" aria-label="Actualizar estado" data-i18n-aria-label="ui.refresh_status_d266f6"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button></div></header>
-  <main id="main">
-    <section id="query-view" class="chat-workspace">
-      <header class="chat-heading"><div><p class="eyebrow"><span data-i18n="ui.your_documents_within_reach_9f72d9">TUS DOCUMENTOS, A MANO</span></p><h1>Chat</h1></div><button id="new-chat" class="button secondary" type="button"><span data-i18n="ui.new_conversation_306351">Nueva conversación</span></button></header>
-      <div id="empty-banner" class="empty-banner"><p><span data-i18n="ui.add_and_index_documents_to_get_started_01f4e5">Añade e indexa documentos para empezar.</span></p><a class="text-link" href="/admin"><span data-i18n="ui.go_to_library_c5d0e0">Ir a Biblioteca →</span></a></div>
-      <div id="chat-empty" class="chat-empty"><h2><span data-i18n="ui.what_would_you_like_to_know_bf93f1">¿Qué quieres saber?</span></h2><p><span data-i18n="ui.ask_your_documents_every_answer_keeps_its_sources_55b1da">Consulta tus documentos. Cada respuesta conserva sus fuentes.</span></p></div>
-      <div id="chat-thread" class="chat-thread" aria-label="Conversación" data-i18n-aria-label="ui.conversation_2f2f74"></div>
-      <form id="query-form" class="chat-composer"><label class="sr-only" for="question"><span data-i18n="ui.your_question_5fd707">Tu pregunta</span></label><textarea id="question" rows="2" maxlength="6000" placeholder="Pregunta a tus documentos…" required data-i18n-placeholder="ui.ask_your_documents_45c5ff"></textarea><div class="chat-composer-footer"><span id="question-help" class="help-text"><span data-i18n="ui.ctrl_enter_to_send_395750">Ctrl + Enter para enviar</span></span><button id="ask-button" class="button primary" type="submit" disabled><span><span data-i18n="ui.send_e1d12d">Enviar</span></span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div></form>
-    </section>
-    <section id="admin-view" hidden>
-      <header class="page-heading heading-with-action"><div><p class="eyebrow"><span data-i18n="ui.prepare_the_context_5c0be4">PREPARA EL CONTEXTO</span></p><h1><span data-i18n="ui.your_library_locally_101a7e">Tu biblioteca, en local.</span></h1><p><span data-i18n="ui.add_documents_follow_their_progress_and_query_them_once_indexed_3122ba">Añade documentos, sigue su progreso y consúltalos en cuanto estén indexados.</span></p></div><a class="button secondary" href="/"><span data-i18n="ui.go_to_chat_64574e">Ir a consulta</span><svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></a></header>
-      <div class="page-columns"><div class="content-column">
-        <section class="card upload-card"><div class="section-heading"><h2><span data-i18n="ui.add_documents_c9ab25">Añadir documentos</span></h2><div class="type-list"><span class="file-type pdf">PDF</span><span class="file-type txt">TXT</span><span class="file-type md">MD</span><span class="file-type"><span data-i18n="ui.image_fd4d36">IMAGEN</span></span><span class="file-type">MINERU ZIP</span></div></div>
-          <div id="drop-zone" class="drop-zone"><input id="file-input" class="sr-only" type="file" accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.zip" multiple tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg><div><strong id="drop-title"><span data-i18n="ui.drop_your_documents_here_403059">Arrastra tus documentos aquí</span></strong><p><span data-i18n="ui.up_to_20_mb_per_file_20_files_per_batch_keep_adding_files_while_t_24ae3c">Hasta 20 MB por archivo · 20 archivos por lote. Puedes seguir añadiendo mientras se procesa la cola.</span></p></div><button id="select-files" class="button secondary" type="button"><span data-i18n="ui.select_files_13d9c9">Seleccionar archivos</span></button></div>
-          <section id="queue-section" class="queue-section" hidden aria-label="Cola de subida" data-i18n-aria-label="ui.upload_queue_9a0772"><div class="queue-heading"><h3><span data-i18n="ui.upload_queue_9a0772">Cola de subida</span></h3><span id="queue-caption"></span><div class="queue-toolbar"><button id="pause-queue" type="button" class="text-button"><span data-i18n="ui.pause_cd25ee">Pausar</span></button><button id="clear-queue" type="button" class="text-button"><span data-i18n="ui.clear_completed_8465ea">Limpiar completados</span></button><button id="queue-result-button" type="button" class="text-button" hidden><span data-i18n="ui.view_result_2011cb">Ver resultado</span></button></div></div>
-            <div class="batch-progress"><div class="batch-meta"><strong id="total-percent">0 %</strong><span><span data-i18n="ui.overall_batch_progress_78df57">Progreso total del lote</span></span><span id="total-eta"><span data-i18n="ui.calculating_bef25b">Calculando…</span></span></div><div id="total-progress" class="segmented-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso total del lote" data-i18n-aria-label="ui.overall_batch_progress_78df57"><span class="segment moss"></span><span class="segment ochre"></span><span class="segment clay"></span></div><div class="progress-legend"><span><i class="status-dot moss"></i><span data-i18n="ui.indexed_bb7f0d">Indexado</span></span><span><i class="status-dot ochre"></i><span data-i18n="ui.splitting_into_chunks_726c36">Fragmentando</span></span><span><i class="status-dot clay"></i><span data-i18n="ui.uploading_8f2161">Subiendo</span></span></div></div><ul id="upload-queue" class="upload-queue"></ul>
-          </section>
-          <div class="upload-footer"><label class="switch-label"><input id="auto-index" role="switch" type="checkbox" checked><span class="switch-track" aria-hidden="true"></span><span data-i18n="ui.index_after_upload_73f058">Indexar al terminar la subida</span></label><div class="queue-footer-actions"><button id="cancel-pending" type="button" class="button error-outline" disabled><span data-i18n="ui.cancel_processing_141faf">Cancelar procesamiento</span></button><button id="upload-button" class="button primary" type="button" disabled><span><span data-i18n="ui.upload_and_index_0_48c190">Subir e indexar (0)</span></span></button></div></div>
-        </section>
-        <section class="card library-card"><div class="section-heading"><h2><span data-i18n="ui.documents_22a3ce">Documentos</span><span id="library-count" class="count-badge">0</span></h2><div class="table-tools"><label class="search-field"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input id="document-search" type="search" placeholder="Buscar por nombre" aria-label="Buscar documentos por nombre" data-i18n-placeholder="ui.search_by_name_5ee9b1" data-i18n-aria-label="ui.search_documents_by_name_e6fb64"></label><button id="index-button" class="button secondary"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span data-i18n="ui.update_index_d5281e">Actualizar índice</span></button></div></div>
-          <div id="document-filters" class="filters" aria-label="Filtrar documentos" data-i18n-aria-label="ui.filter_documents_73c562"><button type="button" data-filter="all" aria-pressed="true"><span data-i18n="ui.all_0_65e3e5">Todos · 0</span></button><button type="button" data-filter="indexed" aria-pressed="false"><span data-i18n="ui.indexed_0_548fa7">Indexados · 0</span></button><button type="button" data-filter="processing" aria-pressed="false"><span data-i18n="ui.processing_0_f6dfde">En proceso · 0</span></button><button type="button" data-filter="error" aria-pressed="false"><span data-i18n="ui.with_errors_0_42cb8f">Con error · 0</span></button></div>
-          <div class="table-scroll"><table><thead><tr><th><span data-i18n="ui.document_025802">DOCUMENTO</span></th><th><span data-i18n="ui.size_42a0fc">TAMAÑO</span></th><th><span data-i18n="ui.status_f16fe7">ESTADO</span></th><th><span data-i18n="ui.chunks_7a5562">FRAGMENTOS</span></th><th><span data-i18n="ui.updated_25acc6">ACTUALIZADO</span></th><th><span class="sr-only"><span data-i18n="ui.actions_fb89a3">Acciones</span></span></th></tr></thead><tbody id="documents-table"></tbody></table></div><p id="library-empty" class="library-empty"><span data-i18n="ui.you_have_not_added_any_documents_yet_start_with_the_area_above_5c043e">Todavía no has añadido documentos. Empieza por la zona de arriba.</span></p><footer class="table-footer"><p id="table-caption"></p><div class="pagination"><button id="previous-page" class="icon-button" aria-label="Página anterior" data-i18n-aria-label="ui.previous_page_9bcad7">‹</button><span id="page-label">1 / 1</span><button id="next-page" class="icon-button" aria-label="Página siguiente" data-i18n-aria-label="ui.next_page_9dd6b3">›</button></div></footer>
-        </section>
-      </div></div>
-    </section>
-    <section id="settings-view" hidden>
-      <header class="page-heading"><p class="eyebrow"><span data-i18n="ui.adjust_your_laboratory_a42b0f">AJUSTA TU LABORATORIO</span></p><h1><span data-i18n="ui.general_settings_1cabab">Configuración general</span></h1><p><span data-i18n="ui.settings_are_saved_on_this_computer_and_apply_to_new_queries_9398df">Estos ajustes se guardan en este equipo y se aplican a las nuevas consultas.</span></p></header>
-      <div class="settings-layout"><form id="settings-form" class="card settings-form"><p class="help-text" data-i18n="language.help">El idioma se guarda en este navegador y se aplica a las nuevas respuestas. Los documentos y las conversaciones existentes conservan su contenido original.</p>
-        <h2><span data-i18n="ui.answers_and_retrieval_64655c">Respuestas y búsqueda</span></h2>
-        <label class="model-field" for="model-selection"><span data-i18n="ui.model_selection_bad3ab">Selección del modelo</span><select id="model-selection"><option value="automatic" data-i18n="ui.automatic_based_on_the_query_854c47">Automática según la consulta</option><option value="manual" data-i18n="ui.manual_fixed_model_fe5612">Manual: modelo fijo</option></select></label>
-        <label class="model-field" for="model"><span id="response-model-label"><span data-i18n="ui.model_for_text_queries_09f215">Modelo para consultas de texto</span></span><select id="model"><option value="" data-i18n="ui.connecting_to_ollama_4410a1">Conectando con Ollama…</option></select></label>
-        <p id="response-mode" class="help-text"></p>
-        <fieldset class="k-field"><legend><span data-i18n="ui.context_chunks_per_query_51b73b">Fragmentos de contexto por consulta</span></legend><div id="top-k" class="segmented-control"><button type="button" data-k="2" aria-pressed="false">2</button><button type="button" data-k="4" aria-pressed="true">4</button><button type="button" data-k="6" aria-pressed="false">6</button><button type="button" data-k="8" aria-pressed="false">8</button></div><p class="help-text"><span data-i18n="ui.a_chunk_is_a_small_part_of_a_document_we_retrieve_the_chunks_most_aaf5e5">Un fragmento es un pequeño trozo de un documento. Recuperamos los más relacionados con tu pregunta y se los damos al modelo como contexto. Más fragmentos amplían la evidencia, pero pueden añadir ruido y tardar más.</span></p></fieldset>
-        <label class="switch-label"><input id="search-only" type="checkbox" role="switch"><span class="switch-track" aria-hidden="true"></span><span data-i18n="ui.retrieve_chunks_only_ee5114">Solo buscar fragmentos</span></label><p class="help-text"><span data-i18n="ui.show_retrieved_sources_without_generating_an_llm_answer_8a898e">Muestra las fuentes recuperadas sin generar una respuesta con el LLM.</span></p>
-        <hr><h2><span data-i18n="ui.multimodal_documents_5e0e4e">Documentos multimodales</span></h2>
-        <label class="switch-label"><input id="multimodal" type="checkbox" role="switch"><span class="switch-track" aria-hidden="true"></span><span data-i18n="ui.process_figures_tables_and_images_458f97">Procesar figuras, tablas e imágenes</span></label>
-        <p class="help-text"><span data-i18n="ui.during_indexing_text_and_tables_are_extracted_on_the_cpu_and_olla_9ae40d">Al indexar, extrae texto y tablas en CPU y describe las imágenes con Ollama. Esta descripción sí puede usar la GPU. Admite PDF, imágenes y ZIP de MinerU con content_list e imágenes. Después de activarlo o cambiar el modelo visual, actualiza el índice de los documentos existentes.</span></p>
-        <label class="model-field" for="vision-model"><span data-i18n="ui.vision_model_for_indexing_and_image_queries_668347">Modelo visual para indexar y consultar imágenes</span><select id="vision-model"></select></label>
-        <label class="model-field" for="max-images"><span data-i18n="ui.images_attached_per_query_487246">Imágenes adjuntas por consulta</span><select id="max-images"><option>1</option><option>2</option><option selected>3</option><option>4</option></select></label>
-        <label class="model-field" for="max-visuals"><span data-i18n="ui.page_views_or_figures_per_document_limit_0733ae">Límite de vistas o figuras por documento</span><input id="max-visuals" type="number" min="1" max="500" value="500" required></label>
-        <p class="help-text"><span data-i18n="ui.this_limits_the_total_work_per_document_images_are_described_one__8c2803">Es un límite de trabajo total por documento. Las imágenes se describen una a una; subirlo no reserva VRAM para todas a la vez. Los documentos completos conservan su índice al cambiar este límite.</span></p>
-        <p class="help-text"><span data-i18n="ui.automatic_mode_chooses_the_text_or_vision_model_based_on_the_ques_a43d7d">En modo automático se elige entre el modelo de texto y el visual según la pregunta y las fuentes recuperadas. En modo manual, el modelo fijo solo verá las imágenes si admite visión. Los PDF conservan vistas completas de página; los ZIP de MinerU pueden aportar figuras recortadas.</span></p>
-        <div class="settings-actions"><button id="save-settings" type="submit" class="button primary"><span data-i18n="ui.save_settings_768c23">Guardar configuración</span></button><span id="settings-message" role="status"></span></div>
-      </form><div class="settings-technical">        <section class="card config-card"><div class="section-heading"><h2><span data-i18n="ui.settings_bb5071">Configuración</span></h2></div><dl><div><dt><span data-i18n="ui.collection_1f5e6d">Colección</span></dt><dd id="config-collection">documents</dd></div><div><dt>Embeddings</dt><dd id="config-embeddings"></dd></div><div><dt><span data-i18n="ui.device_1c555e">Dispositivo</span></dt><dd id="config-device">CPU</dd></div><div><dt><span data-i18n="ui.chunk_size_overlap_cadb3c">Fragmento / solape</span></dt><dd id="config-chunk"><span data-i18n="ui.500_80_chars_1360d2">500 / 80 car.</span></dd></div><div><dt><span data-i18n="ui.generation_7d468a">Generación</span></dt><dd><span data-i18n="ui.local_ollama_f69f95">Ollama local</span></dd></div></dl><button id="prepare-button" class="button secondary full"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg><span data-i18n="ui.prepare_retrieval_model_b34482">Preparar modelo de búsqueda</span></button><p class="help-text"><span data-i18n="ui.the_first_preparation_downloads_the_embedding_model_into_the_loca_a0938f">La primera preparación descarga los embeddings en D:. No descarga ningún LLM.</span></p></section></div></div>
-    </section>
-    <section id="statistics-view" hidden>
-      <header class="page-heading"><p class="eyebrow"><span data-i18n="ui.laboratory_activity_07fc56">ACTIVIDAD DEL LABORATORIO</span></p><h1><span data-i18n="ui.statistics_bb847b">Estadísticas</span></h1><p><span data-i18n="ui.index_status_query_performance_and_processing_activity_bc9c44">Estado del índice, rendimiento de las consultas y actividad de procesamiento.</span></p></header>
-      <section class="card hardware-card"><div class="section-heading"><h2><span data-i18n="ui.real_time_system_load_b3d529">Carga del equipo en tiempo real</span></h2><span id="hardware-status" class="help-text" role="status"><span data-i18n="ui.preparing_readings_97390a">Preparando lecturas…</span></span></div>
-        <div class="hardware-chart-toolbar"><div><p><span data-i18n="ui.performance_history_84c407">Historial de rendimiento</span></p><span><span data-i18n="ui.live_every_2_s_archive_every_30_s_kept_for_7_days_783d1d">Directo cada 2 s · archivo cada 30 s · conserva 7 días</span></span></div><div id="hardware-range" class="segmented-control" aria-label="Ventana del historial" data-i18n-aria-label="ui.history_window_4dfc50"><button type="button" data-seconds="60" aria-pressed="true">1 min</button><button type="button" data-seconds="300" aria-pressed="false">5 min</button><button type="button" data-seconds="900" aria-pressed="false">15 min</button><button type="button" data-seconds="3600" aria-pressed="false">1 h</button><button type="button" data-seconds="86400" aria-pressed="false"><span data-i18n="ui.1_day_95700f">1 día</span></button><button type="button" data-seconds="604800" aria-pressed="false"><span data-i18n="ui.1_week_84c52e">1 semana</span></button></div><button id="hardware-pause" class="button secondary" type="button" aria-pressed="false" title="Congela la visualización y mantiene la recogida de métricas" data-i18n-title="ui.freeze_the_display_while_continuing_to_collect_metrics_d163ad"><span data-i18n="ui.pause_charts_a84524">Pausar gráficas</span></button></div>
-        <div class="resource-charts"><article class="resource-card resource-cpu" aria-label="Rendimiento de CPU" data-i18n-aria-label="ui.cpu_performance_2a9101">
-  <header class="resource-heading"><div><h3>CPU</h3><p id="hardware-cpu-caption"></p></div><strong id="hardware-cpu">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de CPU" data-i18n-aria-label="ui.maximize_cpu_chart_1b8fbc"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
-  <div id="chart-cpu" class="resource-plot" tabindex="0"><span id="chart-cpu-empty" class="resource-empty"><span data-i18n="ui.collecting_actual_readings_1bdd9f">Recopilando lecturas reales…</span></span></div>
-  <div class="resource-time"><span id="chart-cpu-range"><span data-i18n="ui.1_min_ago_f882dc">Hace 1 min</span></span><span><span data-i18n="ui.latest_reading_3165db">Última lectura</span></span></div>
-  <dl class="resource-summary"><div><dt><span data-i18n="ui.minimum_5d61b4">Mínimo</span></dt><dd id="chart-cpu-min">—</dd></div><div><dt title="Media de las lecturas visibles" data-i18n-title="ui.mean_of_visible_readings_6c387d"><span data-i18n="ui.mean_d35717">Media</span></dt><dd id="chart-cpu-mean">—</dd></div><div><dt><span data-i18n="ui.maximum_994d51">Máximo</span></dt><dd id="chart-cpu-max">—</dd></div></dl>
-</article>
-<article class="resource-card resource-gpu" aria-label="Rendimiento de GPU" data-i18n-aria-label="ui.gpu_performance_22cf73">
-  <header class="resource-heading"><div><h3>GPU</h3><p id="hardware-gpu-caption"></p><p id="hardware-gpu-sensors"></p></div><strong id="hardware-gpu">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de GPU" data-i18n-aria-label="ui.maximize_gpu_chart_927984"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
-  <div id="chart-gpu" class="resource-plot" tabindex="0"><span id="chart-gpu-empty" class="resource-empty"><span data-i18n="ui.collecting_actual_readings_1bdd9f">Recopilando lecturas reales…</span></span></div>
-  <div class="resource-time"><span id="chart-gpu-range"><span data-i18n="ui.1_min_ago_f882dc">Hace 1 min</span></span><span><span data-i18n="ui.latest_reading_3165db">Última lectura</span></span></div>
-  <dl class="resource-summary"><div><dt><span data-i18n="ui.minimum_5d61b4">Mínimo</span></dt><dd id="chart-gpu-min">—</dd></div><div><dt title="Media de las lecturas visibles" data-i18n-title="ui.mean_of_visible_readings_6c387d"><span data-i18n="ui.mean_d35717">Media</span></dt><dd id="chart-gpu-mean">—</dd></div><div><dt><span data-i18n="ui.maximum_994d51">Máximo</span></dt><dd id="chart-gpu-max">—</dd></div></dl>
-</article>
-<article class="resource-card resource-ram" aria-label="Rendimiento de RAM" data-i18n-aria-label="ui.ram_performance_8396d4">
-  <header class="resource-heading"><div><h3>RAM</h3><p id="hardware-ram-caption"></p></div><strong id="hardware-ram">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de RAM" data-i18n-aria-label="ui.maximize_ram_chart_0c8f6a"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
-  <div id="chart-ram" class="resource-plot" tabindex="0"><span id="chart-ram-empty" class="resource-empty"><span data-i18n="ui.collecting_actual_readings_1bdd9f">Recopilando lecturas reales…</span></span></div>
-  <div class="resource-time"><span id="chart-ram-range"><span data-i18n="ui.1_min_ago_f882dc">Hace 1 min</span></span><span><span data-i18n="ui.latest_reading_3165db">Última lectura</span></span></div>
-  <dl class="resource-summary"><div><dt><span data-i18n="ui.minimum_5d61b4">Mínimo</span></dt><dd id="chart-ram-min">—</dd></div><div><dt title="Media de las lecturas visibles" data-i18n-title="ui.mean_of_visible_readings_6c387d"><span data-i18n="ui.mean_d35717">Media</span></dt><dd id="chart-ram-mean">—</dd></div><div><dt><span data-i18n="ui.maximum_994d51">Máximo</span></dt><dd id="chart-ram-max">—</dd></div></dl>
-</article>
-<article class="resource-card resource-vram" aria-label="Rendimiento de VRAM" data-i18n-aria-label="ui.vram_performance_4bb1ab">
-  <header class="resource-heading"><div><h3>VRAM</h3><p id="hardware-vram-caption"></p></div><strong id="hardware-vram">—</strong><button data-maximize class="icon-button resource-maximize" type="button" aria-label="Maximizar gráfica de VRAM" data-i18n-aria-label="ui.maximize_vram_chart_3b2792"><svg class="icon" aria-hidden="true"><use href="#i-maximize"/></svg></button></header>
-  <div id="chart-vram" class="resource-plot" tabindex="0"><span id="chart-vram-empty" class="resource-empty"><span data-i18n="ui.collecting_actual_readings_1bdd9f">Recopilando lecturas reales…</span></span></div>
-  <div class="resource-time"><span id="chart-vram-range"><span data-i18n="ui.1_min_ago_f882dc">Hace 1 min</span></span><span><span data-i18n="ui.latest_reading_3165db">Última lectura</span></span></div>
-  <dl class="resource-summary"><div><dt><span data-i18n="ui.minimum_5d61b4">Mínimo</span></dt><dd id="chart-vram-min">—</dd></div><div><dt title="Media de las lecturas visibles" data-i18n-title="ui.mean_of_visible_readings_6c387d"><span data-i18n="ui.mean_d35717">Media</span></dt><dd id="chart-vram-mean">—</dd></div><div><dt><span data-i18n="ui.maximum_994d51">Máximo</span></dt><dd id="chart-vram-max">—</dd></div></dl>
-</article></div><p id="hardware-history-note" class="hardware-history-note"><span data-i18n="ui.collecting_actual_history_fd8df6">Recopilando historial real…</span></p>
-        <div class="table-scroll"><table><thead><tr><th><span data-i18n="ui.component_937fbd">COMPONENTE</span></th><th><span data-i18n="ui.process_c2d2e5">PROCESO</span></th><th><span data-i18n="ui.system_cpu_409128">CPU DEL EQUIPO</span></th><th><span data-i18n="ui.process_ram_94205a">RAM DEL PROCESO</span></th></tr></thead><tbody id="hardware-processes"></tbody></table></div>
-        <p class="hardware-note"><span data-i18n="ui.100_gpu_in_ollama_means_the_model_is_stored_on_the_gpu_utilizatio_c7a2f6">«100 % GPU» en Ollama indica que el modelo está alojado en la GPU. La utilización que aparece aquí mide su actividad en cada lectura. La CPU de cada proceso se expresa sobre el total del equipo; la RAM de procesos con memoria compartida no debe sumarse.</span></p>
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="dark" name="color-scheme"/>
+  <title>
+   RAG Local
+  </title>
+  <link href="data:," rel="icon"/>
+  <link href="/assets/design/fonts.css" rel="stylesheet"/>
+  <link href="/assets/rag-local-theme.css" rel="stylesheet"/>
+  <link href="/assets/app.css" rel="stylesheet"/>
+  <link href="/assets/workspace.css" rel="stylesheet"/>
+  <link href="/assets/markdown.css" rel="stylesheet"/>
+  <script src="/assets/app.js" type="module">
+  </script>
+ </head>
+ <body>
+  <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
+   <defs>
+    <symbol id="i-chat" viewbox="0 0 24 24">
+     <path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z">
+     </path>
+    </symbol>
+    <symbol id="i-library" viewbox="0 0 24 24">
+     <path d="M4 4v16M9 4v16m5-16 5 16M14 4h3l5 16h-3">
+     </path>
+    </symbol>
+    <symbol id="i-file" viewbox="0 0 24 24">
+     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Zm0 0v6h6">
+     </path>
+    </symbol>
+    <symbol id="i-arrow" viewbox="0 0 24 24">
+     <path d="M5 12h14m-6-6 6 6-6 6">
+     </path>
+    </symbol>
+    <symbol id="i-upload" viewbox="0 0 24 24">
+     <path d="M12 16V3m-5 5 5-5 5 5M4 16v4h16v-4">
+     </path>
+    </symbol>
+    <symbol id="i-check" viewbox="0 0 24 24">
+     <path d="m5 12 4 4L19 6">
+     </path>
+    </symbol>
+    <symbol id="i-cpu" viewbox="0 0 24 24">
+     <rect height="14" rx="2" width="14" x="5" y="5">
+     </rect>
+     <path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3">
+     </path>
+    </symbol>
+    <symbol id="i-refresh" viewbox="0 0 24 24">
+     <path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.1 3M4.8 15a8 8 0 0 0 13.1 3">
+     </path>
+    </symbol>
+    <symbol id="i-layers" viewbox="0 0 24 24">
+     <path d="m3 8 9-5 9 5-9 5-9-5Zm0 5 9 5 9-5M3 18l9 5 9-5">
+     </path>
+    </symbol>
+    <symbol id="i-search" viewbox="0 0 24 24">
+     <circle cx="10" cy="10" r="6">
+     </circle>
+     <path d="m15 15 5 5">
+     </path>
+    </symbol>
+    <symbol id="i-x" viewbox="0 0 24 24">
+     <path d="m6 6 12 12M6 18 18 6">
+     </path>
+    </symbol>
+    <symbol id="i-copy" viewbox="0 0 24 24">
+     <rect height="13" rx="2" width="12" x="8" y="8">
+     </rect>
+     <path d="M15 3H3v12">
+     </path>
+    </symbol>
+    <symbol id="i-alert" viewbox="0 0 24 24">
+     <path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.5">
+     </path>
+    </symbol>
+    <symbol id="i-external" viewbox="0 0 24 24">
+     <path d="M14 3h7v7m0-7L10 14M11 4H4v16h16v-7">
+     </path>
+    </symbol>
+    <symbol id="i-maximize" viewbox="0 0 24 24">
+     <path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5">
+     </path>
+    </symbol>
+    <symbol id="i-settings" viewbox="0 0 24 24">
+     <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4">
+     </path>
+    </symbol>
+    <symbol id="i-console" viewbox="0 0 24 24">
+     <path d="m4 17 6-6-6-6M12 19h8">
+     </path>
+    </symbol>
+    <symbol id="i-image" viewbox="0 0 24 24">
+     <path d="m3 17 6-6 4 4 3-3 5 5M3 3h18v18H3zM7 7h.01">
+     </path>
+    </symbol>
+    <symbol id="i-plus" viewbox="0 0 24 24">
+     <path d="M12 5v14M5 12h14">
+     </path>
+    </symbol>
+    <symbol id="i-minus" viewbox="0 0 24 24">
+     <path d="M5 12h14">
+     </path>
+    </symbol>
+    <symbol id="i-chevron" viewbox="0 0 24 24">
+     <path d="m9 5 7 7-7 7">
+     </path>
+    </symbol>
+    <symbol id="i-network" viewbox="0 0 24 24">
+     <path d="M12 9V3M3 21v-6h18v6M6 15V9h12v6M2 21h8m4 0h8">
+     </path>
+    </symbol>
+    <symbol id="i-lock" viewbox="0 0 24 24">
+     <path d="M7 11V7a5 5 0 0 1 10 0v4M3 11h18v10H3z">
+     </path>
+    </symbol>
+    <symbol id="i-clock" viewbox="0 0 24 24">
+     <path d="M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0">
+     </path>
+    </symbol>
+   </defs>
+  </svg>
+  <a class="skip" href="#main">
+   <span data-i18n="sentinel.skip">
+    Saltar al contenido
+   </span>
+  </a>
+  <div class="app">
+   <header class="app-header">
+    <div class="app-header__bar">
+     <a class="brand" href="/">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-network">
+       </use>
+      </svg>
+      RAG Local
+     </a>
+     <nav aria-label="Secciones" class="nav" data-i18n-aria-label="sentinel.sections">
+      <a href="/" class="nav-item" id="nav-query">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-chat">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.nav_chat">
+        Chat
+       </span>
+      </a>
+      <a href="/admin" class="nav-item" id="nav-admin">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-library">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.nav_library">
+        Biblioteca
+       </span>
+       <span class="badge badge--neutral" hidden="" id="nav-badge">
+        0
+       </span>
+      </a>
+      <a href="/configuracion" class="nav-item" id="nav-settings">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-settings">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.nav_settings">
+        Configuración
+       </span>
+      </a>
+      <a href="/estadisticas" class="nav-item" id="nav-statistics">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-cpu">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.nav_statistics">
+        Estadísticas
+       </span>
+      </a>
+      <a href="/consola" class="nav-item" id="nav-console">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-console">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.nav_console">
+        Consola
+       </span>
+      </a>
+     </nav>
+     <div class="header-status">
+      <span class="chip" id="stat-engine">
+       <i class="dot dot--warn">
+       </i>
+       <span id="ollama-header">
+        —
+       </span>
+      </span>
+      <span class="chip num">
+       <span>
+        VRAM
+       </span>
+       <span id="header-vram">
+        —
+       </span>
+       <span class="bar bar--micro">
+        <i id="header-vram-bar">
+        </i>
+       </span>
+      </span>
+      <span class="chip chip--local">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-lock">
+        </use>
+       </svg>
+       <span id="locality-label" data-i18n="sentinel.local">
+        Solo local
+       </span>
+       ·
+       <span id="server-address">
+       </span>
+      </span>
+      <button aria-label="Actualizar estado" class="btn btn--secondary btn--icon" data-i18n-aria-label="sentinel.refresh_status" id="refresh-button">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-refresh">
+        </use>
+       </svg>
+      </button>
+     </div>
+     <label class="language-picker" data-i18n-title="language.label" title="Idioma">
+      <img alt="" aria-hidden="true" id="language-flag" src="/assets/icons/flags/es.svg"/>
+      <select aria-label="Idioma" class="select language-picker__select" data-i18n-aria-label="language.label" id="language-selection">
+       <option data-i18n="language.auto" value="auto">
+        Auto
+       </option>
+       <option lang="es" value="es">
+        Español
+       </option>
+       <option lang="en" value="en">
+        English
+       </option>
+      </select>
+     </label>
+    </div>
+    <div aria-label="Pipeline RAG" class="pipeline">
+     <span class="label">
+      PIPELINE
+     </span>
+     <a class="pipeline__step" data-pipeline="1" href="/admin">
+      <b>
+       01 INGESTA
+      </b>
+      <span id="pipeline-docs">
+       —
+      </span>
+     </a>
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-chevron">
+      </use>
+     </svg>
+     <a class="pipeline__step" data-pipeline="2" href="/configuracion">
+      <b>
+       02 CHUNKS
+      </b>
+      <span id="pipeline-chunks">
+       —
+      </span>
+     </a>
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-chevron">
+      </use>
+     </svg>
+     <a class="pipeline__step" data-pipeline="3" href="/configuracion">
+      <b>
+       03 EMBED
+      </b>
+      <span id="pipeline-embedding">
+       —
+      </span>
+     </a>
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-chevron">
+      </use>
+     </svg>
+     <a class="pipeline__step" data-pipeline="4" href="/estadisticas">
+      <b>
+       04 VECTORES
+      </b>
+      <span id="pipeline-vectors">
+       —
+      </span>
+     </a>
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-chevron">
+      </use>
+     </svg>
+     <a class="pipeline__step" data-pipeline="5" href="/configuracion">
+      <b>
+       05 RETRIEVAL
+      </b>
+      <span id="pipeline-retrieval">
+       —
+      </span>
+     </a>
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-chevron">
+      </use>
+     </svg>
+     <a class="pipeline__step" data-pipeline="6" href="/configuracion">
+      <b>
+       06 LLM
+      </b>
+      <span id="pipeline-llm">
+       —
+      </span>
+     </a>
+    </div>
+   </header>
+   <main id="main">
+    <section class="page" id="query-view">
+     <header class="page-head">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-chat">
+       </use>
+      </svg>
+      <h1 class="page-title">
+       <span data-i18n="sentinel.chat">
+        Chat
+       </span>
+      </h1>
+      <p class="meta">
+       <span data-i18n="sentinel.chat_sub">
+        Consulta con evidencia documental
+       </span>
+      </p>
+      <span class="page-head__spacer">
+      </span>
+      <button class="btn btn--secondary" id="new-chat" type="button">
+       <span data-i18n="sentinel.new_chat">
+        Nueva conversación
+       </span>
+      </button>
+     </header>
+     <div class="banner banner--warn" id="empty-banner">
+      <p>
+       <span data-i18n="ui.add_and_index_documents_to_get_started_01f4e5">
+        Añade e indexa documentos para empezar.
+       </span>
+      </p>
+      <a class="text-link" href="/admin">
+       <span data-i18n="ui.go_to_library_c5d0e0">
+        Ir a Biblioteca →
+       </span>
+      </a>
+     </div>
+     <div class="split chat-split">
+      <section class="split__main card conversation-card">
+       <header class="card__head">
+        <h2 class="card-title">
+         <span data-i18n="sentinel.conversation">
+          Conversación
+         </span>
+        </h2>
+        <span class="meta" id="conversation-count">
+        </span>
+        <span class="meta" id="settings-sync" role="status">
+        </span>
+        <label class="scope-picker" for="chat-scope"><span data-i18n="library.sources">Fuentes</span><select class="select" id="chat-scope"></select></label>
+        <button class="btn btn--secondary context-toggle" id="open-context" type="button" aria-controls="context-panel" aria-expanded="false">
+         <span data-i18n="sentinel.context">Contexto recuperado</span>
+        </button>
+       </header>
+       <div class="chat-empty" id="chat-empty">
+        <div aria-hidden="true" class="musa musa--empty" data-state="idle">
+         <div class="musa__orbit">
+          <i>
+          </i>
+          <i>
+          </i>
+         </div>
+         <div class="musa__eyes">
+          <i>
+          </i>
+          <i>
+          </i>
+         </div>
+        </div>
+        <h2>
+         <span data-i18n="sentinel.ask">
+          ¿Qué quieres saber?
+         </span>
+        </h2>
+        <p class="meta">
+         <span data-i18n="sentinel.ask_hint">
+          Consulta tus documentos. Cada respuesta conserva sus fuentes.
+         </span>
+        </p>
+        <div class="suggestions" id="chat-suggestions">
+        </div>
+       </div>
+       <div aria-label="Conversación" class="chat-thread" id="chat-thread" role="region">
+       </div>
+       <form class="composer" id="query-form">
+        <label class="sr-only" for="question">
+         <span data-i18n="sentinel.question">
+          Pregunta
+         </span>
+        </label>
+        <textarea class="input composer__input" data-i18n-placeholder="ui.ask_your_documents_45c5ff" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
+        <div class="query-attachments" hidden="" id="query-attachments">
+        </div>
+        <div class="composer__tools">
+         <label class="sr-only" for="composer-model">
+          <span data-i18n="sentinel.model">
+           Modelo
+          </span>
+         </label>
+         <select class="select" id="composer-model">
+         </select>
+         <input accept="image/png,image/jpeg,image/webp" hidden="" id="query-image-input" multiple="" type="file"/>
+         <button aria-label="Adjuntar imagen" class="btn btn--secondary btn--icon" id="attach-image" type="button">
+          <svg aria-hidden="true" class="icon">
+           <use href="#i-image">
+           </use>
+          </svg>
+         </button>
+         <span class="meta" id="question-help">
+          Ctrl + Enter
+         </span>
+         <button class="btn btn--primary" id="ask-button" type="submit">
+          <svg aria-hidden="true" class="icon">
+           <use href="#i-arrow">
+           </use>
+          </svg>
+          <span>
+           <span data-i18n="sentinel.send">
+            Enviar
+           </span>
+          </span>
+         </button>
+        </div>
+       </form>
       </section>
-            <div class="stats-row">
-        <section class="stat"><span class="stat-icon clay"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span><div><strong id="stat-docs">0</strong><span><span data-i18n="ui.documents_in_the_library_37e792">Documentos en la biblioteca</span></span></div></section>
-        <section class="stat"><span class="stat-icon ochre"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg></span><div><strong id="stat-chunks">0</strong><span><span data-i18n="ui.indexed_chunks_6b33ae">Fragmentos indexados</span></span></div></section>
-        <section class="stat"><span class="stat-icon moss"><svg class="icon" aria-hidden="true"><use href="#i-cpu"/></svg></span><div><strong id="stat-engine" class="engine-label"><span data-i18n="ui.checking_81d2aa">Comprobando</span></strong><span id="stat-engine-caption"><span data-i18n="ui.the_model_loads_when_a_query_is_made_da4ba3">El modelo se carga al consultar</span></span></div></section>
+     </div>
+      <dialog class="context-drawer" id="context-panel" aria-labelledby="context-title">
+       <div class="context-aside">
+       <section class="card chat-sources" id="context-details">
+        <header class="card__head">
+         <h2 class="card-title" id="context-title">
+          <span data-i18n="sentinel.context">
+           Contexto recuperado
+          </span>
+         </h2>
+         <span class="badge badge--neutral" id="context-count">
+          0
+         </span>
+         <button class="btn btn--secondary btn--icon" id="close-context" type="button" data-i18n-aria-label="sentinel.close_context" aria-label="Cerrar contexto">
+          <svg aria-hidden="true" class="icon"><use href="#i-x"></use></svg>
+         </button>
+        </header>
+        <div class="card__body">
+         <div aria-hidden="true" class="qvec">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+         </div>
+         <p class="meta" id="query-vector-info">
+          —
+         </p>
+         <div id="sources">
+         </div>
+         <p class="meta" id="context-empty">
+          <span data-i18n="sentinel.sources_empty">
+           Las fuentes aparecerán al consultar.
+          </span>
+         </p>
+        </div>
+       </section>
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.route">
+           Ruta
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <p class="meta" id="context-route">
+          —
+         </p>
+         <div id="context-route-badges">
+         </div>
+        </div>
+       </section>
+       </div>
+      </dialog>
+     <div aria-live="polite" class="sr-only" id="query-announcements" role="status">
+     </div>
+    </section>
+    <section class="page" hidden="" id="admin-view">
+     <header class="page-head">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-library">
+       </use>
+      </svg>
+      <h1 class="page-title">
+       <span data-i18n="sentinel.library">
+        Biblioteca
+       </span>
+      </h1>
+      <p class="meta">
+       <span data-i18n="sentinel.library_sub">
+        Ingesta, documentos y estado del índice
+       </span>
+      </p>
+      <span class="page-head__spacer">
+      </span>
+      <button class="btn btn--secondary" id="index-button" type="button">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-refresh">
+        </use>
+       </svg>
+       <span data-i18n="sentinel.update_index">
+        Actualizar índice
+       </span>
+      </button>
+     </header>
+     <dl class="stat-strip">
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.documents">
+         Documentos
+        </span>
+       </dt>
+       <dd id="stat-docs">
+        —
+       </dd>
+       <span class="meta" id="library-summary">
+       </span>
+       <div class="progress-segments" id="library-bar" role="img">
+        <i class="segment">
+        </i>
+        <i class="segment">
+        </i>
+        <i class="segment">
+        </i>
+       </div>
       </div>
-      <div class="statistics-layout"><section class="card statistics-summary"><h2><span data-i18n="ui.library_and_services_ae24d9">Biblioteca y servicios</span></h2>  <section class="sidebar-summary" aria-label="Resumen de la biblioteca" data-i18n-aria-label="ui.library_summary_00548b"><p class="nav-label"><span data-i18n="ui.your_library_ba90ac">TU BIBLIOTECA</span></p><div class="sidebar-count"><strong id="sidebar-doc-count">0</strong> <span data-i18n="ui.documents_df9fb2">documentos</span></div><div id="library-bar" class="segmented-bar side-bar" role="img" aria-label="Biblioteca vacía" data-i18n-aria-label="ui.empty_library_a167ad"><span class="segment moss"></span><span class="segment ochre"></span><span class="segment brick"></span></div><p id="sidebar-summary-text"><span data-i18n="ui.no_documents_72fa76">Sin documentos</span></p><small id="last-index"><span data-i18n="ui.add_documents_to_get_started_a64d4d">Añade documentos para empezar</span></small></section>  <div class="sidebar-system"><div><span><i class="status-dot"></i>Ollama</span><span id="ollama-label"><span data-i18n="ui.checking_81d2aa">Comprobando</span></span></div><div><span><i class="status-dot ochre"></i>Embeddings</span><span id="embedding-label">CPU</span></div><div><span><i class="status-dot"></i><span data-i18n="ui.server_05e427">Servidor</span></span><span id="server-address" class="mono"></span></div></div><p id="visual-count" class="help-text"></p></section>        <section class="card processing-card"><div class="section-heading"><h2><span data-i18n="ui.processing_status_9593ee">Estado del proceso</span></h2><span id="process-state" class="status-pill"><span data-i18n="ui.idle_06423d">Inactivo</span></span></div><ol id="process-steps" class="process-steps"><li data-stage="upload"><span class="step-number">1</span><div><strong><span data-i18n="ui.document_cf4279">Documento</span></strong><p><span data-i18n="ui.uploading_and_reading_text_e392ca">Subida y lectura del texto</span></p><progress max="100" value="0" aria-label="Progreso de documento" data-i18n-aria-label="ui.document_progress_7cdb08"></progress></div></li><li data-stage="chunking"><span class="step-number">2</span><div><strong><span data-i18n="ui.chunks_023b32">Fragmentos</span></strong><p id="process-document"><span data-i18n="ui.splitting_document_content_e3067f">Fragmentación del contenido</span></p><progress max="100" value="0" aria-label="Progreso de fragmentación" data-i18n-aria-label="ui.chunking_progress_a97e47"></progress></div></li><li data-stage="indexing"><span class="step-number">3</span><div><strong><span data-i18n="ui.index_5145b3">Índice</span></strong><p><span data-i18n="ui.embeddings_and_collection_storage_dbfa1a">Embeddings y guardado en la colección</span></p><progress max="100" value="0" aria-label="Progreso de indexación" data-i18n-aria-label="ui.indexing_progress_490d12"></progress></div></li></ol><div id="activity-log" class="activity-log" aria-label="Actividad reciente" data-i18n-aria-label="ui.recent_activity_e92868"><p><span data-i18n="ui.no_recent_activity_be9328">Sin actividad reciente.</span></p></div><p class="help-text"><span data-i18n="ui.embeddings_run_on_the_cpu_visual_descriptions_and_answers_use_oll_76a3a8">Los embeddings se ejecutan en CPU. Las descripciones visuales y las respuestas usan Ollama solo cuando las solicitas.</span></p></section></div>
-      <section class="card query-statistics"><div class="section-heading"><h2><span data-i18n="ui.query_history_858472">Histórico de consultas</span></h2><div id="statistics-history-range" class="segmented-control" aria-label="Histórico de consultas" data-i18n-aria-label="ui.query_history_858472"><button type="button" data-history-seconds="86400" aria-pressed="false"><span data-i18n="ui.1_day_95700f">1 día</span></button><button type="button" data-history-seconds="604800" aria-pressed="true"><span data-i18n="ui.1_week_84c52e">1 semana</span></button></div><button id="refresh-statistics" class="button secondary" type="button"><span data-i18n="ui.refresh_fe5f66">Actualizar</span></button></div><p id="statistics-scope" class="help-text"></p><p id="statistics-totals"></p><div class="table-scroll"><table><thead><tr><th><span data-i18n="ui.question_date_b29255">PREGUNTA / FECHA</span></th><th><span data-i18n="ui.model_a80919">MODELO</span></th><th><span data-i18n="ui.time_d42799">TIEMPO</span></th><th>TOKENS/S</th><th><span data-i18n="ui.output_607a78">SALIDA</span></th><th><span data-i18n="ui.vision_f032e4">VISIÓN</span></th><th><span data-i18n="ui.status_f16fe7">ESTADO</span></th></tr></thead><tbody id="query-statistics"></tbody></table></div><footer class="table-footer"><span id="statistics-page"></span><div class="pagination"><button id="statistics-previous" type="button" class="button secondary" disabled><span data-i18n="ui.previous_e4ce7c">Anterior</span></button><button id="statistics-next" type="button" class="button secondary" disabled><span data-i18n="ui.next_49683b">Siguiente</span></button></div></footer></section>
-      <details class="card ingestion-history"><summary><span data-i18n="ui.indexing_history_36178b">Hist?rico de indexaci?n</span></summary><p id="ingestion-history-info" class="help-text"></p><div class="table-scroll"><table><thead><tr><th><span data-i18n="ui.document_date_7957e7">DOCUMENTO / FECHA</span></th><th><span data-i18n="ui.execution_4b127f">EJECUCI?N</span></th><th><span data-i18n="ui.queue_wait_ca0d00">ESPERA</span></th><th><span data-i18n="ui.chunks_7a5562">FRAGMENTOS</span></th><th><span data-i18n="ui.status_f16fe7">ESTADO</span></th></tr></thead><tbody id="ingestion-statistics"></tbody></table></div><footer class="table-footer"><span id="ingestion-page"></span><div class="pagination"><button id="ingestion-previous" type="button" class="button secondary" disabled><span data-i18n="ui.previous_e4ce7c">Anterior</span></button><button id="ingestion-next" type="button" class="button secondary" disabled><span data-i18n="ui.next_49683b">Siguiente</span></button></div></footer></details>
-    </section>
-    <section id="console-view" hidden>
-      <header class="page-heading"><p class="eyebrow"><span data-i18n="ui.laboratory_log_809d0d">REGISTRO DEL LABORATORIO</span></p><h1><span data-i18n="ui.console_e0236e">Consola</span></h1><p><span data-i18n="ui.read_only_live_output_and_activity_from_the_rag_server_6f4d2a">Salida y actividad del servidor RAG en tiempo real, en modo de lectura.</span></p></header>
-      <section class="card console-card" aria-label="Consola del servidor" data-i18n-aria-label="ui.server_console_1d7f38">
-        <div class="console-toolbar"><label class="model-field" for="console-search"><span data-i18n="ui.search_the_log_d37b2d">Buscar en el registro</span><input id="console-search" type="search" placeholder="Archivo, mensaje, error…" data-i18n-placeholder="ui.file_message_error_8a2035"></label><label class="model-field" for="console-level"><span data-i18n="ui.level_ee5066">Nivel</span><select id="console-level"><option value="" data-i18n="ui.all_bd02b9">Todos</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>DEBUG</option><option>CRITICAL</option></select></label><button id="console-pause" class="button secondary" type="button"><span data-i18n="ui.pause_cd25ee">Pausar</span></button><button id="console-clear" class="button secondary" type="button"><span data-i18n="ui.clear_display_b421cf">Limpiar vista</span></button><button id="console-copy" class="button secondary" type="button"><span data-i18n="ui.copy_39dcf1">Copiar</span></button><button id="console-download" class="button secondary" type="button"><span data-i18n="ui.download_ed3d9c">Descargar</span></button></div>
-        <div class="console-meta"><span id="console-status" role="status"><span data-i18n="ui.connecting_cc190a">Conectando…</span></span><label class="switch-label"><input id="console-follow" type="checkbox" role="switch" checked><span class="switch-track" aria-hidden="true"></span><span data-i18n="ui.follow_the_end_a324be">Seguir el final</span></label></div>
-        <div id="console-output" class="console-output" role="log" aria-label="Salida del servidor" aria-live="off" tabindex="0" data-i18n-aria-label="ui.server_output_fa65d4"></div><p id="console-empty" class="help-text"><span data-i18n="ui.no_lines_match_the_filter_yet_902e65">Todavía no hay líneas que coincidan con el filtro.</span></p>
-        <footer class="console-meta"><span id="console-count"><span data-i18n="ui.0_visible_lines_956102">0 líneas visibles</span></span><span id="console-time-note" hidden><span data-i18n="ui.log_read_time_the_message_may_be_older_a7e6e0">≈ Hora de lectura; el mensaje puede ser anterior.</span></span><span><span data-i18n="ui.clearing_the_display_preserves_the_server_log_c530f4">Limpiar vista conserva el registro del servidor.</span></span></footer>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.chunks">
+         Fragmentos
+        </span>
+       </dt>
+       <dd id="stat-chunks">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.visuals">
+         Vistas y figuras
+        </span>
+       </dt>
+       <dd id="library-visuals">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.collection">
+         Colección
+        </span>
+       </dt>
+       <dd id="library-collection">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.last_index">
+         Última indexación
+        </span>
+       </dt>
+       <dd id="last-index">
+        —
+       </dd>
+      </div>
+     </dl>
+     <section class="card topic-library" aria-labelledby="topics-title">
+      <header class="card__head">
+       <h2 class="card-title" id="topics-title" data-i18n="library.title">Temas de la biblioteca</h2>
+       <span class="meta" data-i18n="library.hint">Organiza tus documentos en armarios y cajones.</span>
+       <button class="btn btn--secondary" id="new-topic" type="button" data-i18n="library.new_cabinet">Nuevo armario</button>
+      </header>
+      <div class="card__body">
+       <div class="topic-filters" id="topic-filters"></div>
+       <div class="topic-grid" id="topic-tree"></div>
+       <p class="meta" id="topic-empty" data-i18n="library.empty">Crea un armario para empezar a organizar la biblioteca.</p>
+       <form id="topic-form" class="topic-form" hidden>
+        <label class="field" for="topic-name"><span data-i18n="library.name">Nombre</span><input class="input" id="topic-name" maxlength="80" required autocomplete="off"/></label>
+        <label class="field" for="topic-parent"><span data-i18n="library.location">Ubicación</span><select class="select" id="topic-parent"></select></label>
+        <button class="btn btn--primary" id="save-topic" type="submit" data-i18n="library.save">Guardar</button>
+        <button class="btn btn--secondary" id="cancel-topic" type="button" data-i18n="library.cancel">Cancelar</button>
+       </form>
+       <p class="form-error" id="topic-message" role="status" hidden></p>
+      </div>
+     </section>
+     <div class="split">
+      <section class="split__main card library-card">
+       <header class="card__head">
+        <h2 class="card-title">
+         <span data-i18n="sentinel.documents">
+          Documentos
+         </span>
+        </h2>
+        <span class="badge badge--neutral" id="library-count">
+         0
+        </span>
+        <span class="spacer">
+        </span>
+        <input aria-label="Buscar documentos por nombre" class="input document-search" data-i18n-aria-label="ui.search_documents_by_name_e6fb64" data-i18n-placeholder="ui.search_by_name_5ee9b1" id="document-search" placeholder="Buscar por nombre" type="search"/>
+        <div class="table-tabs">
+         <div aria-label="Filtrar documentos" class="tabs" data-i18n-aria-label="ui.filter_documents_73c562" id="document-filters">
+          <button aria-pressed="true" data-filter="all" type="button">
+           <span data-i18n="ui.all_0_65e3e5">
+            Todos · 0
+           </span>
+          </button>
+          <button aria-pressed="false" data-filter="indexed" type="button">
+           <span data-i18n="ui.indexed_0_548fa7">
+            Indexados · 0
+           </span>
+          </button>
+          <button aria-pressed="false" data-filter="processing" type="button">
+           <span data-i18n="ui.processing_0_f6dfde">
+            En proceso · 0
+           </span>
+          </button>
+          <button aria-pressed="false" data-filter="error" type="button">
+           <span data-i18n="ui.with_errors_0_42cb8f">
+            Con error · 0
+           </span>
+          </button>
+         </div>
+        </div>
+       </header>
+       <div class="library-organize">
+        <label class="composer__check"><input id="select-visible-documents" type="checkbox"/><span data-i18n="library.select_page">Seleccionar página</span></label>
+        <span class="meta" id="selected-documents" role="status"></span>
+        <label class="sr-only" for="move-topic" data-i18n="library.move_destination">Destino de los documentos seleccionados</label>
+        <select class="select" id="move-topic"></select>
+        <button class="btn btn--secondary" id="move-documents" type="button" disabled data-i18n="library.move">Mover</button>
+       </div>
+       <div class="table-wrap">
+        <table class="table documents-table">
+         <thead>
+          <tr>
+           <th data-i18n="sentinel.documents">
+            Documentos
+           </th>
+           <th data-i18n="sentinel.size">
+            Tamaño
+           </th>
+           <th data-i18n="sentinel.chunks">
+            Fragmentos
+           </th>
+           <th data-i18n="sentinel.status">
+            Estado
+           </th>
+           <th data-i18n="sentinel.updated">
+            Actualizado
+           </th>
+           <th data-i18n="sentinel.actions">
+            Acciones
+           </th>
+          </tr>
+         </thead>
+         <tbody id="documents-table">
+         </tbody>
+        </table>
+       </div>
+       <p class="empty-state" id="library-empty">
+        <span data-i18n="ui.you_have_not_added_any_documents_yet_start_with_the_area_above_5c043e">
+         Todavía no has añadido documentos. Empieza por la zona de arriba.
+        </span>
+       </p>
+       <footer class="table-footer">
+        <p class="meta" id="table-caption">
+        </p>
+        <div class="pagination">
+         <button aria-label="Página anterior" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.previous_page_9bcad7" id="previous-page">
+          ‹
+         </button>
+         <span class="meta" id="page-label">
+          1 / 1
+         </span>
+         <button aria-label="Página siguiente" class="btn btn--secondary btn--icon" data-i18n-aria-label="ui.next_page_9dd6b3" id="next-page">
+          ›
+         </button>
+        </div>
+       </footer>
       </section>
+      <aside class="split__aside">
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.ingestion">
+           Ingesta
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <div class="dropzone" id="drop-zone">
+          <input accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
+          <svg aria-hidden="true" class="icon">
+           <use href="#i-upload">
+           </use>
+          </svg>
+          <div>
+           <strong id="drop-title">
+            <span data-i18n="ui.drop_your_documents_here_403059">
+             Arrastra tus documentos aquí
+            </span>
+           </strong>
+           <p>
+            <span data-i18n="ui.up_to_20_mb_per_file_20_files_per_batch_keep_adding_files_while_t_24ae3c">
+             Hasta 20 MB por archivo · 20 archivos por lote. Puedes seguir añadiendo mientras se procesa la cola.
+            </span>
+           </p>
+          </div>
+          <button class="btn btn--secondary" id="select-files" type="button">
+           <span data-i18n="ui.select_files_13d9c9">
+            Seleccionar archivos
+           </span>
+          </button>
+         </div>
+         <label class="field" for="upload-topic"><span data-i18n="library.upload_destination">Guardar documentos nuevos en</span><select class="select" id="upload-topic"></select></label>
+         <section aria-label="Cola de subida" class="ingest-queue" data-i18n-aria-label="ui.upload_queue_9a0772" hidden="" id="queue-section">
+          <div class="queue-heading">
+           <h3>
+            <span data-i18n="ui.upload_queue_9a0772">
+             Cola de subida
+            </span>
+           </h3>
+           <span id="queue-caption">
+           </span>
+           <div class="queue-toolbar">
+            <button class="text-button" id="pause-queue" type="button">
+             <span data-i18n="ui.pause_cd25ee">
+              Pausar
+             </span>
+            </button>
+            <button class="text-button" id="clear-queue" type="button">
+             <span data-i18n="ui.clear_completed_8465ea">
+              Limpiar completados
+             </span>
+            </button>
+           </div>
+          </div>
+          <div class="batch-progress">
+           <div class="batch-meta">
+            <strong id="total-percent">
+             0 %
+            </strong>
+            <span>
+             <span data-i18n="ui.overall_batch_progress_78df57">
+              Progreso total del lote
+             </span>
+            </span>
+            <span id="total-eta">
+             <span data-i18n="ui.calculating_bef25b">
+              Calculando…
+             </span>
+            </span>
+           </div>
+           <div aria-label="Progreso total del lote" aria-valuemax="100" aria-valuemin="0" aria-valuenow="0" class="segmented-bar" data-i18n-aria-label="ui.overall_batch_progress_78df57" id="total-progress" role="progressbar">
+            <span class="segment moss">
+            </span>
+            <span class="segment ochre">
+            </span>
+            <span class="segment clay">
+            </span>
+           </div>
+           <div class="progress-legend">
+            <span>
+             <i class="status-dot moss">
+             </i>
+             <span data-i18n="ui.indexed_bb7f0d">
+              Indexado
+             </span>
+            </span>
+            <span>
+             <i class="status-dot ochre">
+             </i>
+             <span data-i18n="ui.splitting_into_chunks_726c36">
+              Fragmentando
+             </span>
+            </span>
+            <span>
+             <i class="status-dot clay">
+             </i>
+             <span data-i18n="ui.uploading_8f2161">
+              Subiendo
+             </span>
+            </span>
+           </div>
+          </div>
+          <ul class="upload-queue" id="upload-queue">
+          </ul>
+         </section>
+         <div class="ingest-actions">
+          <label class="toggle-field" for="auto-index">
+           <input checked="" id="auto-index" role="switch" type="checkbox"/>
+           <span aria-hidden="true" class="toggle">
+           </span>
+           <span data-i18n="sentinel.auto_index">
+            Indexar al terminar la subida
+           </span>
+          </label>
+          <button aria-describedby="upload-reason" class="btn btn--primary" disabled="" id="upload-button" type="button">
+           <span>
+            <span data-i18n="ui.upload_and_index_0_48c190">
+             Subir e indexar (0)
+            </span>
+           </span>
+          </button>
+          <button class="btn btn--danger" disabled="" id="cancel-pending" type="button">
+           <span data-i18n="ui.cancel_processing_141faf">
+            Cancelar procesamiento
+           </span>
+          </button>
+         </div>
+         <p class="meta" id="upload-reason">
+         </p>
+        </div>
+       </section>
+       <button class="btn btn--secondary" hidden="" id="queue-result-button" type="button">
+        <span data-i18n="ui.view_result_2011cb">
+         Ver resultado
+        </span>
+       </button>
+      </aside>
+     </div>
+     <div aria-live="polite" class="sr-only" id="queue-announcements" role="status">
+     </div>
     </section>
-    <footer class="workspace-footer"><span><span data-i18n="ui.rag_local_knowledge_laboratory_6d52a0">RAG Local · Laboratorio de conocimiento</span></span><span id="footer-collection" hidden><span data-i18n="ui.collection_documents_3a5992">Colección: documents</span></span></footer>
-  </main>
-</div>
-</div>
-<div id="queue-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div><div id="query-announcements" class="sr-only" aria-live="polite" aria-atomic="true"></div>
-<div id="toast" class="toast" role="status" hidden><span></span><button type="button" hidden><span data-i18n="ui.view_result_2011cb">Ver resultado</span></button></div>
-<dialog id="resource-dialog" class="resource-dialog" aria-labelledby="resource-dialog-title"><header class="resource-dialog-heading"><div><h2 id="resource-dialog-title"><span data-i18n="ui.performance_0fb6f5">Rendimiento</span></h2><p><span data-i18n="ui.the_same_history_and_readings_in_an_expanded_view_f6412c">El mismo historial y las mismas lecturas en una vista ampliada.</span></p></div><button id="resource-dialog-close" class="icon-button" type="button" aria-label="Cerrar gráfica ampliada" data-i18n-aria-label="ui.close_expanded_chart_bbf686"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></header><div id="resource-dialog-body"></div></dialog>
-<dialog id="result-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description"><button id="dialog-x" class="icon-button dialog-close" aria-label="Cerrar diálogo" data-i18n-aria-label="ui.close_dialog_6ceb93"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button><div class="dialog-heading"><span id="dialog-icon" class="dialog-icon"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><div><h2 id="dialog-title"></h2><p id="dialog-description"></p></div></div><div id="dialog-stats" class="dialog-stats"></div><div id="dialog-list" class="dialog-list"></div><details id="dialog-technical" hidden><summary><span data-i18n="ui.technical_details_7bfbb7">Detalles técnicos</span></summary><pre></pre><button id="copy-details" class="text-button" type="button"><span data-i18n="ui.copy_details_4d8ccc">Copiar detalles</span></button></details><div id="dialog-actions" class="dialog-actions"></div></dialog>
-</body>
+    <section class="page" hidden="" id="settings-view">
+     <header class="page-head">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-settings">
+       </use>
+      </svg>
+      <h1 class="page-title">
+       <span data-i18n="sentinel.settings">
+        Configuración
+       </span>
+      </h1>
+      <p class="meta">
+       <span data-i18n="sentinel.settings_sub">
+        Guardado instantáneo · un único estado compartido
+       </span>
+      </p>
+      <span class="page-head__spacer">
+      </span>
+      <span class="meta" id="settings-message" role="status">
+      </span>
+     </header>
+     <div class="banner banner--warn" hidden="" id="reindex-warning">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-alert">
+       </use>
+      </svg>
+      <span data-i18n="sentinel.reindex_required">
+       Estos cambios requieren actualizar el índice de los documentos.
+      </span>
+      <button class="btn btn--secondary" id="reindex-settings" type="button">
+       <span data-i18n="sentinel.update_index">
+        Actualizar índice
+       </span>
+      </button>
+     </div>
+     <div class="split">
+      <form class="split__main settings-grid" id="settings-form">
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.generation">
+           Generación
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <input id="model-selection" type="hidden" value="automatic"/>
+         <div class="segmented" id="response-mode-control">
+          <button aria-pressed="true" data-response-mode="automatic" type="button">
+           <span data-i18n="sentinel.auto">
+            Automática
+           </span>
+          </button>
+          <button aria-pressed="false" data-response-mode="manual" type="button">
+           <span data-i18n="sentinel.manual">
+            Manual
+           </span>
+          </button>
+         </div>
+         <label class="field" for="model">
+          <span data-i18n="sentinel.text_model">
+           Modelo de texto
+          </span>
+          <select class="select" id="model">
+           <option data-i18n="ui.connecting_to_ollama_4410a1" value="">
+            Conectando con Ollama…
+           </option>
+          </select>
+         </label>
+         <label class="field" for="vision-model">
+          <span data-i18n="sentinel.vision_model">
+           Modelo visual
+          </span>
+          <select class="select" id="vision-model">
+          </select>
+         </label>
+         <p class="meta" id="response-mode">
+         </p>
+         <div aria-hidden="true" class="router-diagram">
+          QUERY → ROUTER → TEXT / VISION
+         </div>
+        </div>
+       </section>
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.retrieval">
+           Recuperación
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <label class="label">
+          Top-k
+         </label>
+         <div class="segmented" id="top-k">
+          <button aria-pressed="false" data-k="2" type="button">
+           2
+          </button>
+          <button aria-pressed="true" data-k="4" type="button">
+           4
+          </button>
+          <button aria-pressed="false" data-k="6" type="button">
+           6
+          </button>
+          <button aria-pressed="false" data-k="8" type="button">
+           8
+          </button>
+         </div>
+         <div aria-hidden="true" class="k-preview" id="k-preview">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+         </div>
+         <label class="toggle-field" for="search-only">
+          <input id="search-only" role="switch" type="checkbox"/>
+          <span aria-hidden="true" class="toggle">
+          </span>
+          <span data-i18n="sentinel.search_only">
+           Solo buscar fragmentos
+          </span>
+         </label>
+         <p class="meta">
+          <span data-i18n="sentinel.retrieval_hint">
+           Más fragmentos amplían el contexto de la consulta.
+          </span>
+         </p>
+        </div>
+       </section>
+       <section class="card settings-wide">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.multimodal">
+           Multimodal
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <label class="toggle-field" for="multimodal">
+          <input id="multimodal" role="switch" type="checkbox"/>
+          <span aria-hidden="true" class="toggle">
+          </span>
+          <span data-i18n="sentinel.enable_multimodal">
+           Procesar figuras, tablas e imágenes
+          </span>
+         </label>
+         <div class="field-grid">
+          <label class="field" for="max-images">
+           <span data-i18n="sentinel.max_images">
+            Imágenes por consulta
+           </span>
+           <input class="input select" id="max-images" max="4" min="1" type="number" value="3"/>
+          </label>
+          <label class="field" for="max-visuals">
+           <span data-i18n="sentinel.max_visuals">
+            Límite de vistas por documento
+           </span>
+           <input class="input" id="max-visuals" max="500" min="1" required="" type="number" value="500"/>
+          </label>
+         </div>
+         <p class="meta">
+          PDF · PNG · JPG · WEBP · TXT · MD · ZIP MinerU
+         </p>
+        </div>
+       </section>
+       <button class="btn btn--secondary" hidden="" id="retry-settings" type="button">
+        <span data-i18n="sentinel.retry_save">
+         Reintentar guardado
+        </span>
+       </button>
+      </form>
+      <aside class="split__aside">
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.index">
+           Índice
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <dl class="config-data">
+          <div>
+           <dt>
+            <span data-i18n="sentinel.collection">
+             Colección
+            </span>
+           </dt>
+           <dd id="config-collection">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            <span data-i18n="sentinel.embeddings">
+             Embeddings
+            </span>
+           </dt>
+           <dd id="config-embeddings">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            <span data-i18n="sentinel.dimensions">
+             Dimensiones
+            </span>
+           </dt>
+           <dd id="config-dimensions">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            <span data-i18n="sentinel.device">
+             Dispositivo
+            </span>
+           </dt>
+           <dd id="config-device">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            <span data-i18n="sentinel.chunk_overlap">
+             Fragmento / solape
+            </span>
+           </dt>
+           <dd id="config-chunk">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            <span data-i18n="sentinel.generation">
+             Generación
+            </span>
+           </dt>
+           <dd>
+            Ollama
+           </dd>
+          </div>
+         </dl>
+         <div aria-hidden="true" class="chunk-diagram">
+          <i>
+          </i>
+          <i>
+          </i>
+          <i>
+          </i>
+         </div>
+         <button class="btn btn--secondary" id="prepare-button" type="button">
+          <svg aria-hidden="true" class="icon">
+           <use href="#i-cpu">
+           </use>
+          </svg>
+          <span data-i18n="sentinel.prepare">
+           Preparar modelo de búsqueda
+          </span>
+         </button>
+        </div>
+       </section>
+       <p class="meta">
+        <span data-i18n="sentinel.language_hint">
+         El idioma del navegador se cambia arriba a la derecha.
+        </span>
+       </p>
+      </aside>
+     </div>
+    </section>
+    <section class="page" hidden="" id="statistics-view">
+     <header class="page-head">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-cpu">
+       </use>
+      </svg>
+      <h1 class="page-title">
+       <span data-i18n="sentinel.statistics">
+        Estadísticas
+       </span>
+      </h1>
+      <p class="meta">
+       <span data-i18n="sentinel.statistics_sub">
+        Métricas reales del equipo y las consultas
+       </span>
+      </p>
+      <span class="page-head__spacer">
+      </span>
+      <div aria-label="Ventana del historial" class="segmented" data-i18n-aria-label="ui.history_window_4dfc50" id="hardware-range">
+       <button aria-pressed="true" data-seconds="60" type="button">
+        1 min
+       </button>
+       <button aria-pressed="false" data-seconds="300" type="button">
+        5 min
+       </button>
+       <button aria-pressed="false" data-seconds="900" type="button">
+        15 min
+       </button>
+       <button aria-pressed="false" data-seconds="3600" type="button">
+        1 h
+       </button>
+       <button aria-pressed="false" data-seconds="86400" type="button">
+        <span data-i18n="ui.1_day_95700f">
+         1 día
+        </span>
+       </button>
+       <button aria-pressed="false" data-seconds="604800" type="button">
+        <span data-i18n="ui.1_week_84c52e">
+         1 semana
+        </span>
+       </button>
+      </div>
+      <button aria-pressed="false" class="btn btn--secondary" data-i18n-title="ui.freeze_the_display_while_continuing_to_collect_metrics_d163ad" id="hardware-pause" title="Congela la visualización y mantiene la recogida de métricas" type="button">
+       <span data-i18n="ui.pause_charts_a84524">
+        Pausar gráficas
+       </span>
+      </button>
+     </header>
+     <p class="meta" id="hardware-status" role="status">
+     </p>
+     <div class="resource-charts">
+      <article aria-label="Rendimiento de CPU" class="card resource-card resource-cpu" data-i18n-aria-label="ui.cpu_performance_2a9101">
+       <header class="resource-heading">
+        <div>
+         <h3 class="card-title">
+          CPU
+         </h3>
+         <p id="hardware-cpu-caption">
+         </p>
+        </div>
+        <strong id="hardware-cpu">
+         —
+        </strong>
+        <button aria-label="Maximizar gráfica de CPU" class="icon-button btn--secondary resource-maximize btn--icon btn" data-i18n-aria-label="ui.maximize_cpu_chart_1b8fbc" data-maximize="" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-maximize">
+          </use>
+         </svg>
+        </button>
+       </header>
+       <div class="resource-plot" id="chart-cpu" tabindex="0">
+        <span class="resource-empty" id="chart-cpu-empty">
+         <span data-i18n="ui.collecting_actual_readings_1bdd9f">
+          Recopilando lecturas reales…
+         </span>
+        </span>
+       </div>
+       <div class="resource-time">
+        <span id="chart-cpu-range">
+         <span data-i18n="ui.1_min_ago_f882dc">
+          Hace 1 min
+         </span>
+        </span>
+        <span>
+         <span data-i18n="ui.latest_reading_3165db">
+          Última lectura
+         </span>
+        </span>
+       </div>
+       <dl class="resource-summary">
+        <div>
+         <dt>
+          <span data-i18n="ui.minimum_5d61b4">
+           Mínimo
+          </span>
+         </dt>
+         <dd id="chart-cpu-min">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt data-i18n-title="ui.mean_of_visible_readings_6c387d" title="Media de las lecturas visibles">
+          <span data-i18n="ui.mean_d35717">
+           Media
+          </span>
+         </dt>
+         <dd id="chart-cpu-mean">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt>
+          <span data-i18n="ui.maximum_994d51">
+           Máximo
+          </span>
+         </dt>
+         <dd id="chart-cpu-max">
+          —
+         </dd>
+        </div>
+       </dl>
+      </article>
+      <article aria-label="Rendimiento de GPU" class="card resource-card resource-gpu" data-i18n-aria-label="ui.gpu_performance_22cf73">
+       <header class="resource-heading">
+        <div>
+         <h3 class="card-title">
+          GPU
+         </h3>
+         <p id="hardware-gpu-caption">
+         </p>
+         <p id="hardware-gpu-sensors">
+         </p>
+        </div>
+        <strong id="hardware-gpu">
+         —
+        </strong>
+        <button aria-label="Maximizar gráfica de GPU" class="icon-button btn--secondary resource-maximize btn--icon btn" data-i18n-aria-label="ui.maximize_gpu_chart_927984" data-maximize="" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-maximize">
+          </use>
+         </svg>
+        </button>
+       </header>
+       <div class="resource-plot" id="chart-gpu" tabindex="0">
+        <span class="resource-empty" id="chart-gpu-empty">
+         <span data-i18n="ui.collecting_actual_readings_1bdd9f">
+          Recopilando lecturas reales…
+         </span>
+        </span>
+       </div>
+       <div class="resource-time">
+        <span id="chart-gpu-range">
+         <span data-i18n="ui.1_min_ago_f882dc">
+          Hace 1 min
+         </span>
+        </span>
+        <span>
+         <span data-i18n="ui.latest_reading_3165db">
+          Última lectura
+         </span>
+        </span>
+       </div>
+       <dl class="resource-summary">
+        <div>
+         <dt>
+          <span data-i18n="ui.minimum_5d61b4">
+           Mínimo
+          </span>
+         </dt>
+         <dd id="chart-gpu-min">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt data-i18n-title="ui.mean_of_visible_readings_6c387d" title="Media de las lecturas visibles">
+          <span data-i18n="ui.mean_d35717">
+           Media
+          </span>
+         </dt>
+         <dd id="chart-gpu-mean">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt>
+          <span data-i18n="ui.maximum_994d51">
+           Máximo
+          </span>
+         </dt>
+         <dd id="chart-gpu-max">
+          —
+         </dd>
+        </div>
+       </dl>
+      </article>
+      <article aria-label="Rendimiento de RAM" class="card resource-card resource-ram" data-i18n-aria-label="ui.ram_performance_8396d4">
+       <header class="resource-heading">
+        <div>
+         <h3 class="card-title">
+          RAM
+         </h3>
+         <p id="hardware-ram-caption">
+         </p>
+        </div>
+        <strong id="hardware-ram">
+         —
+        </strong>
+        <button aria-label="Maximizar gráfica de RAM" class="icon-button btn--secondary resource-maximize btn--icon btn" data-i18n-aria-label="ui.maximize_ram_chart_0c8f6a" data-maximize="" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-maximize">
+          </use>
+         </svg>
+        </button>
+       </header>
+       <div class="resource-plot" id="chart-ram" tabindex="0">
+        <span class="resource-empty" id="chart-ram-empty">
+         <span data-i18n="ui.collecting_actual_readings_1bdd9f">
+          Recopilando lecturas reales…
+         </span>
+        </span>
+       </div>
+       <div class="resource-time">
+        <span id="chart-ram-range">
+         <span data-i18n="ui.1_min_ago_f882dc">
+          Hace 1 min
+         </span>
+        </span>
+        <span>
+         <span data-i18n="ui.latest_reading_3165db">
+          Última lectura
+         </span>
+        </span>
+       </div>
+       <dl class="resource-summary">
+        <div>
+         <dt>
+          <span data-i18n="ui.minimum_5d61b4">
+           Mínimo
+          </span>
+         </dt>
+         <dd id="chart-ram-min">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt data-i18n-title="ui.mean_of_visible_readings_6c387d" title="Media de las lecturas visibles">
+          <span data-i18n="ui.mean_d35717">
+           Media
+          </span>
+         </dt>
+         <dd id="chart-ram-mean">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt>
+          <span data-i18n="ui.maximum_994d51">
+           Máximo
+          </span>
+         </dt>
+         <dd id="chart-ram-max">
+          —
+         </dd>
+        </div>
+       </dl>
+      </article>
+      <article aria-label="Rendimiento de VRAM" class="card resource-card resource-vram" data-i18n-aria-label="ui.vram_performance_4bb1ab">
+       <header class="resource-heading">
+        <div>
+         <h3 class="card-title">
+          VRAM
+         </h3>
+         <p id="hardware-vram-caption">
+         </p>
+        </div>
+        <strong id="hardware-vram">
+         —
+        </strong>
+        <button aria-label="Maximizar gráfica de VRAM" class="icon-button btn--secondary resource-maximize btn--icon btn" data-i18n-aria-label="ui.maximize_vram_chart_3b2792" data-maximize="" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-maximize">
+          </use>
+         </svg>
+        </button>
+       </header>
+       <div class="resource-plot" id="chart-vram" tabindex="0">
+        <span class="resource-empty" id="chart-vram-empty">
+         <span data-i18n="ui.collecting_actual_readings_1bdd9f">
+          Recopilando lecturas reales…
+         </span>
+        </span>
+       </div>
+       <div class="resource-time">
+        <span id="chart-vram-range">
+         <span data-i18n="ui.1_min_ago_f882dc">
+          Hace 1 min
+         </span>
+        </span>
+        <span>
+         <span data-i18n="ui.latest_reading_3165db">
+          Última lectura
+         </span>
+        </span>
+       </div>
+       <dl class="resource-summary">
+        <div>
+         <dt>
+          <span data-i18n="ui.minimum_5d61b4">
+           Mínimo
+          </span>
+         </dt>
+         <dd id="chart-vram-min">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt data-i18n-title="ui.mean_of_visible_readings_6c387d" title="Media de las lecturas visibles">
+          <span data-i18n="ui.mean_d35717">
+           Media
+          </span>
+         </dt>
+         <dd id="chart-vram-mean">
+          —
+         </dd>
+        </div>
+        <div>
+         <dt>
+          <span data-i18n="ui.maximum_994d51">
+           Máximo
+          </span>
+         </dt>
+         <dd id="chart-vram-max">
+          —
+         </dd>
+        </div>
+       </dl>
+      </article>
+     </div>
+     <p class="meta" id="hardware-history-note">
+     </p>
+     <dl class="stat-strip">
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.documents">
+         Documentos
+        </span>
+       </dt>
+       <dd id="statistics-docs">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.chunks">
+         Fragmentos
+        </span>
+       </dt>
+       <dd id="statistics-chunks">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.visuals">
+         Vistas y figuras
+        </span>
+       </dt>
+       <dd id="visual-count">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.queries">
+         Consultas
+        </span>
+       </dt>
+       <dd id="statistics-queries">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.errors">
+         Errores
+        </span>
+       </dt>
+       <dd id="statistics-errors">
+        —
+       </dd>
+      </div>
+      <div>
+       <dt class="label">
+        <span data-i18n="sentinel.output">
+         Salida
+        </span>
+       </dt>
+       <dd id="statistics-output">
+        —
+       </dd>
+      </div>
+     </dl>
+     <div class="split">
+      <div class="split__main">
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.processes">
+           Procesos
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <div class="table-wrap">
+          <table class="table">
+           <thead>
+            <tr>
+             <th>
+              <span data-i18n="ui.component_937fbd">
+               COMPONENTE
+              </span>
+             </th>
+             <th>
+              <span data-i18n="ui.process_c2d2e5">
+               PROCESO
+              </span>
+             </th>
+             <th>
+              <span data-i18n="ui.system_cpu_409128">
+               CPU DEL EQUIPO
+              </span>
+             </th>
+             <th>
+              <span data-i18n="ui.process_ram_94205a">
+               RAM DEL PROCESO
+              </span>
+             </th>
+            </tr>
+           </thead>
+           <tbody id="hardware-processes">
+           </tbody>
+          </table>
+         </div>
+        </div>
+       </section>
+      </div>
+      <aside class="split__aside">
+       <section class="card">
+        <header class="card__head">
+         <h2 class="card-title">
+          <span data-i18n="sentinel.indexer">
+           Indexador
+          </span>
+         </h2>
+        </header>
+        <div class="card__body">
+         <div class="indexer-status">
+          <span class="badge badge--neutral" id="process-state">
+          </span>
+          <span class="meta" id="process-document">
+          </span>
+         </div>
+         <ol class="process-steps" id="process-steps">
+          <li data-stage="upload">
+           <span class="step-number">
+            1
+           </span>
+           <div>
+            <strong>
+             <span data-i18n="ui.document_cf4279">
+              Documento
+             </span>
+            </strong>
+            <p>
+             <span data-i18n="ui.uploading_and_reading_text_e392ca">
+              Subida y lectura del texto
+             </span>
+            </p>
+            <progress aria-label="Progreso de documento" data-i18n-aria-label="ui.document_progress_7cdb08" max="100" value="0">
+            </progress>
+           </div>
+          </li>
+          <li data-stage="chunking">
+           <span class="step-number">
+            2
+           </span>
+           <div>
+            <strong>
+             <span data-i18n="ui.chunks_023b32">
+              Fragmentos
+             </span>
+            </strong>
+            <p id="process-document">
+             <span data-i18n="ui.splitting_document_content_e3067f">
+              Fragmentación del contenido
+             </span>
+            </p>
+            <progress aria-label="Progreso de fragmentación" data-i18n-aria-label="ui.chunking_progress_a97e47" max="100" value="0">
+            </progress>
+           </div>
+          </li>
+          <li data-stage="indexing">
+           <span class="step-number">
+            3
+           </span>
+           <div>
+            <strong>
+             <span data-i18n="ui.index_5145b3">
+              Índice
+             </span>
+            </strong>
+            <p>
+             <span data-i18n="ui.embeddings_and_collection_storage_dbfa1a">
+              Embeddings y guardado en la colección
+             </span>
+            </p>
+            <progress aria-label="Progreso de indexación" data-i18n-aria-label="ui.indexing_progress_490d12" max="100" value="0">
+            </progress>
+           </div>
+          </li>
+         </ol>
+         <dl class="config-data">
+          <div>
+           <dt>
+            Ollama
+           </dt>
+           <dd id="ollama-label">
+            —
+           </dd>
+          </div>
+          <div>
+           <dt>
+            Embeddings
+           </dt>
+           <dd id="embedding-label">
+            —
+           </dd>
+          </div>
+         </dl>
+         <div class="activity-log" id="activity-log">
+         </div>
+        </div>
+       </section>
+      </aside>
+     </div>
+     <section class="card">
+      <header class="card__head">
+       <h2 class="card-title">
+        <span data-i18n="sentinel.queries">
+         Consultas
+        </span>
+       </h2>
+      </header>
+      <div class="card__body">
+       <p class="meta" id="statistics-scope">
+       </p>
+       <p class="meta" id="statistics-totals">
+       </p>
+       <div class="history-toolbar">
+        <div aria-label="Histórico de consultas" class="segmented" data-i18n-aria-label="ui.query_history_858472" id="statistics-history-range">
+         <button aria-pressed="false" data-history-seconds="86400" type="button">
+          <span data-i18n="ui.1_day_95700f">
+           1 día
+          </span>
+         </button>
+         <button aria-pressed="true" data-history-seconds="604800" type="button">
+          <span data-i18n="ui.1_week_84c52e">
+           1 semana
+          </span>
+         </button>
+        </div>
+        <button class="btn btn--secondary" id="refresh-statistics" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-refresh">
+          </use>
+         </svg>
+         <span data-i18n="sentinel.refresh">
+          Actualizar
+         </span>
+        </button>
+        <button class="btn btn--secondary" id="clear-trace-filter" type="button">
+         <span data-i18n="sentinel.clear_filter">
+          Ver todas las consultas
+         </span>
+        </button>
+       </div>
+       <div class="table-wrap">
+        <table class="table query-table">
+         <thead>
+          <tr>
+           <th data-i18n="sentinel.time">
+            Hora
+           </th>
+           <th data-i18n="sentinel.question">
+            Pregunta
+           </th>
+           <th data-i18n="sentinel.model">
+            Modelo
+           </th>
+           <th data-i18n="sentinel.route">
+            Ruta
+           </th>
+           <th data-i18n="sentinel.elapsed">
+            Tiempo
+           </th>
+           <th>
+            tok/s
+           </th>
+           <th data-i18n="sentinel.output">
+            Salida
+           </th>
+           <th data-i18n="sentinel.context_tokens">
+            Contexto
+           </th>
+          </tr>
+         </thead>
+         <tbody id="query-statistics">
+         </tbody>
+        </table>
+       </div>
+       <div class="pagination">
+        <button class="btn btn--secondary" disabled="" id="statistics-previous" type="button">
+         <span data-i18n="ui.previous_e4ce7c">
+          Anterior
+         </span>
+        </button>
+        <span class="meta" id="statistics-page">
+        </span>
+        <button class="btn btn--secondary" disabled="" id="statistics-next" type="button">
+         <span data-i18n="ui.next_49683b">
+          Siguiente
+         </span>
+        </button>
+       </div>
+      </div>
+     </section>
+     <details class="ingestion-history">
+      <summary>
+       <span data-i18n="sentinel.ingestion_history">
+        Histórico de indexación
+       </span>
+      </summary>
+      <section class="card">
+       <header class="card__head">
+        <h2 class="card-title">
+         <span data-i18n="sentinel.ingestion_history">
+          Histórico de indexación
+         </span>
+        </h2>
+       </header>
+       <div class="card__body">
+        <p class="meta" id="ingestion-history-info">
+        </p>
+        <div class="table-wrap">
+         <table class="table">
+          <thead>
+           <tr>
+            <th>
+             <span data-i18n="ui.document_date_7957e7">
+              DOCUMENTO / FECHA
+             </span>
+            </th>
+            <th>
+             <span data-i18n="ui.execution_4b127f">
+              EJECUCIÓN
+             </span>
+            </th>
+            <th>
+             <span data-i18n="ui.queue_wait_ca0d00">
+              ESPERA
+             </span>
+            </th>
+            <th>
+             <span data-i18n="ui.chunks_7a5562">
+              FRAGMENTOS
+             </span>
+            </th>
+            <th>
+             <span data-i18n="ui.status_f16fe7">
+              ESTADO
+             </span>
+            </th>
+           </tr>
+          </thead>
+          <tbody id="ingestion-statistics">
+          </tbody>
+         </table>
+        </div>
+        <div class="pagination">
+         <button class="btn btn--secondary" disabled="" id="ingestion-previous" type="button">
+          <span data-i18n="ui.previous_e4ce7c">
+           Anterior
+          </span>
+         </button>
+         <span class="meta" id="ingestion-page">
+         </span>
+         <button class="btn btn--secondary" disabled="" id="ingestion-next" type="button">
+          <span data-i18n="ui.next_49683b">
+           Siguiente
+          </span>
+         </button>
+        </div>
+       </div>
+      </section>
+     </details>
+    </section>
+    <section class="page" hidden="" id="console-view">
+     <header class="page-head">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-console">
+       </use>
+      </svg>
+      <h1 class="page-title">
+       <span data-i18n="sentinel.console">
+        Consola
+       </span>
+      </h1>
+      <p class="meta">
+       <span data-i18n="sentinel.console_sub">
+        Registro del servidor · solo lectura
+       </span>
+      </p>
+      <span class="page-head__spacer">
+      </span>
+      <span class="meta live-status" id="console-status" role="status">
+      </span>
+     </header>
+     <section class="card console-card">
+      <div class="console-toolbar">
+       <label class="search-field">
+        <svg aria-hidden="true" class="icon">
+         <use href="#i-search">
+         </use>
+        </svg>
+        <input class="input" data-i18n-placeholder="ui.file_message_error_8a2035" id="console-search" placeholder="Archivo, mensaje, error…" type="search"/>
+       </label>
+       <div class="tabs" id="console-level-chips">
+        <button aria-pressed="true" data-level="" type="button">
+         <span data-i18n="sentinel.all">
+          Todos
+         </span>
+         <span class="badge badge--neutral" data-level-count="">
+          0
+         </span>
+        </button>
+        <button aria-pressed="false" data-level="INFO" type="button">
+         INFO
+         <span class="badge badge--neutral" data-level-count="INFO">
+          0
+         </span>
+        </button>
+        <button aria-pressed="false" data-level="WARNING" type="button">
+         WARN
+         <span class="badge badge--neutral" data-level-count="WARNING">
+          0
+         </span>
+        </button>
+        <button aria-pressed="false" data-level="ERROR" type="button">
+         ERROR
+         <span class="badge badge--neutral" data-level-count="ERROR">
+          0
+         </span>
+        </button>
+       </div>
+       <label class="sr-only" for="console-level">
+        Nivel
+       </label>
+       <select class="sr-only" id="console-level">
+        <option data-i18n="ui.all_bd02b9" value="">
+         Todos
+        </option>
+        <option>
+         INFO
+        </option>
+        <option>
+         WARNING
+        </option>
+        <option>
+         ERROR
+        </option>
+        <option>
+         DEBUG
+        </option>
+        <option>
+         CRITICAL
+        </option>
+       </select>
+       <label class="sr-only" for="console-stream">
+        Origen
+       </label>
+       <select class="select" id="console-stream">
+        <option data-i18n="sentinel.all_origins" value="">
+         Todos los orígenes
+        </option>
+       </select>
+       <label class="composer__check">
+        <input checked="" id="console-follow" type="checkbox"/>
+        <span data-i18n="sentinel.follow">
+         Seguir el final
+        </span>
+       </label>
+       <span class="spacer">
+       </span>
+       <button class="btn btn--secondary" id="console-pause" type="button">
+        <svg aria-hidden="true" class="icon">
+         <use href="#i-clock">
+         </use>
+        </svg>
+        <span data-i18n="sentinel.pause">
+         Pausar
+        </span>
+       </button>
+       <button class="btn btn--secondary" id="console-clear" type="button">
+        <svg aria-hidden="true" class="icon">
+         <use href="#i-x">
+         </use>
+        </svg>
+        <span data-i18n="sentinel.clear_display">
+         Limpiar vista
+        </span>
+       </button>
+       <button class="btn btn--secondary" id="console-copy" type="button">
+        <svg aria-hidden="true" class="icon">
+         <use href="#i-copy">
+         </use>
+        </svg>
+        <span data-i18n="sentinel.copy">
+         Copiar
+        </span>
+       </button>
+       <button class="btn btn--secondary" id="console-download" type="button">
+        <svg aria-hidden="true" class="icon">
+         <use href="#i-arrow">
+         </use>
+        </svg>
+        <span data-i18n="sentinel.download">
+         Descargar registro
+        </span>
+       </button>
+      </div>
+      <div aria-label="Salida del servidor" aria-live="polite" class="log" data-i18n-aria-label="sentinel.log_output" id="console-output" role="log">
+      </div>
+      <p class="empty-state" id="console-empty">
+       <span data-i18n="sentinel.no_log">
+        No hay líneas que coincidan con el filtro.
+       </span>
+      </p>
+      <footer class="console-footer">
+       <span class="meta" id="console-count">
+       </span>
+       <span class="meta" hidden="" id="console-time-note">
+        <span data-i18n="sentinel.read_time">
+         ≈ Hora de lectura; el mensaje puede ser anterior.
+        </span>
+       </span>
+      </footer>
+     </section>
+    </section>
+   </main>
+  </div>
+  <dialog aria-describedby="dialog-description" aria-labelledby="dialog-title" id="result-dialog">
+   <button aria-label="Cerrar diálogo" class="icon-button dialog-close btn--secondary btn--icon btn" data-i18n-aria-label="ui.close_dialog_6ceb93" id="dialog-x">
+    <svg aria-hidden="true" class="icon">
+     <use href="#i-x">
+     </use>
+    </svg>
+   </button>
+   <div class="dialog-heading">
+    <span class="dialog-icon" id="dialog-icon">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-check">
+      </use>
+     </svg>
+    </span>
+    <div>
+     <h2 id="dialog-title">
+     </h2>
+     <p id="dialog-description">
+     </p>
+    </div>
+   </div>
+   <div class="dialog-stats" id="dialog-stats">
+   </div>
+   <div class="dialog-list" id="dialog-list">
+   </div>
+   <details hidden="" id="dialog-technical">
+    <summary>
+     <span data-i18n="ui.technical_details_7bfbb7">
+      Detalles técnicos
+     </span>
+    </summary>
+    <pre></pre>
+    <button class="text-button" id="copy-details" type="button">
+     <span data-i18n="ui.copy_details_4d8ccc">
+      Copiar detalles
+     </span>
+    </button>
+   </details>
+   <div class="dialog-actions" id="dialog-actions">
+   </div>
+  </dialog>
+  <dialog aria-labelledby="resource-dialog-title" class="resource-dialog" id="resource-dialog">
+   <header class="resource-dialog-heading">
+    <div>
+     <h2 id="resource-dialog-title">
+      <span data-i18n="ui.performance_0fb6f5">
+       Rendimiento
+      </span>
+     </h2>
+     <p>
+      <span data-i18n="ui.the_same_history_and_readings_in_an_expanded_view_f6412c">
+       El mismo historial y las mismas lecturas en una vista ampliada.
+      </span>
+     </p>
+    </div>
+    <button aria-label="Cerrar gráfica ampliada" class="icon-button btn--icon btn btn--secondary" data-i18n-aria-label="ui.close_expanded_chart_bbf686" id="resource-dialog-close" type="button">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-x">
+      </use>
+     </svg>
+    </button>
+   </header>
+   <div id="resource-dialog-body">
+   </div>
+  </dialog>
+  <div class="toast" hidden="" id="toast" role="status">
+   <span>
+   </span>
+   <button hidden="" type="button">
+    <span data-i18n="ui.view_result_2011cb">
+     Ver resultado
+    </span>
+   </button>
+  </div>
+ </body>
 </html>

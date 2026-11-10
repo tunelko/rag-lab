@@ -144,7 +144,7 @@ de ejecutarlo. No se ejecuta automáticamente desde el asistente.
 - **Imágenes por respuesta:** entre 1 y 4; predeterminado 3.
 - **Vistas por documento:** entre 1 y 500; cada página/figura nueva puede necesitar
   una descripción del modelo visual. Subir el límite aumenta el trabajo permitido.
-- **Puerto web:** predeterminado 8765; siempre se escucha en 127.0.0.1.
+- **Puerto web:** predeterminado 8765; se escucha en 127.0.0.1 por defecto.
 
 No cambies el chunking sobre una colección ya creada. El asistente detecta esa
 incompatibilidad y pide elegir una colección nueva. Cambiar modelos o el modo
@@ -211,6 +211,25 @@ El servidor no carga modelos al arrancar. La preparación usa CPU; describir pá
 y responder sí puede utilizar la GPU mediante Ollama. La cola actual es secuencial:
 las preguntas esperan mientras se indexa un lote. Fuentes consultadas permite revisar
 las referencias. Toda la interfaz web, incluidas fuentes y librerías, se sirve localmente.
+
+## Uso en la red local
+
+Para escuchar en una IP privada que tenga asignada este equipo:
+
+```powershell
+.\Start-Web.ps1 -Restart -Host 192.168.1.111 -WhenIdle
+```
+
+```bash
+bash web.sh restart --host 192.168.1.111 --when-idle
+```
+
+Sustituye la IP por la tuya y abre `http://192.168.1.111:8765`. El reinicio espera
+a que terminen las tareas. Si omites el host al reiniciar, conserva el que usa el
+servidor. `-h` / `--help` muestra la ayuda; `status` consulta el estado. No se abren
+reglas del cortafuegos automáticamente. Se rechazan IP públicas y direcciones comodín.
+Los equipos de la LAN comparten biblioteca, ajustes y consola, sin cuentas o roles.
+Consulta los [límites de seguridad](../SECURITY.md) y la [organización por temas](LIBRARY.md).
 
 ## Solución de problemas
 

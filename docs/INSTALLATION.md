@@ -247,11 +247,30 @@ Defaults: 20 files per upload batch, 20 MB per file, two simultaneous uploads an
 sequential processing. Visual processing allows up to the configured limit of
 500 views per document; descriptions are cached to avoid repeating identical work.
 
-The web server listens on **127.0.0.1** and uses local request/origin checks. This is
+The web server defaults to **127.0.0.1** and uses local request/origin checks. This is
 a personal application with separate views and no authenticated multi-user roles.
 The default workflow keeps documents and inference local. Initial dependency,
 embedding and model downloads need Internet. If you manually configure a remote
 model endpoint, that service will receive the retrieved context.
+
+## Trusted LAN access
+
+Bind to an IPv4 address assigned to this machine. For example:
+
+```powershell
+.\Start-Web.ps1 -Restart -Host 192.168.1.111 -WhenIdle
+```
+
+```bash
+bash web.sh restart --host 192.168.1.111 --when-idle
+```
+
+Open `http://192.168.1.111:8765` on the trusted LAN. Use your actual address.
+The controller supports `start`, `stop`, `restart`, `status`, `--help` and the
+PowerShell `-Help`/`-h` equivalents. A restart without a host retains the running
+bind; `--when-idle` waits for active jobs. No firewall rules are opened automatically.
+Wildcard and public IP binds are refused. LAN visitors share all views and data;
+there are no separate accounts. See [security boundaries](../SECURITY.md).
 
 ## Files and persistence
 

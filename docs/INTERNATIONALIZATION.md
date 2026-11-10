@@ -2,6 +2,8 @@
 
 The UI ships with Spanish and English. The language selector is available in the
 top bar on every page, including mobile layouts.
+The resolved language uses a locally served Spain/UK flag in the top-right selector.
+Fonts are local too; a browser on a private HTTP LAN requires no external resources.
 
 - **Browser language** chooses the first supported entry in `navigator.languages`,
   including regional variants such as `es-MX` and `en-GB`. Unsupported languages
@@ -12,6 +14,7 @@ top bar on every page, including mobile layouts.
 - Switching language updates the current UI without submitting a query, uploading
   files, cancelling work, resetting a queue or discarding an unsaved question.
   Number/date formatting and accessibility labels follow the selected language.
+  Configuration edits save automatically; switching language does not write them.
 
 ## Content and local generation
 

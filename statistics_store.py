@@ -128,18 +128,20 @@ class StatisticsStore:
             self._prune(connection,time.time())
             connection.commit()
 
-    def queries(self, seconds=RETENTION, *, page=1, per_page=50):
+    def queries(self, seconds=RETENTION, *, page=1, per_page=50, query_id=None):
         with self.lock:
             connection = self._open()
             cutoff=time.time()-seconds
+            where='time>=?' + (' AND id=?' if query_id is not None else '')
+            parameters=(cutoff,query_id) if query_id is not None else (cutoff,)
             total,completed,errors,tokens=connection.execute('''
                 SELECT COUNT(*),COALESCE(SUM(status='done'),0),COALESCE(SUM(status='error'),0),
                        COALESCE(SUM(CASE WHEN status='done' THEN tokens ELSE 0 END),0)
-                FROM queries WHERE time>=?''',(cutoff,)).fetchone()
+                FROM queries WHERE '''+where,parameters).fetchone()
             pages=max(1,math.ceil(total/per_page))
             page=min(page,pages)
-            rows=connection.execute('SELECT payload,status FROM queries WHERE time>=? ORDER BY time DESC,id DESC LIMIT ? OFFSET ?',
-                (cutoff,per_page,(page-1)*per_page)).fetchall()
+            rows=connection.execute('SELECT payload,status FROM queries WHERE '+where+' ORDER BY time DESC,id DESC LIMIT ? OFFSET ?',
+                (*parameters,per_page,(page-1)*per_page)).fetchall()
             return {'queries':total,'completed':completed,'errors':errors,'output_tokens':tokens,
                     'recent':[{**json.loads(payload),'status':status} for payload,status in rows],
                     'page':page,'pages':pages,'per_page':per_page,'history_seconds':seconds,'retention_seconds':self.retention}
@@ -154,6 +156,11 @@ class StatisticsStore:
             rows=connection.execute('SELECT payload,status FROM ingestions WHERE time>=? ORDER BY time DESC LIMIT ? OFFSET ?',
                 (cutoff,per_page,(page-1)*per_page)).fetchall()
             return {'total':total,'page':page,'pages':pages,'recent':[{**json.loads(payload),'status':status} for payload,status in rows]}
+
+    def last_index_time(self):
+        with self.lock:
+            row=self._open().execute("SELECT payload FROM ingestions WHERE status='done' AND time>=? ORDER BY time DESC LIMIT 1",(time.time()-self.retention,)).fetchone()
+            return json.loads(row[0]).get('updated_at') if row else None
 
     def index_job(self, job_id):
         with self.lock:

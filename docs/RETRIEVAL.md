@@ -2,6 +2,10 @@
 
 The query planner distinguishes three cases locally, without a classifier LLM:
 
+All cases respect the **Sources** topic selection. A cabinet includes its drawers;
+an empty topic returns no evidence, and an unknown topic is rejected. Organization
+does not require reindexing. See [library topics](LIBRARY.md).
+
 - **Inventory:** questions such as «¿Cuántos documentos tienes indexados?» read the
   actual library register. Listings link every indexed file. They do not call a model.
 - **Focused question:** the usual semantic top-K retrieval, using the configured

@@ -199,14 +199,17 @@ def ingest(config: Config, source: Path, embeddings, *, paths=None, observer=Non
     return summary
 
 
-def retrieve(config: Config, question: str, embeddings, k: int):
+def retrieve(config: Config, question: str, embeddings, k: int, *, files=None):
     if not (config.db / f"{config.collection}-manifest.json").exists():
         raise ValueError("No index exists for this collection. Run ingest first.")
     load_state(config)
+    if files is not None and not files:
+        return []
     store = open_store(config, embeddings)
     window = max(16, k * 4)
     while True:
-        hits = store.similarity_search_with_score(question, k=window)
+        hits = store.similarity_search_with_score(question, k=window,
+            **({'filter': {'file': {'$in': list(files)}}} if files is not None else {}))
         useful = [(document, distance) for document, distance in hits if usable_evidence(document.page_content)]
         if len(useful) >= k or len(hits) < window or window >= 512:
             return useful[:k]

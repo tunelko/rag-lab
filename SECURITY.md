@@ -1,7 +1,7 @@
 # Security and dependency status
 
-RAG Local is a single-user application bound to loopback, with an embedded Chroma
-database. It is not a hosted Chroma server or a multi-tenant service. Do not expose
+RAG Local is a single-user application bound to loopback by default, with an embedded Chroma
+database. An explicit private IPv4 bind permits access from a trusted LAN. It is not a hosted Chroma server or a multi-tenant service. Do not expose
 the local UI through a public proxy or run `chroma run` against its private index.
 
 ## Dependency review — 2026-11-10
@@ -35,8 +35,17 @@ does not remediate them.
   or accept collection embedding-function configuration from browser requests.
 - Embeddings are supplied by the application with `trust_remote_code=False`.
   Downloading a model does not authorize execution of remote model code.
-- The UI server binds to `127.0.0.1`; mutating requests require a session token
-  and a matching origin. Private documents, indexes and credentials stay outside Git.
+- The UI server defaults to `127.0.0.1`. `--host` accepts loopback or an assigned
+  RFC1918 IPv4 address, never a wildcard/public bind. Mutating requests require a
+  session token and a matching origin; Host validation includes only the explicit bind.
+- LAN access shares the same library, configuration, jobs, statistics and console.
+  The token prevents cross-origin mutations; it is not a login or a per-user role.
+  Topics organize retrieval, not access permissions. Use only on a trusted network.
+- Query attachments are validated PNG/JPEG/WebP, limited to four images, 3 MiB
+  each and 16 megapixels, then resized and stripped of metadata. Raw attachments
+  are not saved to chat history or the document library.
+- Fonts, icons, translations and Markdown rendering are self-hosted. Private
+  documents, indexes, topic assignments and credentials stay outside Git.
 
 These controls keep the server entry points described by the Chroma advisories
 outside this application's normal execution path. They are not a fix for ChromaDB

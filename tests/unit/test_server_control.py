@@ -31,6 +31,19 @@ def jobs():
 
 
 class ServerControlTests(unittest.TestCase):
+    def test_host_accepts_only_loopback_or_private_ipv4(self):
+        self.assertEqual(control.validate_host('192.168.1.111'),'192.168.1.111')
+        for address in ('0.0.0.0','8.8.8.8','example.com','169.254.1.2'):
+            with self.assertRaises(ValueError):control.validate_host(address)
+
+    def test_managed_server_on_another_local_address_can_be_stopped_without_host_argument(self):
+        control.start(self.root,self.port,timeout=10,host='127.0.0.2')
+        self.assertEqual(control.running_host(self.root,self.port),'127.0.0.2')
+        self.assertEqual(control.active_jobs(self.port,'127.0.0.2'),[])
+        self.assertTrue(control.port_in_use(self.port,'127.0.0.2'))
+        control.stop(self.root,self.port,timeout=10)
+        self.assertFalse(control.port_in_use(self.port,'127.0.0.2'))
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='rag-control-')
         self.root = Path(self.directory.name).resolve()
