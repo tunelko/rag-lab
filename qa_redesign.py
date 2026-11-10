@@ -71,6 +71,10 @@ def fixture_server(port):
     service = FixtureService(rag.Config(db=case / "db", collection="redesign_qa"), case / "documents")
     from settings_store import Preferences
     service.settings.save(Preferences(response_model="qa-local:latest"))
+    service.hardware.sample = lambda: {"time": "2026-11-10T10:00:00+00:00", "logical_cpus": 16, "cpu_percent": 12.5,
+        "ram_used_bytes": 8 * 1024**3, "ram_total_bytes": 32 * 1024**3, "ram_percent": 25,
+        "processes": [{"name": "qa-runner", "pid": 1, "role": "ollama", "cpu_percent": 6.25, "ram_bytes": 2 * 1024**3}],
+        "gpu": {"devices": [{"name": "GPU simulada para QA", "utilization_percent": 87.5, "memory_used_bytes": 8 * 1024**3, "memory_total_bytes": 10 * 1024**3, "temperature_c": 70, "power_w": 280}]}}
     uvicorn.run(create_app(service), host="127.0.0.1", port=port, access_log=False)
 
 
@@ -227,6 +231,10 @@ def run_browser(url):
         expect(page.locator(".chat-turn")).to_have_count(5)
         page.locator("#nav-statistics").click()
         expect(page.locator("#query-statistics")).to_contain_text("80,00")
+        expect(page.locator("#hardware-cpu")).to_have_text("12,5 %")
+        expect(page.locator("#hardware-gpu")).to_have_text("87,5 %")
+        expect(page.locator("#hardware-vram")).to_have_text("8,0 / 10,0 GiB")
+        expect(page.locator("#hardware-processes")).to_contain_text("qa-runner")
         page.screenshot(path=str(reports / "redesign-estadisticas.png"), full_page=True)
         check("Clean chat, persisted configuration/history, collapsed citations, copy, search-only, retry, stop and separate real metrics")
 

@@ -91,6 +91,11 @@
     </section>
     <section id="statistics-view" hidden>
       <header class="page-heading"><p class="eyebrow">ACTIVIDAD DEL LABORATORIO</p><h1>Estadísticas</h1><p>Estado del índice, rendimiento de las consultas y actividad de procesamiento.</p></header>
+      <section class="card hardware-card"><div class="section-heading"><h2>Carga del equipo en tiempo real</h2><span id="hardware-status" class="help-text" role="status">Preparando lecturas…</span></div>
+        <div class="hardware-values"><div><span>CPU</span><strong id="hardware-cpu">—</strong><p id="hardware-cpu-caption"></p></div><div><span>GPU</span><strong id="hardware-gpu">—</strong><p id="hardware-gpu-caption"></p></div><div><span>RAM</span><strong id="hardware-ram">—</strong><p id="hardware-ram-caption"></p></div><div><span>VRAM</span><strong id="hardware-vram">—</strong><p id="hardware-vram-caption"></p></div></div>
+        <div class="table-scroll"><table><thead><tr><th>COMPONENTE</th><th>PROCESO</th><th>CPU DEL EQUIPO</th><th>RAM DEL PROCESO</th></tr></thead><tbody id="hardware-processes"></tbody></table></div>
+        <p class="hardware-note">«100 % GPU» en Ollama indica que el modelo está alojado en la GPU. La utilización que aparece aquí mide su actividad en cada lectura. La CPU de cada proceso se expresa sobre el total del equipo; la RAM de procesos con memoria compartida no debe sumarse.</p>
+      </section>
             <div class="stats-row">
         <section class="stat"><span class="stat-icon clay"><svg class="icon" aria-hidden="true"><use href="#i-file"/></svg></span><div><strong id="stat-docs">0</strong><span>Documentos en la biblioteca</span></div></section>
         <section class="stat"><span class="stat-icon ochre"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg></span><div><strong id="stat-chunks">0</strong><span>Fragmentos indexados</span></div></section>

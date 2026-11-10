@@ -26,6 +26,10 @@ cuando termine su cola. Sus tareas ya iniciadas conservan su instantánea de aju
   es el candidato textual en automático y el modelo fijo en manual; `vision_model`
   sirve para indexar y para responder cuando la selección necesita visión.
 - `GET /api/statistics`: estadísticas derivadas de tareas reales conservadas en memoria.
+- `GET /api/telemetry`: CPU/RAM mediante psutil y lecturas GPU mediante consultas
+  de nvidia-smi, con caché de 2 segundos. La instancia anterior puede entregar estas
+  lecturas a través del lector local, manteniendo la indexación en marcha. Porcentaje
+  de CPU por proceso normalizado al total de procesadores lógicos del equipo.
 - `GET /api/figures/{sha256}`: imágenes PNG normalizadas, sin rutas arbitrarias.
 - `POST /api/query` mantiene sus parámetros y añade historial acotado. Si se omiten
   modelo/k/search_only, aplica las preferencias compartidas. Los clientes antiguos

@@ -29,6 +29,10 @@ usa `Start-Web.ps1 -Port 8766` y cambia el puerto de las URLs.
   tareas y tiempos/tokens de consultas recientes. Los datos de consultas se
   conservan en memoria del servidor, hasta 200 tareas; no representan un histórico
   permanente. Tokens/s proceden de las métricas nativas de Ollama, no de contar palabras.
+  **Carga del equipo en tiempo real** añade lecturas cada 2 segundos de CPU, RAM,
+  uso de GPU, VRAM, temperatura, potencia y consumo por proceso de RAG/Ollama.
+  Las lecturas de GPU usan únicamente consultas de `nvidia-smi`; no cargan modelos
+  ni cambian el modo de cómputo. Los valores no disponibles aparecen como «—».
 - **Consola:** http://127.0.0.1:8765/?vista=consola — salida y actividad del servidor
   actualizada cada segundo. Incluye stdout, stderr, logs Python y avisos de procesado
   visual/caché. Permite pausar la visualización, buscar, filtrar por nivel, copiar,

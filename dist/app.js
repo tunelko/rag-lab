@@ -2,9 +2,10 @@ import {$, node, icon, iconButton, button, fileType, progress, segments, number,
 import {UploadQueue} from './queue.js';
 import {Chat} from './chat.js';
 import {ServerConsole} from './console.js';
+import {Telemetry} from './telemetry.js';
 
 const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
-let queue, chat, serverConsole;
+let queue, chat, serverConsole, telemetry;
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
 state.lastIndex=Number(sessionStorage.getItem('rag-local-last-index')||0);
@@ -26,6 +27,7 @@ function navigate(path,replace=false){
   if(state.view==='library'&&state.lastResult)$('queue-result-button').hidden=false;
   if(state.view==='statistics')refreshStatistics();
   serverConsole?.setActive(state.view==='console');
+  telemetry?.setActive(state.view==='statistics');
 }
 document.addEventListener('click',(event)=>{const link=event.target.closest('a[href]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const url=new URL(link.href,location.href);if(url.origin===location.origin&&['/','/admin','/biblioteca','/configuracion','/estadisticas','/consola'].includes(url.pathname)&&!url.hash){event.preventDefault();navigate(url.pathname+url.search);window.scrollTo({top:0,behavior:'instant'});}});
 window.addEventListener('popstate',()=>navigate(location.pathname+location.search,true));
@@ -33,6 +35,17 @@ window.addEventListener('rag:navigate',(event)=>navigate(event.detail));
 
 
 function statusView(status){
+  // Older servers mark every member of a running batch as processing.
+  // Completed outcomes and the current file provide the actual per-file state.
+  status.documents=status.documents.map(document=>{
+    const job=(status.jobs||[]).find(job=>job.kind==='index'&&!job.document_name&&job.document_names?.includes(document.name));
+    if(!job)return document;
+    const outcome=job.documents?.find(item=>item.name===document.name||item.name===document.name.split('/').at(-1));
+    if(outcome?.error_info)return {...document,status:'error',error_info:outcome.error_info};
+    if(outcome?.chunks>0)return {...document,status:'indexed',indexed:true,chunks:outcome.chunks};
+    if(job.current_document===document.name||job.current_document===document.name.split('/').at(-1))return {...document,status:'processing'};
+    return {...document,status:document.indexed?'indexed':'pending'};
+  });
   state.status=status;queue?.setDocuments(status.documents);
   $('stat-docs').textContent=number(status.document_count);$('stat-chunks').textContent=number(status.chunk_count);$('sidebar-doc-count').textContent=number(status.document_count);
   $('library-count').textContent=number(status.document_count);$('stat-engine').textContent=status.ollama.connected?'Ollama conectado':'Ollama sin conexión';
@@ -40,10 +53,10 @@ function statusView(status){
   const busy=(status.jobs||[]).some((job)=>job.status==='running'&&['index','prepare'].includes(job.kind));$('embedding-label').textContent=`${status.embedding_device.toUpperCase()}${busy?' · ocupado':''}`;
   $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('footer-collection').textContent=`Colección: ${status.collection}`;
   $('config-embeddings').textContent=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();$('config-chunk').textContent=`${status.chunk_size} / ${status.chunk_overlap} car.`;
-  const indexed=status.documents.filter((doc)=>doc.status==='indexed'||(!doc.status&&doc.indexed)).length;const failed=status.documents.filter((doc)=>doc.status==='error').length;const pending=status.document_count-indexed-failed;
-  segments($('library-bar'),[100*indexed/(status.document_count||1),100*pending/(status.document_count||1),100*failed/(status.document_count||1)]);
-  $('library-bar').setAttribute('aria-label',`${indexed} indexados, ${pending} pendientes y ${failed} con error`);
-  $('sidebar-summary-text').textContent=`${indexed} indexados · ${pending} pendientes · ${failed} con error`;
+  const indexed=status.documents.filter((doc)=>doc.status==='indexed'||(!doc.status&&doc.indexed)).length;const failed=status.documents.filter((doc)=>doc.status==='error').length;const processing=status.documents.filter(doc=>doc.status==='processing').length;const pending=status.document_count-indexed-failed-processing;
+  segments($('library-bar'),[100*indexed/(status.document_count||1),100*(pending+processing)/(status.document_count||1),100*failed/(status.document_count||1)]);
+  $('library-bar').setAttribute('aria-label',`${indexed} indexados, ${processing} en proceso, ${pending} pendientes y ${failed} con error`);
+  $('sidebar-summary-text').textContent=`${indexed} indexados · ${processing} en proceso · ${pending} pendientes · ${failed} con error`;
   if(state.lastIndex)$('last-index').textContent=`Última indexación ${relativeTime(new Date(state.lastIndex).toISOString())}`;
   else if(status.chunk_count)$('last-index').textContent='Fragmentos guardados en disco';
   if(!queue?.entries.some((entry)=>['queued','uploading','uploaded','fragmenting','indexing'].includes(entry.state))){$('nav-badge').textContent=status.document_count;$('nav-badge').classList.remove('queued');}
@@ -86,7 +99,7 @@ function renderProcess(){
   else if(uploading)state.lastPhase={stage:'upload',value:uploading.upload,name:uploading.name,active:true};
   else if(state.lastPhase)state.lastPhase={...state.lastPhase,active:false};
   const current=state.lastPhase;const stages=['upload','chunking','indexing'];const index=current?stages.indexOf(current.stage):-1;
-  $('process-state').textContent=current?.active?'Activo':'Inactivo';$('process-state').className=`status-pill ${current?.active?'processing':''}`;
+  $('process-state').textContent=current?.active?(job?.document_names?.length>1?`${job.documents?.length||0}/${job.document_names.length} documentos · activo`:'Activo'):'Inactivo';$('process-state').className=`status-pill ${current?.active?'processing':''}`;
   document.querySelectorAll('#process-steps li').forEach((step,i)=>{const complete=current&&(i<index||!current.active);const active=current?.active&&i===index;step.classList.toggle('active',Boolean(active));step.classList.toggle('complete',Boolean(complete));step.querySelector('.step-number').textContent=complete?'✓':i+1;const bar=step.querySelector('progress');if(active&&current.value==null)bar.removeAttribute('value');else bar.value=active?(current.value||0):complete?100:0;bar.className='ochre';});
   $('process-document').textContent=current?.name||'Fragmentación del contenido';
   const activities=status?.activity||[];$('activity-log').replaceChildren();if(!activities.length)$('activity-log').append(node('p','','Sin actividad reciente.'));
@@ -179,6 +192,7 @@ async function init(){
   try{
     state.token=(await api('/api/session')).token;
     serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
+    telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();});
     await loadSettings();
