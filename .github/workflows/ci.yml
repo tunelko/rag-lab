@@ -29,6 +29,7 @@ jobs:
       ANONYMIZED_TELEMETRY: 'False'
       OMP_NUM_THREADS: '2'
       PYTHONUTF8: '1'
+      RAG_BROWSER_CHANNEL: 'chromium'
     defaults:
       run:
         shell: bash
@@ -59,9 +60,9 @@ jobs:
           for module in dist/*.js; do node --check "$module"; done
           bash -n configurar.sh
           bash -n web.sh
-      - name: Install Edge for browser QA
+      - name: Install Chromium for browser QA
         if: runner.os == 'Linux'
-        run: python -m playwright install --with-deps msedge
+        run: python -m playwright install --with-deps chromium
       - name: Browser regression tests (isolated corpus, no inference)
         if: runner.os == 'Linux'
         run: python -m tests.browser.qa_redesign 2>&1 | tee reports/browser-tests.log

@@ -1,7 +1,15 @@
 """Compatibility entry point for local-only web checks."""
 import argparse
+import os
 from pathlib import Path
 from urllib.parse import urlsplit
+
+
+def launch_browser(playwright):
+    channel = os.getenv("RAG_BROWSER_CHANNEL", "msedge").strip().lower()
+    if channel in {"", "chromium", "bundled"}:
+        return playwright.chromium.launch(headless=True)
+    return playwright.chromium.launch(channel=channel, headless=True)
 
 def main():
     parser=argparse.ArgumentParser()
@@ -15,7 +23,7 @@ def main():
         raise ValueError("Only a local RAG server is allowed")
     from playwright.sync_api import sync_playwright,expect
     with sync_playwright() as p:
-        browser=p.chromium.launch(channel="msedge",headless=True)
+        browser=launch_browser(p)
         page=browser.new_page(viewport={"width":1440,"height":1100})
         errors=[]
         page.on("pageerror",lambda error:errors.append(str(error)))

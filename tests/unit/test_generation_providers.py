@@ -3,6 +3,7 @@
 import io
 import json
 import unittest
+import urllib.error
 
 import generation_providers as providers
 
@@ -39,6 +40,19 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(opener.request.method, "GET")
         self.assertEqual(opener.request.get_header("Authorization"), "Bearer secret-value")
         self.assertNotIn("secret-value", repr(models))
+
+    def test_scaleway_permission_error_explains_the_required_iam_policy(self):
+        class DeniedOpener:
+            def open(self, request, timeout=None):
+                payload = io.BytesIO(b'{"error":{"message":"insufficient permissions to access the resource"}}')
+                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, payload)
+
+        with self.assertRaises(providers.ProviderError) as raised:
+            providers.list_models("scaleway", "secret-value", opener=DeniedOpener())
+        message = str(raised.exception)
+        self.assertIn("GenerativeApisModelAccess", message)
+        self.assertIn("proyecto u organización correctos", message)
+        self.assertNotIn("secret-value", message)
 
     def test_streaming_chat_records_usage_without_returning_secret(self):
         packets = [

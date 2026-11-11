@@ -70,6 +70,17 @@ def _messages(messages):
     return clean
 
 
+def _rejection_message(profile: Provider, code: int, detail: str, action: str):
+    if profile.id == "scaleway" and code == 403:
+        return (
+            "Scaleway autenticó la Secret Key, pero su usuario o aplicación no tiene permiso para "
+            f"{action}. Asigna GenerativeApisModelAccess (mínimo recomendado), "
+            "GenerativeApisFullAccess o AllProductsFullAccess en IAM y verifica que la política "
+            "abarque el proyecto u organización correctos."
+        )
+    return f"{profile.label} rechazó {action} ({code}): {detail}"
+
+
 def _json_schema(schema):
     return {"type": "json_schema", "json_schema": {"name": "rag_global_answer", "strict": True, "schema": schema}}
 
@@ -93,10 +104,8 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
             detail = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
         except (ValueError, OSError):
             detail = exc.reason
-        raise ProviderError(
-            f"{profile.label} rechazó la consulta de modelos ({exc.code}): "
-            + str(detail).replace(api_key, "[credencial omitida]")
-        ) from exc
+        clean_detail = str(detail).replace(api_key, "[credencial omitida]")
+        raise ProviderError(_rejection_message(profile, exc.code, clean_detail, "la consulta de modelos")) from exc
     except urllib.error.URLError as exc:
         raise ProviderError(f"No se pudo consultar el catálogo de {profile.label}: {exc.reason}") from exc
     except (ValueError, TypeError) as exc:
@@ -192,7 +201,7 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
         except (ValueError, OSError):
             detail = exc.reason
         detail = str(detail).replace(api_key, "[credencial omitida]")
-        raise ProviderError(f"{profile.label} rechazó la petición ({exc.code}): {detail}") from exc
+        raise ProviderError(_rejection_message(profile, exc.code, detail, "realizar la petición")) from exc
     except urllib.error.URLError as exc:
         raise ProviderError(f"No se pudo conectar con {profile.label}: {exc.reason}") from exc
     prompt_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)

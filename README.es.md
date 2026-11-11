@@ -102,7 +102,9 @@ maestra conservada solo en memoria.
 Tras guardar una credencial, **Actualizar modelos** consulta `/v1/models` desde el
 servidor y ofrece el catálogo en el campo de modelo. En Scaleway se guarda la
 **Secret Key**, usada como Bearer por Generative APIs; la Access Key no interviene
-en la inferencia.
+en la inferencia. Su portador IAM necesita `GenerativeApisModelAccess` (mínimo
+privilegio), `GenerativeApisFullAccess` o `AllProductsFullAccess` para el proyecto
+u organización correspondientes.
 
 En **Biblioteca**, organiza los documentos en **categorías y subcategorías** desde
 el árbol lateral. El botón **+** crea una categoría; el menú de cada una permite

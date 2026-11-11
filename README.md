@@ -100,7 +100,9 @@ user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
 After saving a credential, **Refresh models** queries `/v1/models` server-side and
 offers the returned catalog in the model field. For Scaleway, store the **Secret
 Key** used as the Generative APIs Bearer credential; the Access Key is not used for
-inference.
+inference. Its IAM bearer must have `GenerativeApisModelAccess` (least privilege),
+`GenerativeApisFullAccess` or `AllProductsFullAccess` for the intended Project or
+Organization.
 
 In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
 **+** to create a category and its menu to add subcategories or rename it. Select

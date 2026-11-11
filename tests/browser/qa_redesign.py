@@ -17,6 +17,14 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 
+
+def launch_browser(playwright):
+    """Use bundled Chromium in CI and Edge by default for local Windows QA."""
+    channel = os.getenv("RAG_BROWSER_CHANNEL", "msedge").strip().lower()
+    if channel in {"", "chromium", "bundled"}:
+        return playwright.chromium.launch(headless=True)
+    return playwright.chromium.launch(channel=channel, headless=True)
+
 MARKDOWN_RESPONSE = '''## Resumen técnico
 
 **Equipo revisado**, con *evidencia documental* [1].
@@ -189,7 +197,7 @@ def run_browser(url):
         return {"name": name, "mimeType": "application/octet-stream", "buffer": content}
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(channel="msedge", headless=True)
+        browser = launch_browser(p)
         context = browser.new_context(locale="es-ES", viewport={"width": 1440, "height": 1100}, reduced_motion="reduce", permissions=["clipboard-read", "clipboard-write"])
         context.add_init_script("Object.defineProperty(crypto,'randomUUID',{value:undefined,configurable:true})")
         page = context.new_page()
