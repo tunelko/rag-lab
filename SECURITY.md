@@ -47,6 +47,13 @@ conflicting or unsupported declarations rather than omitting them silently.
 - Ollama requests bypass ambient HTTP proxies and reject redirects. Cloud model
   tags and remote metadata are excluded from runtime choices. The explicitly
   configured model endpoint must still be trusted.
+- Optional Scaleway, OVHcloud and xAI response adapters use fixed HTTPS hosts,
+  bypass ambient proxies and reject redirects. They send retrieved text context
+  only after explicit provider selection; document files, embeddings and images
+  are not uploaded. API credentials are ciphertext in `data/credentials.sqlite3`,
+  protected by user-bound Windows DPAPI or Linux AES-GCM/Scrypt. Credential
+  mutation is restricted to requests originating on the server host (loopback or
+  its configured bind address), and plaintext values are never returned or logged.
 - The web server defaults to 127.0.0.1. Explicit host selection permits only
   loopback or an assigned RFC1918 IPv4 address. Do not expose the personal UI
   through a public proxy.

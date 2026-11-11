@@ -2,12 +2,12 @@ import {$, node} from './ui.js';
 import {t, serverText} from './i18n.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
-const fields={model:'response_model','vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
+const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
 const formatLabels={'.markdown':'MD','.jpeg':'JPG','.zip':'ZIP MinerU'};
 
 export class SettingsController {
   constructor(api,changed){
-    this.api=api;this.changed=changed;this.value=null;this.models=[];this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
+    this.api=api;this.changed=changed;this.value=null;this.models=[];this.providers=[];this.credentials=null;this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
     for(const [id,key] of Object.entries(fields))$(id).addEventListener('change',event=>{
       const element=event.target;
       // A typed number is brought back into the range the server accepts.
@@ -22,6 +22,9 @@ export class SettingsController {
     $('composer-model').addEventListener('change',()=>{const model=$('composer-model').value;this.patch(model==='automatic'?{response_mode:'automatic'}:{response_mode:'manual',response_model:model.slice(7)});});
     $('settings-form').addEventListener('submit',event=>{event.preventDefault();this.flush().catch(()=>{});});
     $('retry-settings').addEventListener('click',()=>{this.error=null;this.flush().catch(()=>{});});
+    $('save-api-key').addEventListener('click',()=>this.saveCredential());
+    $('delete-api-key').addEventListener('click',()=>this.deleteCredential());
+    $('unlock-credentials').addEventListener('click',()=>this.unlockCredentials());
     this.formats();
     window.addEventListener('rag:languagechange',()=>this.render());
   }
@@ -42,7 +45,22 @@ export class SettingsController {
     $('settings-formats').replaceChildren(...labels.map(label=>node('span','',label)));
   }
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
-  set(result){this.value={...result.settings};this.models=result.models||[];this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);}
+  set(result){this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);}
+  async saveCredential(){
+    const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
+    try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();}
+    catch(error){this.error=error;}this.render();
+  }
+  async deleteCredential(){
+    const provider=this.value?.response_provider;if(!provider||provider==='ollama')return;
+    try{const result=await this.api(`/api/credentials/${provider}`,{method:'DELETE'});this.credentials=result.credentials;this.error=null;}
+    catch(error){this.error=error;}this.render();
+  }
+  async unlockCredentials(){
+    const passphrase=$('credential-passphrase').value;if(!passphrase)return;
+    try{const result=await this.api('/api/credentials/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({passphrase})});this.credentials=result.credentials;$('credential-passphrase').value='';this.error=null;}
+    catch(error){this.error=error;}this.render();
+  }
   setStatus(status){this.status=status;this.warning();}
   warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
   patch(patch){
@@ -74,19 +92,25 @@ export class SettingsController {
   radios(selector,selected){for(const control of document.querySelectorAll(selector)){const checked=selected(control);control.setAttribute('aria-checked',String(checked));control.tabIndex=checked?0:-1;}}
   render(){
     if(!this.value)return;
-    const value=this.value,pending=this.saved<this.version;
+    const value=this.value,pending=this.saved<this.version,external=value.response_provider!=='ollama';
     for(const [id,key] of Object.entries(fields)){
       const element=$(id);if(element.type==='checkbox')element.checked=value[key];else if(element.tagName!=='SELECT'&&element.value!==String(value[key]))element.value=value[key];
     }
     $('model-selection').value=value.response_mode;
+    const providerSelect=$('response-provider'),providerSignature=JSON.stringify(this.providers);
+    if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
     this.select('model',this.models,value.response_model);this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);
+    $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
+    for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
     const composer=$('composer-model'),selected=value.response_mode==='automatic'?'automatic':'manual:'+value.response_model;
-    const signature=JSON.stringify([this.models,selected,s('auto'),s('vision')]);
-    if(composer.dataset.options!==signature){composer.dataset.options=signature;composer.replaceChildren();const option=node('option','',s('auto'));option.value='automatic';composer.append(option);for(const model of this.models){const option=node('option','',model.name+(model.vision?' · '+s('vision'):''));option.value='manual:'+model.name;composer.append(option);}if(value.response_mode==='manual'&&!this.models.some(model=>model.name===value.response_model)){const option=node('option','',value.response_model+' · '+s('unavailable'));option.value=selected;composer.append(option);}composer.value=selected;}
+    const signature=JSON.stringify([this.models,selected,s('auto'),s('vision'),external,value.response_provider,value.external_model]);
+    if(composer.dataset.options!==signature){composer.dataset.options=signature;composer.replaceChildren();if(external){const label=this.providers.find(item=>item.id===value.response_provider)?.label||value.response_provider;const option=node('option','',`${label} · ${value.external_model||s('no_models')}`);option.value='external';composer.append(option);}else{const option=node('option','',s('auto'));option.value='automatic';composer.append(option);for(const model of this.models){const option=node('option','',model.name+(model.vision?' · '+s('vision'):''));option.value='manual:'+model.name;composer.append(option);}if(value.response_mode==='manual'&&!this.models.some(model=>model.name===value.response_model)){const option=node('option','',value.response_model+' · '+s('unavailable'));option.value=selected;composer.append(option);}composer.value=selected;}}composer.disabled=external;
     this.radios('#response-mode-control [data-response-mode]',control=>control.dataset.responseMode===value.response_mode);
     this.radios('#top-k [data-k]',control=>Number(control.dataset.k)===value.k);
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));
-    $('response-mode').textContent=s(value.response_mode==='automatic'?'router_auto':'router_manual');
+    $('response-mode').textContent=external?s('router_cloud'):s(value.response_mode==='automatic'?'router_auto':'router_manual');
+    $('credential-panel').hidden=!external;$('credential-unlock').hidden=!external||!this.credentials?.locked;
+    if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]);$('credential-state').textContent=s(this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',configured&&!this.credentials?.locked);$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);}
     // Visual limits only apply while multimodal processing is on.
     for(const id of ['max-images','max-visuals']){
       const input=$(id),current=Number(input.value);input.disabled=!value.multimodal;

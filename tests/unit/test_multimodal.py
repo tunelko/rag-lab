@@ -257,7 +257,8 @@ class IntegrationTests(unittest.TestCase):
             def ask(question, **extra):
                 response = self.client.post("/api/query", headers=self.headers, json={"question": question, **extra})
                 return self.wait(response.json()["job_id"])
-            with patch("rag.retrieve", return_value=[(text, .1)]), patch("rag.generate_ollama", side_effect=generate):
+            focused = ([(text, .1)], {"strategy": "native-channel", "candidates": 1, "reranked": False})
+            with patch("retrieval_pipeline.retrieve", return_value=focused), patch("rag.generate_ollama", side_effect=generate):
                 ordinary = ask("¿Cuánto dura la garantía?")
                 visual = ask("¿Qué muestra el gráfico?")
                 self.configure(multimodal=True, vision_model="test-vision", response_mode="manual")

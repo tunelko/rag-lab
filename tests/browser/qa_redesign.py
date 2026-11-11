@@ -112,19 +112,29 @@ def fixture_server(port):
         return "".join(pieces), {"model": model, "generation_tok_s": 80, "output_tokens": 18, "first_content_seconds": .08, "retrieval_seconds": .05}
 
     rag.generate_ollama = fake_generate
-    real_retrieve = rag.retrieve
-    def fixture_retrieve(config, question, embeddings, k, *, files=None):
+    import retrieval_pipeline
+    real_retrieve = retrieval_pipeline.retrieve
+    def fixture_retrieve(config, question, embeddings, k, *, files=None, visual=False,
+                         reranker=None, rerank_window=50):
         # Thousands of identical synthetic text vectors can swamp HNSW's candidates.
         # Scope routing UI tests to their real indexed fixtures, not ANN recall quality.
         fixture_file = ('qa-figure.png' if question.startswith("qa-figure\n") else
-                        'manual.txt' if question == 'La copia de seguridad se realiza cada viernes.' else None)
+                        'manual.txt' if 'copia de seguridad' in question.casefold() else None)
         if fixture_file and (files is None or fixture_file in files):
+            if fixture_file == 'manual.txt':
+                path = service.documents / fixture_file
+                hits = [(rag.Document(
+                    page_content='La copia de seguridad se realiza cada viernes.',
+                    metadata={'file': fixture_file, 'source': str(path), 'page': 1, 'item_type': 'text'}), 0.0)]
+                return hits, {"strategy": "qa-fixture", "candidates": 1, "reranked": False}
             rows = rag.open_store(config, embeddings).get(where={"file": fixture_file})
             assert rows['ids'], f'Missing indexed routing fixture: {fixture_file}'
-            return [(rag.Document(page_content=text, metadata=metadata), 0.0)
+            hits = [(rag.Document(page_content=text, metadata=metadata), 0.0)
                     for text, metadata in zip(rows["documents"][:k], rows["metadatas"][:k])]
-        return real_retrieve(config, question, embeddings, k, files=files)
-    rag.retrieve = fixture_retrieve
+            return hits, {"strategy": "qa-fixture", "candidates": len(hits), "reranked": False}
+        return real_retrieve(config, question, embeddings, k, files=files, visual=visual,
+                             reranker=reranker, rerank_window=rerank_window)
+    retrieval_pipeline.retrieve = fixture_retrieve
     import multimodal
     multimodal.describe_image = lambda *args, **kwargs: "Captura de prueba con 4 puertos USB."
     sandbox = ROOT / "data" / "test-chroma"
@@ -355,6 +365,15 @@ def run_browser(url):
         page.reload(wait_until="networkidle")
         expect(page.locator("#top-k [data-k='6']")).to_have_attribute("aria-checked", "true")
         expect(page.locator("#model-selection")).to_have_value("automatic")
+        page.locator('#response-provider').select_option('xai')
+        expect(page.locator('#settings-message')).to_have_text('Guardado')
+        expect(page.locator('#external-model-field')).to_be_visible()
+        expect(page.locator('#credential-panel')).to_be_visible()
+        expect(page.locator('#provider-api-key')).to_have_attribute('type', 'password')
+        expect(page.locator('#local-model-field')).to_be_hidden()
+        expect(page.locator('#credential-state')).to_have_text('Sin configurar')
+        page.locator('#response-provider').select_option('ollama')
+        expect(page.locator('#settings-message')).to_have_text('Guardado')
         page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)
         page.locator("#nav-query").click()
         expect(page.locator("#model")).not_to_be_visible()
@@ -365,7 +384,9 @@ def run_browser(url):
         expect(page.locator('#question')).to_have_value('¿Cuándo se realiza la copia de seguridad?\n')
         assert len(queries)==previous_queries, 'Ctrl+Enter must insert a newline without sending'
         page.locator("#question").press("Enter")
-        expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false")
+        # The first retrieval can initialise the persisted vector snapshot; keep
+        # the acceptance test's wait aligned with the page-wide 30 s timeout.
+        expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false", timeout=30000)
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#context-panel")).not_to_be_visible()
         page.locator(".chat-turn .citation").last.click()

@@ -102,6 +102,34 @@ applies `RAG_CONTEXT_CHARS` exactly as answer construction does. It reports seed
 expanded evidence separately, context characters and fragment/channel counts. These
 modes do not modify the index or production query path.
 
+The `dense-native*` modes filter the global 512-candidate window after ranking. For
+a question in a language other than the document's, that window can be almost all
+captions and leave only a handful of native candidates. The channel modes rank the
+native channel itself:
+
+```text
+--mode dense dense-channel dense-channel-scoped dense-channel-scoped-reranked
+```
+
+- `dense-channel` searches text and table fragments, plus a caption only when its
+  page has no native text at all. The report states `channel_fragments`.
+- `dense-channel-scoped` adds automatic scope with two extra alias sources: the
+  letters-and-digits prefix of a long filename token (`Intel600BIOS` answers
+  "Intel 600") and the chipset code stated on the first five native pages
+  (`Intel H110 Chipset` answers "H110" for a file named `M7994v1.4.pdf`). When the
+  scope comes from an alias, the words that spell it are removed from the search
+  query, recorded as `search_query`: fragments never contain the product name, so
+  keeping it only favours covers and notices.
+- `dense-channel-scoped-reranked` reorders the first `--rerank-window` candidates
+  (default 50) with a local cross-encoder, `--reranker` (default
+  `BAAI/bge-reranker-v2-m3`), on `--rerank-device` (`auto` uses CUDA when available).
+  Nothing is downloaded without `--allow-download`. The report records the model,
+  device, window, peak VRAM and reranking milliseconds per query.
+
+`dense` and the channel modes report `candidate_evidence_recall@20/50/100/512`,
+measured before reranking: the share of questions whose answer a reordering stage
+could still reach.
+
 Linux:
 
 ```bash

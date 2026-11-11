@@ -91,6 +91,13 @@ Escape closes it. Configure fragment counts and retrieval-only mode in Settings.
 Settings save automatically. The top-right flag selector switches Spanish/English;
 fonts and translations are served locally.
 
+The response provider can remain **Ollama local** or be changed to Scaleway,
+OVHcloud or xAI/Grok. External providers receive only the question, conversation
+history and retrieved text chunks; embeddings, indexes, source files and visual
+captioning remain local. API keys are entered from Settings on the server host
+(through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
+user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
+
 In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
 **+** to create a category and its menu to add subcategories or rename it. Select
 documents and move them in bulk; the upload destination follows the chosen category.
@@ -101,8 +108,10 @@ existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md)
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local
   vision model describes the images; descriptions and text enter the local SQLite vector store.
 - **Retrieve:** search text and image descriptions using multilingual embeddings.
-- **Answer:** choose text or vision from the question and evidence, optionally
-  attaching retrieved original images to the vision model. Answers include citations.
+- **Rank:** focused questions use a native-text channel, automatic document scope
+  and an optional local cross-encoder. See the [focused retrieval pipeline](docs/RETRIEVAL.md#focused-retrieval-pipeline).
+- **Answer:** use local Ollama or an explicitly selected external provider. Local
+  vision can attach original images; cloud generation receives text only. Answers include citations.
 - **Inspect:** Library shows jobs, Statistics offers resource graphs and timings,
   and Console shows server output. Chat renders Markdown and code.
 

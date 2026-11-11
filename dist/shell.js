@@ -26,7 +26,8 @@ export class Shell {
   setView(view){this.view=view;this.pipeline();}
   render(){
     const status=this.status;if(!status)return;
-    const values={'pipeline-docs':s('document_count',{count:number(status.document_count)}),'pipeline-chunks':s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap}),'pipeline-embedding':status.embedding_model.split('/').at(-1)+' · '+status.embedding_device.toUpperCase(),'pipeline-vectors':status.collection+' · '+number(status.chunk_count),'pipeline-retrieval':'top-k '+(this.settings?.k??4),'pipeline-llm':this.settings?.response_mode==='manual'?this.settings.response_model:s('auto')};
+    const llm=this.settings?.response_provider&&this.settings.response_provider!=='ollama'?`${this.settings.response_provider} · ${this.settings.external_model||'—'}`:this.settings?.response_mode==='manual'?this.settings.response_model:s('auto');
+    const values={'pipeline-docs':s('document_count',{count:number(status.document_count)}),'pipeline-chunks':s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap}),'pipeline-embedding':status.embedding_model.split('/').at(-1)+' · '+status.embedding_device.toUpperCase(),'pipeline-vectors':status.collection+' · '+number(status.chunk_count),'pipeline-retrieval':'top-k '+(this.settings?.k??4),'pipeline-llm':llm};
     for(const [id,value]of Object.entries(values))$(id).textContent=value;
     $('ollama-header').textContent=s(status.ollama.connected?'ollama_connected':'ollama_offline');$('system-ollama').textContent=s(status.ollama.connected?'connected':'offline');$('system-ollama-tag').classList.toggle('is-danger',!status.ollama.connected);
     const loaded=status.ollama.loaded||[],models=loaded.map(item=>item.name).join(' · ');$('system-models').textContent=models||h('no_model');$('system-models').title=models;$('system-models').classList.toggle('is-empty',!models);

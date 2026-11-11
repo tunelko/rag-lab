@@ -291,6 +291,7 @@ there are no separate accounts. See [security boundaries](../SECURITY.md).
 |---|---|
 | `.env` | Startup/CLI configuration; created by the wizard. |
 | `data/settings.json` | Shared web preferences. |
+| `data/credentials.sqlite3` | Encrypted optional cloud-provider API credentials; never contains plaintext keys. |
 | `data/documents/` | Original uploaded documents. |
 | `data/chroma/` | Persistent vectors and collection manifests. |
 | `data/visual/` | Extracted page images and cached descriptions. |

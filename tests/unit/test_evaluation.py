@@ -311,5 +311,79 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(summary['context_visual_fragments@1'], 0)
         self.assertLessEqual(summary['context_chars@1'], 1000)
 
+    def test_channel_modes_search_native_ids_refine_scope_and_rerank(self):
+        rows = [
+            ('spec', 'Chipset Intel® H110 Chipset. Memory support up to 32GB.',
+             {'file':'M7994v1.4.pdf','page':3,'chunk':5,'item_type':'text'}),
+            ('spec-caption', 'Descripción de la página de especificaciones.',
+             {'file':'M7994v1.4.pdf','page':3,'chunk':6,'item_type':'page_image'}),
+            ('scan-caption', 'Página escaneada: el puente JP1 borra la CMOS.',
+             {'file':'M7994v1.4.pdf','page':9,'chunk':20,'item_type':'page_image'}),
+            ('bios', 'GO2BIOS enters setup by pressing the Power button.',
+             {'file':'MAG B660M BIOS Intel600BIOS Manual.pdf','page':2,'chunk':1,'item_type':'text'}),
+            ('cover', 'H110 board cover and notices.',
+             {'file':'M7994v1.4.pdf','page':4,'chunk':8,'item_type':'text'}),
+        ]
+        class FakeStore:
+            calls = []
+            @staticmethod
+            def get(**_options):
+                return {'ids':[row[0] for row in rows], 'documents':[row[1] for row in rows],
+                        'metadatas':[row[2] for row in rows]}
+            @classmethod
+            def embed_query(cls, question):
+                cls.calls.append(('query', question)); return [1.0, 0.0]
+            @classmethod
+            def dense_search_vector(cls, _vector, _limit, **options):
+                cls.calls.append(('options', options))
+                allowed = set(options['ids'])
+                scope = options.get('filter', {}).get('file', {}).get('$in')
+                order = ['cover', 'spec-caption', 'spec', 'scan-caption', 'bios']
+                return [{'id':identifier, 'text':text, 'metadata':metadata, 'score':.1}
+                        for wanted in order for identifier, text, metadata in rows
+                        if identifier == wanted and identifier in allowed
+                        and (scope is None or metadata['file'] in scope)]
+        published = [row[0] for row in rows]
+        dataset = [{'id':'h110', 'question':'¿Cuánta memoria admite la placa con chipset Intel H110?',
+                    'relevant':[{'file':'M7994v1.4.pdf','page':3}], 'evidence':['32GB'],
+                    'strata':['cross-language']},
+                   {'id':'bios', 'question':'MSI Intel 600 series BIOS GO2BIOS',
+                    'relevant':[{'file':'MAG B660M BIOS Intel600BIOS Manual.pdf','page':2}],
+                    'evidence':['pressing the Power button'], 'strata':['literal']}]
+        channel = run_mode(FakeStore(), 'dense-channel', dataset, published, (1,))
+        # Captions stay only for the page that has no native text.
+        self.assertEqual(channel['channel_fragments'], 4)
+        self.assertNotIn('spec-caption', FakeStore.calls[1][1]['ids'])
+        self.assertIn('scan-caption', FakeStore.calls[1][1]['ids'])
+        FakeStore.calls.clear()
+        scoped = run_mode(FakeStore(), 'dense-channel-scoped', dataset, published, (1,))
+        first, second = scoped['queries']
+        # The chipset alias comes from the native spec page; the file name says nothing.
+        self.assertEqual(first['automatic_scope']['files'], ['M7994v1.4.pdf'])
+        self.assertEqual(first['automatic_scope']['matched_aliases'], ['h110'])
+        self.assertEqual(first['automatic_scope']['search_query'],
+                         '¿Cuánta memoria admite la placa con chipset Intel')
+        # "Intel 600" in the question reaches the "Intel600BIOS" file name.
+        self.assertEqual(second['automatic_scope']['files'],
+                         ['MAG B660M BIOS Intel600BIOS Manual.pdf'])
+        self.assertEqual(FakeStore.calls[0], ('query', '¿Cuánta memoria admite la placa con chipset Intel'))
+        self.assertEqual(first['hits'][0]['id'], 'cover')
+        self.assertEqual(scoped['summary']['evidence_recall@1'], .5)
+        self.assertEqual(scoped['summary']['candidate_evidence_recall@20'], 1)
+        with self.assertRaises(ValueError):
+            run_mode(FakeStore(), 'dense-channel-scoped-reranked', dataset, published, (1,))
+        seen = []
+        def reranker(query, texts):
+            seen.append((query, len(texts)))
+            return [1.0 if '32GB' in text or 'Power button' in text else 0.0 for text in texts]
+        reranked = run_mode(FakeStore(), 'dense-channel-scoped-reranked', dataset, published, (1,),
+                            reranker=reranker, rerank_window=2)
+        # Only the first two candidates are reordered, with the identifier-free query.
+        self.assertEqual(seen[0], ('¿Cuánta memoria admite la placa con chipset Intel', 2))
+        self.assertEqual(reranked['queries'][0]['hits'][0]['id'], 'spec')
+        self.assertEqual(reranked['summary']['evidence_recall@1'], 1)
+        self.assertIn('rerank_ms_p50', reranked['summary'])
+        self.assertIn('rerank_ms', reranked['queries'][0])
+
 
 if __name__=='__main__':unittest.main()

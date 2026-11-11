@@ -92,6 +92,14 @@ fuentes, que se cierra con Escape. El número de fragmentos y «Solo recuperaci�
 están en Configuración, con guardado automático. El selector con bandera está
 arriba a la derecha; fuentes tipográficas y traducciones se sirven localmente.
 
+El proveedor de respuesta puede seguir siendo **Ollama local** o cambiarse a
+Scaleway, OVHcloud o xAI/Grok. Un proveedor externo recibe únicamente la pregunta,
+el historial y los fragmentos de texto recuperados; embeddings, índices, documentos
+y descripciones visuales permanecen locales. Las claves API se introducen desde
+Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
+Windows las cifra con DPAPI ligada al usuario y Linux con AES-GCM y una contraseña
+maestra conservada solo en memoria.
+
 En **Biblioteca**, organiza los documentos en **categorías y subcategorías** desde
 el árbol lateral. El botón **+** crea una categoría; el menú de cada una permite
 añadir subcategorías, renombrar o eliminar categorías vacías.
@@ -104,8 +112,10 @@ en `data/` y conserva PDF, vectores y descripciones ya procesadas.
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
   Un modelo visual local describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
 - **Recuperación:** busca en texto y descripciones con embeddings multilingües.
-- **Respuesta:** elige texto o visión según la pregunta y las fuentes; puede adjuntar
-  imágenes originales al modelo visual y devuelve citas verificables.
+- **Ordenación:** las preguntas enfocadas usan un canal de texto nativo, ámbito
+  documental automático y un cross-encoder local opcional. Consulta el [pipeline de recuperación](docs/RETRIEVAL.md#focused-retrieval-pipeline).
+- **Respuesta:** usa Ollama local o un proveedor externo elegido expresamente. La
+  visión local puede adjuntar imágenes; la generación cloud solo recibe texto y devuelve citas verificables.
 - **Seguimiento:** Biblioteca muestra trabajos, Estadísticas aporta gráficas y tiempos,
   y Consola recoge la salida del servidor. El chat muestra Markdown y código.
 

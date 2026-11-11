@@ -69,6 +69,25 @@
 .cfg-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .cfg-field__label { font: 500 12px/1.2 var(--font-mono); color: var(--text); }
 .cfg-field__hint { margin: 0; font: 12px/1.5 var(--font-mono); color: var(--text-muted); }
+.cfg-field > .input {
+  width: 100%;
+  height: var(--cfg-control);
+  padding: 0 var(--space-3);
+  font: 13px/1 var(--font-mono);
+}
+.cfg-credential {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+.cfg-credential[hidden] { display: none; }
+.cfg-credential__head, .cfg-credential__actions { display: flex; align-items: center; gap: var(--space-2); }
+.cfg-credential__head { justify-content: space-between; }
+.cfg-credential__actions { flex-wrap: wrap; }
 
 /* Select: native control with a token-colored chevron. */
 .cfg-select { position: relative; display: block; min-width: 0; }

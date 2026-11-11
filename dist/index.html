@@ -1228,6 +1228,15 @@
         </h2>
        </header>
        <div class="cfg-card__body">
+        <label class="cfg-field" for="response-provider">
+         <span class="cfg-field__label" data-i18n="sentinel.response_provider">
+          Proveedor de respuesta
+         </span>
+         <span class="cfg-select">
+          <select class="select" id="response-provider">
+          </select>
+         </span>
+        </label>
         <input id="model-selection" type="hidden" value="automatic"/>
         <div aria-label="Modo de generación" class="segmented cfg-seg" data-i18n-aria-label="sentinel.generation_mode" id="response-mode-control" role="radiogroup">
          <button aria-checked="true" data-response-mode="automatic" role="radio" type="button">
@@ -1241,7 +1250,7 @@
           </span>
          </button>
         </div>
-        <label class="cfg-field" for="model">
+        <label class="cfg-field" for="model" id="local-model-field">
          <span class="cfg-field__label" data-i18n="sentinel.text_model">
           Modelo de texto
          </span>
@@ -1253,6 +1262,36 @@
           </select>
          </span>
         </label>
+        <label class="cfg-field" for="external-model" hidden="" id="external-model-field">
+         <span class="cfg-field__label" data-i18n="sentinel.external_model">
+          Modelo externo
+         </span>
+         <input autocomplete="off" class="input" data-i18n-placeholder="sentinel.external_model_placeholder" id="external-model" maxlength="300" placeholder="Identificador exacto del proveedor" type="text"/>
+        </label>
+        <section class="cfg-credential" hidden="" id="credential-panel">
+         <div class="cfg-credential__head">
+          <span class="cfg-field__label" data-i18n="sentinel.api_credential">Credencial API cifrada</span>
+          <span class="status-pill" id="credential-state"></span>
+         </div>
+         <label class="cfg-field" for="provider-api-key">
+          <span class="cfg-field__label" data-i18n="sentinel.api_key">Clave API</span>
+          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.api_key_placeholder" id="provider-api-key" maxlength="8192" placeholder="No se mostrará ni se conservará en el navegador" type="password"/>
+         </label>
+         <div class="cfg-credential__actions">
+          <button class="btn btn--secondary btn--sm" id="save-api-key" type="button"><span data-i18n="sentinel.save_key">Guardar cifrada</span></button>
+          <button class="btn btn--ghost btn--sm" id="delete-api-key" type="button"><span data-i18n="sentinel.delete_key">Eliminar clave</span></button>
+         </div>
+         <p class="cfg-field__hint" data-i18n="sentinel.cloud_disclosure">
+          La pregunta y los fragmentos recuperados se enviarán al proveedor. El índice, los documentos y las imágenes permanecen locales.
+         </p>
+        </section>
+        <section class="cfg-credential" hidden="" id="credential-unlock">
+         <label class="cfg-field" for="credential-passphrase">
+          <span class="cfg-field__label" data-i18n="sentinel.master_passphrase">Contraseña maestra del almacén</span>
+          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.master_passphrase_placeholder" id="credential-passphrase" minlength="12" placeholder="Se mantiene solo en memoria hasta reiniciar" type="password"/>
+         </label>
+         <button class="btn btn--secondary btn--sm" id="unlock-credentials" type="button"><span data-i18n="sentinel.unlock_store">Desbloquear</span></button>
+        </section>
         <label class="cfg-field" for="vision-model">
          <span class="cfg-field__label" data-i18n="sentinel.vision_model">
           Modelo visual

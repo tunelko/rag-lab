@@ -8,11 +8,9 @@ import hashlib
 import json
 from pathlib import Path
 import random
-import re
 import statistics
 import sys
 import time
-import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -20,25 +18,25 @@ sys.path.insert(0, str(ROOT))
 from evaluation import aggregate_rankings, score_evidence, score_ranking
 from model_routing import asks_for_vision
 import rag
+# One implementation for the measured strategies and the production query path.
+from retrieval_pipeline import (
+    automatic_scope_spans as _automatic_scope_spans, channel_catalog as _channel_catalog,
+    is_native as _is_native, library_catalog as _library_catalog, load_reranker,
+    rerank as _rerank, without_identifier as _without_identifier)
 from retrieval_terms import FTS_STOP_WORDS, FTS_TOKENIZER
 
 
-VISUAL_ITEM_TYPES = frozenset({'page_image', 'figure'})
 NATIVE_MODES = frozenset({'dense-native', 'dense-native-scoped',
                           'dense-native-scoped-expanded'})
 SCOPED_MODES = frozenset({'dense-native-scoped', 'dense-native-scoped-expanded'})
 EXPANDED_MODES = frozenset({'dense-native-scoped-expanded'})
-DENSE_MODES = frozenset({'dense', 'dense-routed'}) | NATIVE_MODES
-MODEL_WORDS = frozenset({
-    'manual', 'motherboard', 'mainboard', 'datasheet', 'data', 'sheet', 'user',
-    'guide', 'quick', 'installation', 'intel', 'amd', 'msi', 'gigabyte', 'edition',
-    'english', 'german', 'french', 'russian', 'japanese', 'korean', 'chinese',
-    'en', 'de', 'fr', 'ru', 'jp', 'kr', 'sc', 'tc', 'pdf',
-})
-
-
-def _is_native(hit):
-    return (hit.get('metadata') or {}).get('item_type') not in VISUAL_ITEM_TYPES
+# Channel modes search the native channel itself (ids), instead of filtering the
+# global candidate window afterwards.
+CHANNEL_MODES = frozenset({'dense-channel', 'dense-channel-scoped',
+                           'dense-channel-scoped-reranked'})
+CHANNEL_SCOPED_MODES = frozenset({'dense-channel-scoped', 'dense-channel-scoped-reranked'})
+RERANKED_MODES = frozenset({'dense-channel-scoped-reranked'})
+DENSE_MODES = frozenset({'dense', 'dense-routed'}) | NATIVE_MODES | CHANNEL_MODES
 
 
 def _channel_metrics(hits, cutoffs):
@@ -49,75 +47,6 @@ def _channel_metrics(hits, cutoffs):
         metrics[f'native_fragments@{k}'] = native
         metrics[f'visual_fragments@{k}'] = len(selected) - native
     return metrics
-
-
-def _normalized_tokens(value):
-    normalized = unicodedata.normalize('NFKC', str(value)).casefold()
-    return re.findall(r'[a-z0-9]+', normalized)
-
-
-def _model_aliases(value, *, title=False):
-    tokens = [token for token in _normalized_tokens(value)
-              if token not in MODEL_WORDS and not token.isdigit()]
-    aliases = set()
-    minimum = 6 if title else 4
-    for index, token in enumerate(tokens):
-        if (len(token) < 4 or not any(char.isalpha() for char in token)
-                or not any(char.isdigit() for char in token)
-                or re.fullmatch(r'(?:ddr|pcie|usb|sata|lga|gen|wifi|lan)\d.*', token)):
-            continue
-        for start in range(max(0, index - 2), index + 1):
-            for end in range(index + 1, min(len(tokens), index + 4) + 1):
-                alias = ''.join(tokens[start:end])
-                if len(alias) >= minimum:
-                    aliases.add(alias)
-    return aliases
-
-
-def _library_catalog(store, published):
-    snapshot = store.get(ids=published, include=['documents', 'metadatas'], cached=True)
-    rows = list(zip(snapshot['ids'], snapshot['documents'], snapshot['metadatas']))
-    page_one = {}
-    files = set()
-    neighbors = {}
-    for identifier, text, metadata in rows:
-        name = str(metadata.get('file') or '')
-        if not name:
-            continue
-        files.add(name)
-        if metadata.get('page') == 1 and _is_native({'metadata': metadata}):
-            page_one.setdefault(name, []).append((metadata.get('chunk', 0), text))
-        chunk = metadata.get('chunk')
-        if isinstance(chunk, int) or str(chunk).isdigit():
-            key = (name.replace('\\', '/').casefold(), metadata.get('page'), int(chunk))
-            neighbors[key] = {'id': identifier, 'text': text,
-                              'metadata': dict(metadata), 'score': None}
-    aliases = {}
-    for name in files:
-        stem = Path(name).stem
-        candidates = _model_aliases(stem)
-        title = ' '.join(text for _chunk, text in sorted(page_one.get(name, [])))[:1200]
-        candidates.update(_model_aliases(title, title=True))
-        for alias in candidates:
-            aliases.setdefault(alias, set()).add(name)
-    return aliases, neighbors
-
-
-def _automatic_scope(question, aliases):
-    compact = ''.join(_normalized_tokens(question))
-    matches = []
-    for alias, files in aliases.items():
-        start = compact.find(alias)
-        while start >= 0:
-            matches.append((start, start + len(alias), alias, files))
-            start = compact.find(alias, start + 1)
-    chosen = []
-    for start, end, alias, files in sorted(matches, key=lambda item: (-len(item[2]), item[0])):
-        if any(start < used_end and end > used_start for used_start, used_end, _alias, _files in chosen):
-            continue
-        chosen.append((start, end, alias, files))
-    scoped = sorted({name for _start, _end, _alias, names in chosen for name in names})
-    return scoped, sorted({alias for _start, _end, alias, _files in chosen})
 
 
 def _budget_context(hits, max_chars):
@@ -193,14 +122,20 @@ def load_dataset(path):
     return rows
 
 
-def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
+def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000,
+             reranker=None, rerank_window=50):
     per_query = []
     limit = max(cutoffs)
     window = max(512, limit)
+    if mode in RERANKED_MODES and reranker is None:
+        raise ValueError('A reranker is required for ' + mode)
     setup_started = time.perf_counter()
     aliases, neighbors = ({}, {})
+    channel_ids = None
     if mode in SCOPED_MODES | EXPANDED_MODES:
         aliases, neighbors = _library_catalog(store, published)
+    if mode in CHANNEL_MODES:
+        aliases, channel_ids = _channel_catalog(store, published)
     setup_ms = (time.perf_counter() - setup_started) * 1000
     for row in dataset:
         started = time.perf_counter()
@@ -209,26 +144,33 @@ def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
                                   or not all(isinstance(name, str) for name in files)):
             raise ValueError(f'Query {row["id"]} has an invalid files scope.')
         scope = None
-        if mode in SCOPED_MODES:
+        query = row['question']
+        if mode in SCOPED_MODES | CHANNEL_SCOPED_MODES:
             if files is not None:
                 scope = {'applied': False, 'reason': 'explicit-files', 'files': list(files),
                          'matched_aliases': []}
             else:
-                scoped, matched = _automatic_scope(row['question'], aliases)
+                scoped, matched, spans = _automatic_scope_spans(row['question'], aliases)
                 if scoped:
                     files = scoped
                     scope = {'applied': True, 'reason': 'model-identifier',
                              'files': scoped, 'matched_aliases': matched}
+                    if mode in CHANNEL_SCOPED_MODES:
+                        # The scope already encodes the model; searching with it only
+                        # favours covers and notices that repeat the product name.
+                        query = _without_identifier(row['question'], spans)
+                        scope['search_query'] = query
                 else:
                     scope = {'applied': False, 'reason': 'no-model-identifier',
                              'files': [], 'matched_aliases': []}
-        options = {'ids': published}
+        options = {'ids': channel_ids if channel_ids is not None else published}
         if files is not None:
             options['filter'] = {'file': {'$in': files}}
         embedding_ms = 0.0
+        rerank_ms = None
         if mode in DENSE_MODES:
             embedding_started = time.perf_counter()
-            vector = store.embed_query(row['question'])
+            vector = store.embed_query(query)
             embedding_ms = (time.perf_counter() - embedding_started) * 1000
             search_started = time.perf_counter()
             hits = store.dense_search_vector(vector, window, **options)
@@ -250,6 +192,11 @@ def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
             native = [hit for hit in hits if _is_native(hit)]
             visual = [hit for hit in hits if not _is_native(hit)]
             hits = native + visual
+        candidates = hits
+        if mode in RERANKED_MODES:
+            rerank_started = time.perf_counter()
+            hits = _rerank(hits, query, reranker, rerank_window)
+            rerank_ms = (time.perf_counter() - rerank_started) * 1000
         metrics = score_ranking(hits, row['relevant'], ks=cutoffs)
         metrics.update(_channel_metrics(hits, cutoffs))
         contexts = {}
@@ -262,8 +209,9 @@ def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
                            seed_contexts[k])
         metrics.update(_context_metrics(contexts))
         if 'evidence' in row:
-            if mode == 'dense':
-                ceilings = score_evidence(hits, row['relevant'], row['evidence'],
+            if mode == 'dense' or mode in CHANNEL_MODES:
+                # Measured before reranking: what a reordering stage could still reach.
+                ceilings = score_evidence(candidates, row['relevant'], row['evidence'],
                                           ks=(20, 50, 100, 512))
                 metrics.update({f'candidate_{name}': value for name, value in ceilings.items()})
             for k, context in contexts.items():
@@ -289,6 +237,7 @@ def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
             'id': row['id'], 'strata': list(dict.fromkeys(strata)),
             'latency_ms': round(latency_ms, 3), 'embedding_ms': round(embedding_ms, 3),
             'search_ms': round(search_ms, 3), 'metrics': metrics,
+            **({'rerank_ms': round(rerank_ms, 3)} if rerank_ms is not None else {}),
             **({'automatic_scope': scope} if scope is not None else {}),
             'hits': [{'id': hit['id'], 'file': hit['metadata'].get('file'),
                       'page': hit['metadata'].get('page'),
@@ -296,7 +245,13 @@ def run_mode(store, mode, dataset, published, cutoffs, *, context_chars=12000):
                       'score': hit['score']} for hit in hits],
         })
     groups = sorted({stratum for item in per_query for stratum in item['strata']})
-    return {'summary': aggregate_rankings(per_query), 'mode_setup_ms': round(setup_ms, 3),
+    summary = aggregate_rankings(per_query)
+    if mode in RERANKED_MODES:
+        times = sorted(item['rerank_ms'] for item in per_query)
+        summary['rerank_ms_p50'] = statistics.median(times)
+        summary['rerank_ms_p95'] = times[min(len(times) - 1, int(0.95 * len(times)))]
+    return {'summary': summary, 'mode_setup_ms': round(setup_ms, 3),
+            **({'channel_fragments': len(channel_ids)} if channel_ids is not None else {}),
             'by_stratum': {group: aggregate_rankings(
                 [item for item in per_query if group in item['strata']]) for group in groups},
             'queries': per_query}
@@ -383,19 +338,28 @@ def main():
     parser.add_argument('--mode', nargs='+',
                         choices=('dense', 'dense-native', 'dense-routed',
                                  'dense-native-scoped', 'dense-native-scoped-expanded',
-                                 'lexical', 'hybrid'),
+                                 'dense-channel', 'dense-channel-scoped',
+                                 'dense-channel-scoped-reranked', 'lexical', 'hybrid'),
                         default=('dense', 'lexical', 'hybrid'))
     parser.add_argument('--cutoffs', nargs='+', type=int, default=(1, 4, 8))
     parser.add_argument('--output', type=Path)
     parser.add_argument('--db', type=Path, help='Override the configured vector directory.')
     parser.add_argument('--collection', help='Override RAG_COLLECTION.')
     parser.add_argument('--allow-download', action='store_true',
-                        help='Allow downloading the configured embedding model if absent.')
+                        help='Allow downloading the configured embedding or reranking model if absent.')
+    parser.add_argument('--reranker', default='BAAI/bge-reranker-v2-m3',
+                        help='Cross-encoder used by dense-channel-scoped-reranked.')
+    parser.add_argument('--rerank-window', type=int, default=50,
+                        help='Number of top candidates the cross-encoder reorders.')
+    parser.add_argument('--rerank-device', choices=('auto', 'cpu', 'cuda'), default='auto',
+                        help='auto uses CUDA when available. Embeddings stay on their configured device.')
     args = parser.parse_args()
     modes = list(dict.fromkeys(args.mode))
     cutoffs = tuple(sorted(set(args.cutoffs)))
     if not cutoffs or cutoffs[0] < 1:
         parser.error('--cutoffs must contain positive integers')
+    if args.rerank_window < max(cutoffs):
+        parser.error('--rerank-window must be at least the largest cutoff')
     dataset_path = args.dataset.resolve()
     dataset = load_dataset(dataset_path)
     config = rag.Config()
@@ -423,8 +387,13 @@ def main():
         store.dense_search_vector(vector, 1, ids=published)
     if {'lexical', 'hybrid'} & set(modes):
         store.lexical_search(dataset[0]['question'], 1, ids=published)
+    reranker = None
+    if RERANKED_MODES & set(modes):
+        reranker = load_reranker(args.reranker, args.rerank_device, allow_download=args.allow_download)
+        reranker('warm up', ['warm up'])
     results = {mode: run_mode(store, mode, dataset, published, cutoffs,
-                              context_chars=config.context_chars) for mode in modes}
+                              context_chars=config.context_chars, reranker=reranker,
+                              rerank_window=args.rerank_window) for mode in modes}
     index_fingerprint = hashlib.sha256(json.dumps({
         'ids': sorted(published), 'config': state.get('config'),
         'files': {key: value.get('sha256') for key, value in sorted(state.get('files', {}).items())},
@@ -448,6 +417,9 @@ def main():
         'retrieval_configuration': {
             'candidate_window': 512, 'rrf_k': 60, 'context_chars': config.context_chars,
             'fts_tokenizer': FTS_TOKENIZER, 'stop_words': sorted(FTS_STOP_WORDS),
+            **({'reranker': reranker.model_id, 'rerank_device': reranker.device,
+                'rerank_window': args.rerank_window, 'rerank_max_length': 512,
+                'rerank_peak_vram_mib': reranker.peak_vram_mib()} if reranker else {}),
         },
         'adoption': adoption,
         'notes': [
@@ -459,6 +431,9 @@ def main():
             'Evidence anchors are normalized literal strings and can span selected chunks only within one relevant page.',
             'Scoped modes derive model aliases from filenames and first-page native titles; explicit files always take precedence.',
             'Expanded mode adds native adjacent chunks from the same page, then applies the configured character budget.',
+            'Channel modes rank the native channel directly: text and tables, plus captions only for pages without native text.',
+            'Channel-scoped modes also derive chipset and filename-prefix aliases and search without the matched model identifier.',
+            'Reranked mode reorders the top candidates with a local cross-encoder; its milliseconds are recorded per query.',
             'Rankings are collapsed to the judgment granularity before metrics are calculated.',
             'fragment_recall@K measures the first K raw fragments exactly as production consumes them.',
             'Embedding and search milliseconds are recorded separately per query.',

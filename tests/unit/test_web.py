@@ -78,7 +78,7 @@ class WebTests(unittest.TestCase):
         root.mkdir(parents=True, exist_ok=True)
         self.case = Path(tempfile.mkdtemp(prefix="web-", dir=root))
         service = OfflineService(rag.Config(db=self.case / "db", collection="web_test"), self.case / "documents")
-        self.client = TestClient(create_app(service))
+        self.client = TestClient(create_app(service), client=("127.0.0.1", 50000))
         self.client.__enter__()
         self.headers = {"X-RAG-Token": self.client.get("/api/session").json()["token"]}
 
@@ -100,6 +100,30 @@ class WebTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("default-src 'self'", response.headers["content-security-policy"])
         self.assertEqual(self.client.get("/api/status").json()["chunk_count"], 0)
+
+    def test_api_credentials_are_encrypted_server_side_and_never_returned(self):
+        service = self.client.app.state.service
+        initial = self.client.get('/api/settings').json()['credentials']
+        if initial['locked']:
+            unlocked = self.client.post('/api/credentials/unlock', headers=self.headers,
+                json={'passphrase': 'test-only master password'} )
+            self.assertEqual(unlocked.status_code, 200, unlocked.text)
+        secret = 'provider-secret-value-123456'
+        saved = self.client.put('/api/credentials/ovh', headers=self.headers, json={'api_key': secret})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertNotIn(secret, saved.text)
+        self.assertTrue(saved.json()['credentials']['configured']['ovh'])
+        self.assertEqual(service.credentials.get('ovh'), secret)
+        self.assertNotIn(secret.encode(), service.credentials.path.read_bytes())
+        settings = self.client.get('/api/settings').text
+        self.assertNotIn(secret, settings)
+
+        remote = TestClient(self.client.app, client=('192.168.1.25', 50001))
+        remote_token = remote.get('/api/session').json()['token']
+        refused = remote.put('/api/credentials/xai', headers={'X-RAG-Token': remote_token},
+                             json={'api_key': 'another-secret-value'})
+        remote.close()
+        self.assertEqual(refused.status_code, 403)
 
     def test_upload_index_query_sources_and_metrics(self):
         result = self.client.post("/api/admin/upload", headers=self.headers,
@@ -133,6 +157,30 @@ class WebTests(unittest.TestCase):
         source = self.client.get(reply["sources"][0]["url"])
         self.assertEqual(source.status_code, 200)
         self.assertIn("cada viernes", source.text)
+
+    def test_external_provider_uses_encrypted_credential_adapter_without_images(self):
+        service = self.client.app.state.service
+        uploaded = self.client.post('/api/admin/upload', headers=self.headers,
+            files=[('files', ('cloud.txt', b'The maintenance window starts on Sunday.', 'text/plain'))],
+            data={'auto_index': 'true'})
+        self.wait(uploaded.json()['job_id'])
+        service.settings.save(service.settings.get().model_copy(update={
+            'response_provider': 'ovh', 'external_model': 'Qwen3.8-27B'}))
+
+        def external(messages, provider, model, api_key, on_chunk=None, **kwargs):
+            self.assertEqual((provider, model, api_key), ('ovh', 'Qwen3.8-27B', 'decrypted-test-key'))
+            self.assertFalse(any(message.get('images') for message in messages))
+            on_chunk('Sunday [1].')
+            return 'Sunday [1].', {'provider': provider, 'cloud': True, 'model': model, 'output_tokens': 3}
+
+        with patch.object(service.credentials, 'get', return_value='decrypted-test-key'), \
+             patch('generation_providers.generate', side_effect=external) as generate:
+            request = self.client.post('/api/query', headers=self.headers, json={'question': 'When is maintenance?'})
+            reply = self.wait(request.json()['job_id'])
+        self.assertEqual(reply['answer'], 'Sunday [1].')
+        self.assertEqual(reply['metrics']['provider'], 'ovh')
+        self.assertTrue(reply['metrics']['cloud'])
+        generate.assert_called_once()
 
         with patch.object(rag, "generate_ollama") as generate:
             request = self.client.post("/api/query", headers=self.headers, json={"question": "copia", "search_only": True})
@@ -267,7 +315,8 @@ class WebTests(unittest.TestCase):
         hits = [(Document(page_content=document.page_content,
                  metadata={**document.metadata, "file": path.name, "source": str(path)}), .1)
                 for document in documents]
-        with patch.object(rag, "retrieve", return_value=hits), patch.object(rag, "generate_ollama") as generate:
+        focused = (hits, {"strategy": "all-channels", "candidates": len(hits), "reranked": False})
+        with patch("retrieval_pipeline.retrieve", return_value=focused), patch.object(rag, "generate_ollama") as generate:
             request = self.client.post("/api/query", headers=self.headers,
                                        json={"question": "Explica BIOS", "search_only": True})
             self.assertEqual(request.status_code, 202, request.text)

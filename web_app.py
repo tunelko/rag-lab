@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import hashlib
 import base64
+import ipaddress
 import json
 import mimetypes
 import os
@@ -27,7 +28,8 @@ import rag
 from jobs_runtime import JobFailure, JobRuntime
 from settings_store import SettingsStore, Preferences
 import multimodal
-from model_routing import select_model
+from model_routing import select_model, asks_for_vision
+import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
@@ -41,6 +43,8 @@ from server_control import validate_host
 from library_topics import TopicStore, TopicError
 from index_lock import IndexBusyError
 from ollama_http import open_ollama
+from credential_store import CredentialError, CredentialStore, CredentialStoreLocked, PROVIDERS as CREDENTIAL_PROVIDERS
+import generation_providers
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -80,6 +84,14 @@ class AssignmentRequest(BaseModel):
     topic_id: str | None = Field(default=None, max_length=64)
 
 
+class CredentialRequest(BaseModel):
+    api_key: str = Field(min_length=8, max_length=8192)
+
+
+class UnlockRequest(BaseModel):
+    passphrase: str = Field(min_length=12, max_length=1024)
+
+
 class RagService(JobRuntime):
     def __init__(self, config=None, documents=None):
         self.config = config or rag.Config()
@@ -87,6 +99,7 @@ class RagService(JobRuntime):
         self.documents.mkdir(parents=True, exist_ok=True)
         self.embeddings = None
         self.settings = SettingsStore(self.config.db.parent / "settings.json")
+        self.credentials = CredentialStore(self.config.db.parent / "credentials.sqlite3")
         self.visual_root = self.config.db.parent / "visual"
         self.capabilities_cache = {}
         self.console = ConsoleBuffer()
@@ -112,6 +125,7 @@ class RagService(JobRuntime):
         super().close()
         self.hardware.stop()
         self.statistics_archive.close()
+        self.credentials.close()
 
     def get_embeddings(self, download=False):
         if self.embeddings is None:
@@ -290,7 +304,8 @@ class RagService(JobRuntime):
         if not value.response_model:
             value.response_model = available["default_model"]
         return {"settings": value.model_dump(), "models": [{"name": name, "vision": "vision" in self.model_capabilities(name)} for name in available["models"]],
-                "connected": available["connected"]}
+                "connected": available["connected"], "providers": generation_providers.provider_info(),
+                "credentials": self.credentials.status()}
 
     def statistics(self, seconds=RETENTION, page=1, per_page=50, ingestion_page=1, query_id=None):
         files = rag.load_state(self.config)["files"]
@@ -301,7 +316,7 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None):
+    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None):
         started = time.perf_counter()
         documents = self.list_documents()
         if document_names is not None:
@@ -329,9 +344,13 @@ class RagService(JobRuntime):
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
-            hits = rag.retrieve(self.config, query.question.strip(), embeddings, query.k,
-                                files=frozenset(item['name'] for item in documents if item.get('indexed')))
-            scope = {'retrieval_mode': 'focused'}
+            hits, retrieval = retrieval_pipeline.retrieve(
+                self.config, query.question.strip(), embeddings, query.k,
+                files=frozenset(item['name'] for item in documents if item.get('indexed')),
+                visual=bool(query.images) or asks_for_vision(query.question, query.history),
+                reranker=retrieval_pipeline.configured_reranker(),
+                rerank_window=retrieval_pipeline.rerank_window())
+            scope = {'retrieval_mode': 'focused', **retrieval_pipeline.trace_metrics(retrieval)}
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
@@ -395,23 +414,44 @@ class RagService(JobRuntime):
             return {"answer": localized('answer.search_only',query.language), "sources": sources,
                     "metrics": {"retrieval_seconds": retrieval_seconds, **timings, "routing_mode": "search_only", "routing_reason": localized('answer.search_only_reason',query.language)}}
         stage_started = time.perf_counter()
-        available = self.ollama_status()
-        if not available["connected"]:
-            raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
-        route = select_model(settings, query.question, hits[:len(sources)], bool(images), available,
-                             self.model_capabilities, requested=query.model, history=query.history, input_images=bool(query.images))
-        model = route.model
+        provider = settings.response_provider
+        external_api_key = None
         visual_mode = "descriptions" if any(document.metadata.get("asset_id") for document, _ in hits[:len(sources)]) else "text"
-        if route.images:
-            messages[-1]["images"] = [*query.images, *(base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images)]
-            labels=[f'imagen {i}: aportada por el usuario como parte de la pregunta' for i in range(1,len(query.images)+1)]
-            labels += [f'imagen {i}: fuente [{citation}]' for i,citation in enumerate(images.values(),len(query.images)+1)]
-            messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(labels)
-            messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
-            visual_mode = "images"
-        routing = {"model": model, "routing_mode": route.mode, "routing_reason": route.reason}
+        if provider == "ollama":
+            available = self.ollama_status()
+            if not available["connected"]:
+                raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", available.get("error", "Inicia ollama serve."))
+            route = select_model(settings, query.question, hits[:len(sources)], bool(images), available,
+                                 self.model_capabilities, requested=query.model, history=query.history, input_images=bool(query.images))
+            model = route.model
+            if route.images:
+                messages[-1]["images"] = [*query.images, *(base64.b64encode((self.visual_root / f"{asset}.png").read_bytes()).decode() for asset in images)]
+                labels=[f'imagen {i}: aportada por el usuario como parte de la pregunta' for i in range(1,len(query.images)+1)]
+                labels += [f'imagen {i}: fuente [{citation}]' for i,citation in enumerate(images.values(),len(query.images)+1)]
+                messages[-1]["content"] += "\n\nIMÁGENES ADJUNTAS (en este orden): " + "; ".join(labels)
+                messages[0]["content"] += " Inspecciona también las imágenes adjuntas; sus descripciones automáticas pueden contener errores."
+                visual_mode = "images"
+            routing = {"model": model, "provider": "ollama", "cloud": False,
+                       "routing_mode": route.mode, "routing_reason": route.reason}
+            phase = "Generando respuesta con Ollama"
+        else:
+            if query.images:
+                raise JobFailure("LOCAL_VISION_REQUIRED", "Las imágenes adjuntas se procesan solo en local.",
+                                 "Selecciona Ollama como proveedor de respuesta; la imagen no se ha enviado a la nube.")
+            model = settings.external_model.strip()
+            if not model:
+                raise JobFailure("PROVIDER_MODEL_MISSING", "Falta el modelo externo.",
+                                 "Escribe el identificador exacto del modelo en Configuración.")
+            try:
+                external_api_key = provider_key if provider_key is not None else self.credentials.get(provider)
+                profile = generation_providers.PROVIDERS[provider]
+            except (CredentialError, KeyError) as exc:
+                raise JobFailure("PROVIDER_CREDENTIALS", "El proveedor externo no está preparado.", str(exc)) from exc
+            routing = {"model": model, "provider": provider, "provider_label": profile.label, "cloud": True,
+                       "routing_mode": "external", "routing_reason": f"Respuesta remota mediante {profile.label}; imágenes e índice permanecen locales."}
+            phase = f"Generando respuesta con {profile.label}"
         timings["routing_seconds"] = round(time.perf_counter() - stage_started, 6)
-        self.update(job_id, phase="Generando respuesta con Ollama", model=model,
+        self.update(job_id, phase=phase, model=model,
                     metrics={"retrieval_seconds": retrieval_seconds, **timings, **routing, 'images_used':len(messages[-1].get('images',[])), 'visual_mode':visual_mode})
 
         structured = GlobalAnswer(sources,cpu_guard={'cpu','support'}.issubset(tokens(intent.topic)),language=query.language) if intent.mode == 'global' else None
@@ -434,21 +474,30 @@ class RagService(JobRuntime):
                 'max_output_tokens': int(os.getenv('RAG_GLOBAL_MAX_NEW_TOKENS', '2048')),
                 'response_format': structured.schema,
             } if intent.mode == 'global' else {}
-            if intent.mode != 'global' and 'thinking' in self.model_capabilities(model):
+            if provider == 'ollama' and intent.mode != 'global' and 'thinking' in self.model_capabilities(model):
                 # Reasoning shares num_predict with the final answer. A small text
                 # budget can end before message.content, even with think=False.
                 generation_options['max_output_tokens'] = max(
                     int(os.getenv('RAG_MAX_NEW_TOKENS', '512')),
                     int(os.getenv('RAG_REASONING_MAX_NEW_TOKENS', '2048')))
-            answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id), **generation_options)
+            if provider == 'ollama':
+                answer, metrics = rag.generate_ollama(messages, model, on_chunk=on_chunk,
+                    cancelled=lambda: self.cancelled(job_id), **generation_options)
+            else:
+                answer, metrics = generation_providers.generate(messages, provider, model, external_api_key,
+                    on_chunk=on_chunk, cancelled=lambda: self.cancelled(job_id), **generation_options)
             if structured:
                 answer = structured.finish(answer)
                 metrics.update(answer_documents=len(structured.rows), answer_coverage_complete=True)
                 metrics['answer_grounding_fallbacks']=len(structured.grounding_fallbacks)
         except InterruptedError:
             raise
+        except generation_providers.ProviderError as exc:
+            raise JobFailure("PROVIDER_UNAVAILABLE", "El proveedor externo no pudo generar la respuesta.", str(exc)) from exc
         except OSError as exc:
-            raise JobFailure("OLLAMA_UNAVAILABLE", "Ollama no responde.", str(exc)) from exc
+            code = "OLLAMA_UNAVAILABLE" if provider == "ollama" else "PROVIDER_UNAVAILABLE"
+            message = "Ollama no responde." if provider == "ollama" else "El proveedor externo no responde."
+            raise JobFailure(code, message, str(exc)) from exc
         if not answer.strip():
             self.update(job_id, metrics={**metrics, **routing, **timings})
             raise JobFailure('EMPTY_RESPONSE', 'El modelo terminó sin devolver una respuesta visible.',
@@ -464,6 +513,16 @@ def create_app(service=None):
     background_monitor = service is None
     service = service or RagService()
     token = secrets.token_urlsafe(32)
+
+    def require_local_credentials(request: Request):
+        host = request.client.host if request.client else ""
+        try:
+            local = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            local = False
+        same_host = host == getattr(service, "bind_host", None)
+        if not local and not same_host:
+            raise HTTPException(403, "Las credenciales solo pueden administrarse desde el propio equipo que ejecuta RAG Local.")
 
     @asynccontextmanager
     async def lifespan(app):
@@ -527,11 +586,44 @@ def create_app(service=None):
     @app.put("/api/settings")
     def save_settings(body: Preferences):
         available = service.ollama_status()
-        if body.response_model and available["connected"] and body.response_model not in available["models"]:
+        if body.response_provider == "ollama" and body.response_model and available["connected"] and body.response_model not in available["models"]:
             raise HTTPException(422, "El modelo de respuesta no está instalado en Ollama.")
         if body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
             raise HTTPException(422, "Selecciona un modelo visual local instalado antes de activar el modo multimodal.")
         return {"settings": service.settings.save(body).model_dump()}
+
+    @app.put("/api/credentials/{provider}")
+    def save_credential(provider: str, body: CredentialRequest, request: Request):
+        require_local_credentials(request)
+        if provider not in CREDENTIAL_PROVIDERS:
+            raise HTTPException(404, "Proveedor no disponible.")
+        try:
+            return {"credentials": service.credentials.set(provider, body.api_key)}
+        except CredentialStoreLocked as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except CredentialError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.delete("/api/credentials/{provider}")
+    def delete_credential(provider: str, request: Request):
+        require_local_credentials(request)
+        if provider not in CREDENTIAL_PROVIDERS:
+            raise HTTPException(404, "Proveedor no disponible.")
+        return {"credentials": service.credentials.delete(provider)}
+
+    @app.post("/api/credentials/unlock")
+    def unlock_credentials(body: UnlockRequest, request: Request):
+        require_local_credentials(request)
+        try:
+            return {"credentials": service.credentials.unlock(body.passphrase)}
+        except CredentialError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.post("/api/credentials/lock")
+    def lock_credentials(request: Request):
+        require_local_credentials(request)
+        service.credentials.lock_store()
+        return {"credentials": service.credentials.status()}
 
     @app.get("/api/statistics")
     def statistics(history_seconds: int = QueryParameter(default=RETENTION, ge=86400, le=RETENTION),
@@ -592,7 +684,19 @@ def create_app(service=None):
                 body.images=normalize_query_images(body.images,settings.max_images)
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
-        return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,preferences=settings),
+        provider_key = None
+        generates = not body.search_only and not query_intent(body.question).mode.startswith('catalog_')
+        if generates and settings.response_provider != 'ollama':
+            if body.images:
+                raise HTTPException(422, 'Las imágenes adjuntas se procesan solo con Ollama local y no se enviarán a la nube.')
+            if not settings.external_model.strip():
+                raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')
+            try:
+                provider_key = service.credentials.get(settings.response_provider)
+            except CredentialError as error:
+                raise HTTPException(409, str(error)) from error
+        return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,
+                             preferences=settings, provider_key=provider_key),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
                              image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
 

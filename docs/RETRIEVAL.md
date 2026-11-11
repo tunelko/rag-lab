@@ -15,6 +15,44 @@ does not require reindexing. See [library topics](LIBRARY.md).
   as «Dame la lista de cpus admitidas» scans the stored vectors and text per indexed file.
   Every file contributes evidence, with equal context allowance.
 
+## Focused retrieval pipeline
+
+A focused question goes through `retrieval_pipeline.retrieve`, the same code that
+`tools/evaluate_retrieval` measures as `dense-channel-scoped-reranked`:
+
+1. **Native channel.** The search covers text and table fragments, plus an image
+   caption only when its page has no native text. Captions are written in the
+   interface language; searched together with the originals they take almost every
+   position for a question in that language and push out the text that holds the
+   answer. A question that asks about a figure, diagram or location keeps every
+   channel, using the same rule that routes it to the vision model.
+2. **Automatic document scope.** When the question names a board model, the search
+   is limited to the documents of that model, inside whatever **Sources** scope the
+   user chose; it never widens it. Model names come from file names, first-page
+   titles and the chipset stated on the first native pages. The words that spell the
+   model are removed from the search text, because fragments never repeat the
+   product name. A question that names no model searches the whole chosen scope.
+3. **Reordering (optional).** With `RAG_RERANKER` set, a local cross-encoder
+   reorders the first `RAG_RERANK_WINDOW` candidates (default 50). It is loaded on
+   the first question from the local model cache and is never downloaded by the
+   service; if it cannot be loaded, or fails, answers use the dense order and the
+   server log says so. `RAG_RERANK_DEVICE` (`auto`, `cuda`, `cpu`) and
+   `RAG_RERANK_HALF` (half precision on CUDA, on by default) control where it runs.
+
+Job metrics record the strategy, whether a scope was applied and to how many files,
+the candidate count and the reordering time, never the question text.
+
+Measured on 68 labelled questions written after the configuration was fixed
+(`evidence_recall@8`, the share of questions whose answer text reaches the model):
+0.53 for the previous all-channel search, 0.88 with steps 1 and 2, 0.91 adding
+`cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` and 0.97 adding
+`BAAI/bge-reranker-v2-m3`. On an RTX 3080 the larger model in half precision uses
+about 1.2 GB of VRAM and 0.2 s per question; on CPU it needs several seconds, so a
+CPU-only installation should use the smaller model or none. These figures describe
+one library of motherboard manuals in eight languages; see
+[evaluation](EVALUATION.md) for the method and its limits. They measure retrieval,
+not whether the generated answer is correct.
+
 Global retrieval embeds a focused version of the question in CPU, calculates exact
 cosine scores per document and combines dense and BM25 rankings through reciprocal
 rank fusion. Short explicit field phrases and native text/table fields take precedence
