@@ -88,6 +88,8 @@
 .cfg-credential__head, .cfg-credential__actions { display: flex; align-items: center; gap: var(--space-2); }
 .cfg-credential__head { justify-content: space-between; }
 .cfg-credential__actions { flex-wrap: wrap; }
+.cfg-inline-action { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.cfg-inline-action .error { color: var(--danger); }
 
 /* Select: native control with a token-colored chevron. */
 .cfg-select { position: relative; display: block; min-width: 0; }

@@ -27,6 +27,19 @@ class FakeOpener:
 
 
 class ProviderTests(unittest.TestCase):
+    def test_model_catalog_uses_encrypted_key_server_side_and_returns_only_ids(self):
+        opener = FakeOpener(json.dumps({"data": [
+            {"id": "llama-3.3-70b-instruct", "object": "model"},
+            {"id": "deepseek-v4.1-flash"}, {"id": "deepseek-v4.1-flash"},
+            {"id": "bad\nmodel"}, {"missing": "id"},
+        ]}).encode())
+        models = providers.list_models("scaleway", "secret-value", opener=opener)
+        self.assertEqual(models, ["deepseek-v4.1-flash", "llama-3.3-70b-instruct"])
+        self.assertEqual(opener.request.full_url, "https://api.scaleway.ai/v1/models")
+        self.assertEqual(opener.request.method, "GET")
+        self.assertEqual(opener.request.get_header("Authorization"), "Bearer secret-value")
+        self.assertNotIn("secret-value", repr(models))
+
     def test_streaming_chat_records_usage_without_returning_secret(self):
         packets = [
             {"choices": [{"delta": {"content": "Respuesta "}, "finish_reason": None}]},

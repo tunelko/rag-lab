@@ -625,6 +625,22 @@ def create_app(service=None):
         service.credentials.lock_store()
         return {"credentials": service.credentials.status()}
 
+    @app.get("/api/providers/{provider}/models")
+    def provider_models(provider: str, request: Request):
+        require_local_credentials(request)
+        if provider not in CREDENTIAL_PROVIDERS:
+            raise HTTPException(404, "Proveedor no disponible.")
+        try:
+            api_key = service.credentials.get(provider)
+            models = generation_providers.list_models(provider, api_key)
+        except CredentialStoreLocked as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except CredentialError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except generation_providers.ProviderError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return {"provider": provider, "models": models}
+
     @app.get("/api/statistics")
     def statistics(history_seconds: int = QueryParameter(default=RETENTION, ge=86400, le=RETENTION),
                    page: int = QueryParameter(default=1, ge=1), per_page: int = QueryParameter(default=50, ge=1, le=200),

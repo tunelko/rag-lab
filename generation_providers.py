@@ -74,6 +74,43 @@ def _json_schema(schema):
     return {"type": "json_schema", "json_schema": {"name": "rag_global_answer", "strict": True, "schema": schema}}
 
 
+def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
+    """Return model identifiers without ever returning or logging the credential."""
+    profile = _profile(provider)
+    request = urllib.request.Request(
+        profile.base_url + "/models",
+        headers={"Authorization": "Bearer " + api_key, "Accept": "application/json"},
+        method="GET",
+    )
+    client = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+    try:
+        with client.open(request, timeout=timeout) as response:
+            result = json.load(response)
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = json.loads(exc.read(4096).decode("utf-8", "replace"))
+            detail = detail.get("error", detail)
+            detail = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+        except (ValueError, OSError):
+            detail = exc.reason
+        raise ProviderError(
+            f"{profile.label} rechazó la consulta de modelos ({exc.code}): "
+            + str(detail).replace(api_key, "[credencial omitida]")
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise ProviderError(f"No se pudo consultar el catálogo de {profile.label}: {exc.reason}") from exc
+    except (ValueError, TypeError) as exc:
+        raise ProviderError(f"{profile.label} devolvió un catálogo de modelos no válido.") from exc
+    items = result.get("data", []) if isinstance(result, dict) else []
+    models = set()
+    for item in items:
+        identifier = item.get("id") if isinstance(item, dict) else None
+        if (isinstance(identifier, str) and 1 <= len(identifier) <= 300
+                and not any(character in identifier for character in "\r\n\0")):
+            models.add(identifier)
+    return sorted(models, key=str.casefold)
+
+
 def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None, cancelled=None,
              max_output_tokens=None, response_format=None, timeout=600, opener=None, context_length=None):
     del context_length  # The remote model owns its context window.

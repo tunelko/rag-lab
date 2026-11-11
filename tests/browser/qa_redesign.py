@@ -371,7 +371,11 @@ def run_browser(url):
         expect(page.locator('#credential-panel')).to_be_visible()
         expect(page.locator('#provider-api-key')).to_have_attribute('type', 'password')
         expect(page.locator('#local-model-field')).to_be_hidden()
-        expect(page.locator('#credential-state')).to_have_text('Sin configurar')
+        credential_status = page.request.get(url + '/api/settings').json()['credentials']
+        expect(page.locator('#credential-state')).to_have_text(
+            'Bloqueado' if credential_status['locked'] else 'Sin configurar')
+        if credential_status['locked']:
+            expect(page.locator('#credential-unlock')).to_be_visible()
         page.locator('#response-provider').select_option('ollama')
         expect(page.locator('#settings-message')).to_have_text('Guardado')
         page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)

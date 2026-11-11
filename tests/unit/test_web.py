@@ -117,13 +117,20 @@ class WebTests(unittest.TestCase):
         self.assertNotIn(secret.encode(), service.credentials.path.read_bytes())
         settings = self.client.get('/api/settings').text
         self.assertNotIn(secret, settings)
+        with patch('generation_providers.list_models', return_value=['model-a', 'model-b']) as catalog:
+            listed = self.client.get('/api/providers/ovh/models')
+        self.assertEqual(listed.status_code, 200, listed.text)
+        self.assertEqual(listed.json(), {'provider': 'ovh', 'models': ['model-a', 'model-b']})
+        catalog.assert_called_once_with('ovh', secret)
 
         remote = TestClient(self.client.app, client=('192.168.1.25', 50001))
         remote_token = remote.get('/api/session').json()['token']
         refused = remote.put('/api/credentials/xai', headers={'X-RAG-Token': remote_token},
                              json={'api_key': 'another-secret-value'})
+        models_refused = remote.get('/api/providers/ovh/models')
         remote.close()
         self.assertEqual(refused.status_code, 403)
+        self.assertEqual(models_refused.status_code, 403)
 
     def test_upload_index_query_sources_and_metrics(self):
         result = self.client.post("/api/admin/upload", headers=self.headers,

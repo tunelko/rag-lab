@@ -7,13 +7,15 @@ const formatLabels={'.markdown':'MD','.jpeg':'JPG','.zip':'ZIP MinerU'};
 
 export class SettingsController {
   constructor(api,changed){
-    this.api=api;this.changed=changed;this.value=null;this.models=[];this.providers=[];this.credentials=null;this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
+    this.api=api;this.changed=changed;this.value=null;this.models=[];this.providers=[];this.credentials=null;this.externalModels=[];this.modelsLoading=false;this.modelsError=null;this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
     for(const [id,key] of Object.entries(fields))$(id).addEventListener('change',event=>{
       const element=event.target;
       // A typed number is brought back into the range the server accepts.
       if(element.type==='number'){const typed=Math.round(Number(element.value)),fallback=this.value?.[key]??Number(element.min);element.value=String(Math.max(Number(element.min),Math.min(Number(element.max),element.value!==''&&Number.isFinite(typed)?typed:fallback)));}
       if(!element.checkValidity()){element.reportValidity();return;}
-      this.patch({[key]:element.type==='checkbox'?element.checked:element.type==='number'?Number(element.value):element.value});
+      const next=element.type==='checkbox'?element.checked:element.type==='number'?Number(element.value):element.value;
+      if(id==='response-provider'){this.externalModels=[];this.modelsError=null;this.patch({[key]:next,external_model:''});return;}
+      this.patch({[key]:next});
     });
     $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(control)this.patch({response_mode:control.dataset.responseMode});});
     $('top-k').addEventListener('click',event=>{const control=event.target.closest('[data-k]');if(control)this.patch({k:Number(control.dataset.k)});});
@@ -25,6 +27,7 @@ export class SettingsController {
     $('save-api-key').addEventListener('click',()=>this.saveCredential());
     $('delete-api-key').addEventListener('click',()=>this.deleteCredential());
     $('unlock-credentials').addEventListener('click',()=>this.unlockCredentials());
+    $('refresh-provider-models').addEventListener('click',()=>this.loadProviderModels());
     this.formats();
     window.addEventListener('rag:languagechange',()=>this.render());
   }
@@ -48,7 +51,7 @@ export class SettingsController {
   set(result){this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);}
   async saveCredential(){
     const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
-    try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();}
+    try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();await this.loadProviderModels();}
     catch(error){this.error=error;}this.render();
   }
   async deleteCredential(){
@@ -60,6 +63,13 @@ export class SettingsController {
     const passphrase=$('credential-passphrase').value;if(!passphrase)return;
     try{const result=await this.api('/api/credentials/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({passphrase})});this.credentials=result.credentials;$('credential-passphrase').value='';this.error=null;}
     catch(error){this.error=error;}this.render();
+  }
+  async loadProviderModels(){
+    const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading)return;
+    this.modelsLoading=true;this.error=null;this.render();
+    try{const result=await this.api(`/api/providers/${provider}/models`);this.externalModels=result.models||[];this.modelsError=null;}
+    catch(error){this.externalModels=[];this.modelsError=error;}
+    finally{this.modelsLoading=false;this.render();}
   }
   setStatus(status){this.status=status;this.warning();}
   warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
@@ -101,6 +111,9 @@ export class SettingsController {
     if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
     this.select('model',this.models,value.response_model);this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);
     $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
+    const modelOptions=$('external-model-options'),modelSignature=JSON.stringify(this.externalModels);
+    if(modelOptions.dataset.options!==modelSignature){modelOptions.dataset.options=modelSignature;modelOptions.replaceChildren(...this.externalModels.map(model=>{const option=document.createElement('option');option.value=model;return option;}));}
+    const catalogState=$('provider-models-state');catalogState.textContent=this.modelsLoading?s('loading_models'):this.modelsError?serverText(this.modelsError.message):this.externalModels.length?s('models_found',{count:this.externalModels.length}):'';catalogState.classList.toggle('error',Boolean(this.modelsError));
     for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
     const composer=$('composer-model'),selected=value.response_mode==='automatic'?'automatic':'manual:'+value.response_model;
     const signature=JSON.stringify([this.models,selected,s('auto'),s('vision'),external,value.response_provider,value.external_model]);
@@ -110,7 +123,7 @@ export class SettingsController {
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));
     $('response-mode').textContent=external?s('router_cloud'):s(value.response_mode==='automatic'?'router_auto':'router_manual');
     $('credential-panel').hidden=!external;$('credential-unlock').hidden=!external||!this.credentials?.locked;
-    if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]);$('credential-state').textContent=s(this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',configured&&!this.credentials?.locked);$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);}
+    if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]);$('credential-state').textContent=s(this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',configured&&!this.credentials?.locked);$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);$('refresh-provider-models').disabled=!configured||this.credentials?.locked||this.modelsLoading;$('provider-credential-hint').hidden=value.response_provider!=='scaleway';$('provider-credential-hint').textContent=value.response_provider==='scaleway'?s('scaleway_secret_hint'):'';}
     // Visual limits only apply while multimodal processing is on.
     for(const id of ['max-images','max-visuals']){
       const input=$(id),current=Number(input.value);input.disabled=!value.multimodal;

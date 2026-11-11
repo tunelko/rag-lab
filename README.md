@@ -97,6 +97,10 @@ history and retrieved text chunks; embeddings, indexes, source files and visual
 captioning remain local. API keys are entered from Settings on the server host
 (through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
 user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
+After saving a credential, **Refresh models** queries `/v1/models` server-side and
+offers the returned catalog in the model field. For Scaleway, store the **Secret
+Key** used as the Generative APIs Bearer credential; the Access Key is not used for
+inference.
 
 In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
 **+** to create a category and its menu to add subcategories or rename it. Select

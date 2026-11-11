@@ -1266,7 +1266,12 @@
          <span class="cfg-field__label" data-i18n="sentinel.external_model">
           Modelo externo
          </span>
-         <input autocomplete="off" class="input" data-i18n-placeholder="sentinel.external_model_placeholder" id="external-model" maxlength="300" placeholder="Identificador exacto del proveedor" type="text"/>
+         <input autocomplete="off" class="input" data-i18n-placeholder="sentinel.external_model_placeholder" id="external-model" list="external-model-options" maxlength="300" placeholder="Identificador exacto del proveedor" type="text"/>
+         <datalist id="external-model-options"></datalist>
+         <span class="cfg-inline-action">
+          <button class="btn btn--secondary btn--sm" id="refresh-provider-models" type="button"><span data-i18n="sentinel.refresh_models">Actualizar modelos</span></button>
+          <span class="cfg-field__hint" id="provider-models-state"></span>
+         </span>
         </label>
         <section class="cfg-credential" hidden="" id="credential-panel">
          <div class="cfg-credential__head">
@@ -1277,6 +1282,7 @@
           <span class="cfg-field__label" data-i18n="sentinel.api_key">Clave API</span>
           <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.api_key_placeholder" id="provider-api-key" maxlength="8192" placeholder="No se mostrará ni se conservará en el navegador" type="password"/>
          </label>
+         <p class="cfg-field__hint" hidden="" id="provider-credential-hint"></p>
          <div class="cfg-credential__actions">
           <button class="btn btn--secondary btn--sm" id="save-api-key" type="button"><span data-i18n="sentinel.save_key">Guardar cifrada</span></button>
           <button class="btn btn--ghost btn--sm" id="delete-api-key" type="button"><span data-i18n="sentinel.delete_key">Eliminar clave</span></button>

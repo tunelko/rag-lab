@@ -48,7 +48,11 @@ Measured on 68 labelled questions written after the configuration was fixed
 `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` and 0.97 adding
 `BAAI/bge-reranker-v2-m3`. On an RTX 3080 the larger model in half precision uses
 about 1.2 GB of VRAM and 0.2 s per question; on CPU it needs several seconds, so a
-CPU-only installation should use the smaller model or none. These figures describe
+CPU-only installation should use the smaller model or none. The reranker stays
+loaded in the server process, about 1.6 GB of VRAM with its CUDA context, and the
+Ollama model has to fit in what remains: on that 10 GB card `qwen3.5:9b` still ran
+fully on the GPU at about 95 tokens/s, while `deepseek-r1:14b`, which did not fit
+entirely before, dropped from about 18 to about 10 tokens/s. These figures describe
 one library of motherboard manuals in eight languages; see
 [evaluation](EVALUATION.md) for the method and its limits. They measure retrieval,
 not whether the generated answer is correct.

@@ -99,6 +99,10 @@ y descripciones visuales permanecen locales. Las claves API se introducen desde
 Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
 Windows las cifra con DPAPI ligada al usuario y Linux con AES-GCM y una contraseña
 maestra conservada solo en memoria.
+Tras guardar una credencial, **Actualizar modelos** consulta `/v1/models` desde el
+servidor y ofrece el catálogo en el campo de modelo. En Scaleway se guarda la
+**Secret Key**, usada como Bearer por Generative APIs; la Access Key no interviene
+en la inferencia.
 
 En **Biblioteca**, organiza los documentos en **categorías y subcategorías** desde
 el árbol lateral. El botón **+** crea una categoría; el menú de cada una permite
