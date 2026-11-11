@@ -913,6 +913,21 @@ def run_browser(url):
         check('Indexed upload queue survives lost acknowledgements/reloads without duplicate uploads; expired session token refreshes safely')
         page.locator("#nav-admin").click()
 
+        # Structured records are query scopes, not mutable document folders.
+        expect(page.locator('#topic-tree [data-topic="records"]')).to_contain_text('Ciberseguridad')
+        expect(page.locator('#topic-tree [data-topic="records:vulnerabilities"]')).to_contain_text('Vulnerabilidades')
+        expect(page.locator('#topic-tree [data-topic="records"] + .category-menu')).to_have_count(0)
+        expect(page.locator('#upload-topic option[value="records"]')).to_have_count(0)
+        expect(page.locator('#upload-topic option[value="records:vulnerabilities"]')).to_have_count(0)
+        expect(page.locator('#move-topic option[value="records"]')).to_have_count(0)
+        expect(page.locator('#chat-scope option[value="records"]')).to_have_count(1)
+        expect(page.locator('#chat-scope option[value="records:vulnerabilities"]')).to_have_count(1)
+        page.locator('#topic-tree [data-topic="records:vulnerabilities"]').click()
+        expect(page.locator('#library-location')).to_have_text('Ciberseguridad / Vulnerabilidades')
+        expect(page.locator('#documents-table tr')).to_have_count(0)
+        page.locator('#topic-filters [data-topic=""]').click()
+        check('System-managed cybersecurity/vulnerability query scopes stay separate from upload, move and category editing')
+
         # Virtual organization must not re-embed or alter the existing manifest.
         before_library=page.request.get(url+'/api/status').json()
         page.locator('#new-topic').click();page.locator('#topic-name').fill('Hardware QA');page.locator('#save-topic').click()
