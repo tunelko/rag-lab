@@ -50,12 +50,13 @@ conflicting or unsupported declarations rather than omitting them silently.
 - Optional Scaleway, OVHcloud, xAI and Groq adapters use fixed HTTPS hosts,
   bypass ambient proxies and reject redirects. They send retrieved text context
   only after explicit provider selection. Selecting a cloud vision model also
-  sends normalized figures/page images for explicit indexing and visual queries.
+  sends normalized figures/page images only when answering visual queries.
   The UI discloses this transfer; vision is not selected automatically when
   changing providers. Original files, embeddings and index remain on the host.
   Image-input capability and image counts are checked before sending; remote
-  image URLs are not accepted by the adapter. Caption caches include provider and
-  model, and rejected/incomplete descriptions are not cached.
+  image URLs are not accepted by the adapter. Indexing always uses local Ollama
+  and CPU; cloud credentials are never read by ingestion. Changing answer models
+  does not alter the index identity or invalidate the local caption cache.
   API credentials are ciphertext in `data/credentials.sqlite3`,
   protected by user-bound Windows DPAPI or Linux AES-GCM/Scrypt. Credential
   mutation is restricted to requests originating on the server host (loopback or

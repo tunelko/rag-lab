@@ -531,6 +531,7 @@ def run_browser(url):
             page.locator('#vision-model').select_option('qwen/qwen3.8-27b')
         page.reload(wait_until='networkidle')
         expect(page.locator('#vision-model')).to_have_value('qwen/qwen3.8-27b')
+        expect(page.locator('#index-vision-model')).not_to_have_value('qwen/qwen3.8-27b')
         expect(page.locator('#vision-model-hint')).to_contain_text('3 imágenes')
         saved_vision = page.request.get(url + '/api/settings').json()['settings']
         assert saved_vision['external_vision_model'] == 'qwen/qwen3.8-27b'
@@ -793,6 +794,7 @@ def run_browser(url):
 
         page.locator("#nav-settings").click()
         page.locator("#multimodal").check()
+        page.locator("#index-vision-model").select_option("qa-vision:latest")
         page.locator("#vision-model").select_option("qa-vision:latest")
         page.locator("#model").select_option("qa-local:latest")
         page.locator("[data-response-mode=automatic]").click()

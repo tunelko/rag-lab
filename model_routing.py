@@ -38,7 +38,7 @@ def select_model(settings, question, hits, has_images, available, capabilities, 
     names = available["models"]
     text_model = settings.response_model or available["default_model"]
     if input_images:
-        model = requested or (text_model if settings.response_mode == 'manual' else settings.vision_model)
+        model = requested or (text_model if settings.response_mode == 'manual' else settings.local_query_vision_model)
         if model not in names or 'vision' not in capabilities(model):
             raise ValueError('La imagen adjunta necesita un modelo con visión instalado. Revísalo en Configuración.')
         return Route(model, True, 'explicit' if requested else settings.response_mode,
@@ -67,7 +67,7 @@ def select_model(settings, question, hits, has_images, available, capabilities, 
         return Route(text_model, False, "automatic", reason)
     if not needs_vision:
         return Route(text_model, False, "automatic", "La pregunta y la evidencia principal son textuales; no se adjuntan imágenes.")
-    vision = settings.vision_model
+    vision = settings.local_query_vision_model
     if vision in names and "vision" in capabilities(vision):
         reason = "La pregunta requiere inspección visual y hay imágenes relacionadas." if visual_question else "La evidencia principal recuperada es una descripción visual; se comprueba su imagen original."
         return Route(vision, True, "automatic", reason)

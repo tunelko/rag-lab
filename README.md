@@ -95,10 +95,11 @@ switches Spanish/English; fonts and translations are served locally.
 
 The response provider can remain **Ollama local** or be changed to Scaleway,
 OVHcloud, xAI/Grok or **Groq**. External providers receive the question, conversation
-history and retrieved text chunks. Choosing a **Vision model** also sends the images
-needed for indexing or visual queries to that provider. Embeddings, indexes and
-source files remain local. Both model dropdowns follow the selected provider;
-the vision list includes only confirmed image-input models. See [cloud vision](docs/CLOUD_VISION.md).
+history and retrieved text chunks. **Vision model for answers** may also send images
+needed for that answer. **Local indexing** always uses Ollama for image descriptions
+and CPU for extraction/embeddings; it never calls a cloud provider. Its vision model
+is configured separately. Changing answer providers/models does not require reindexing.
+See [cloud answers and local indexing](docs/CLOUD_VISION.md).
 API keys are entered from Settings on the server host
 (through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
 user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
@@ -135,7 +136,7 @@ existing PDFs, vectors and captions. **Empty library** starts over: after a type
 confirmation it moves documents, index and categories to a dated folder under
 `data/library-backups/` instead of deleting them. See [library organization](docs/LIBRARY.md).
 
-- **Ingest:** extract PDF text/tables and render visual or scanned pages. The selected
+- **Ingest:** extract PDF text/tables and render visual or scanned pages. A local Ollama
   vision model describes the images; descriptions and text enter the local SQLite vector store.
 - **Retrieve:** search text and image descriptions using multilingual embeddings.
 - **Rank:** focused questions use a native-text channel, automatic document scope

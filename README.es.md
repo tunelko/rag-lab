@@ -97,11 +97,12 @@ y traducciones se sirven localmente.
 
 El proveedor de respuesta puede seguir siendo **Ollama local** o cambiarse a
 Scaleway, OVHcloud, xAI/Grok o **Groq**. Un proveedor externo recibe la pregunta,
-el historial y los fragmentos recuperados. Elegir un **Modelo visual** envía también
-las imágenes necesarias para indexar o consultar a ese proveedor. Embeddings,
-índices y archivos originales se conservan localmente. Ambos desplegables siguen
-al proveedor elegido; el visual solo ofrece modelos con entrada de imagen confirmada.
-Consulta [visión externa](docs/CLOUD_VISION.md). Las claves API se introducen desde
+el historial y los fragmentos recuperados. **Modelo visual para respuestas** puede
+enviar las imágenes necesarias para esa respuesta. **Indexación local** usa siempre
+Ollama para describir figuras y CPU para extracción/embeddings; nunca llama a un
+proveedor externo. Su modelo visual se configura por separado. Cambiar proveedor
+o modelo de respuestas no requiere reindexar. Consulta [respuestas externas e indexación local](docs/CLOUD_VISION.md).
+Las claves API se introducen desde
 Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
 Windows las cifra con DPAPI ligada al usuario y Linux con AES-GCM y una contraseña
 maestra conservada solo en memoria.
@@ -142,7 +143,7 @@ confirmación, mueve documentos, índice y categorías a una carpeta con fecha e
 [Organización de la biblioteca](docs/LIBRARY.md).
 
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
-  El modelo visual elegido describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
+  El modelo visual local de Ollama describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
 - **Recuperación:** busca en texto y descripciones con embeddings multilingües.
 - **Ordenación:** las preguntas enfocadas usan un canal de texto nativo, ámbito
   documental automático y un cross-encoder local opcional. Consulta el [pipeline de recuperación](docs/RETRIEVAL.md#focused-retrieval-pipeline).

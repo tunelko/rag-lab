@@ -1,6 +1,11 @@
-# Cloud vision
+# Cloud answers, local indexing
 
-Settings uses one provider selector and separate answer/vision model dropdowns.
+The answer provider selector applies only to chat, with text and vision model dropdowns.
+The separate **Local indexing** section always uses Ollama (`vision_model`) for
+figure descriptions and CPU for extraction/embeddings. It has no cloud credential
+or cloud generation path. Local query vision uses `query_vision_model`, defaulting
+to the existing local vision model for backward compatibility. Cloud query vision
+uses `external_vision_model`. Only indexing settings affect parser/cache identity.
 The vision list is the intersection of the live authenticated `/models` catalog
 and confirmed image-input capabilities. Metadata declaring input modalities takes
 precedence; where absent, exact IDs verified against provider documentation are
@@ -20,18 +25,21 @@ and retain catalog membership filtering. Image generation, OCR-only endpoints,
 audio and embedding models are not substitutes for a vision chat model. Unknown
 input modalities may require a catalog refresh after restarting the server.
 
-Selecting a cloud vision model explicitly enables remote image processing on
-the next relevant job. It does not start indexing or upload anything by itself.
+Selecting a cloud answer vision model enables remote image processing only on
+relevant chat queries. It does not start indexing or upload anything by itself.
 There is no automatic selection, fallback to another provider, or background
 reindexing. Existing local vision selection is preserved when switching providers;
 the external model selections are cleared to avoid cross-provider mismatches.
 
-During indexing, CPU extraction and embeddings remain local. Selected figures
-are normalized to PNG and sent as embedded data to the configured provider using
-its existing encrypted credential. Complete captions are cached by provider and
-model; incomplete/error/cancelled captions are not cached. Existing Ollama cache
-and parser identities stay compatible. Changing the caption provider/model marks
-affected documents for explicit reindexing, without deleting original documents.
+During indexing, figures are normalized to PNG and described by local Ollama.
+Existing local caption caches and parser identities stay compatible. Changing
+the local indexing model marks affected documents for explicit reindexing; changing
+the answer provider or answer vision model never requires reindexing. No existing
+document, vector or caption is deleted by switching answer providers.
+
+The temporary cloud-ingestion behavior introduced in `7f00b74` has been removed.
+Existing local indexes become usable again without reindexing. Any cloud captions
+cached during that version remain on disk but are not reused as local captions.
 
 Automatic queries choose the answer model for text and the vision model when the
 question/evidence needs images. Manual cloud mode keeps document queries textual;

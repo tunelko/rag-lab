@@ -2,7 +2,7 @@ import {$, node} from './ui.js';
 import {t, serverText, intlLocale} from './i18n.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
-const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
+const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'query_vision_model','index-vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
 const formatLabels={'.markdown':'MD','.jpeg':'JPG','.zip':'ZIP MinerU'};
 
 export class SettingsController {
@@ -170,7 +170,8 @@ export class SettingsController {
     if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
     this.select('model',this.models,value.response_model);
     if(external)this.renderExternalVision();
-    else{this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);$('vision-model').disabled=false;$('vision-model').setAttribute('aria-busy','false');$('vision-model-hint').textContent=s('local_vision_hint');$('vision-model-hint').classList.remove('error');}
+    else{this.select('vision-model',this.models.filter(model=>model.vision),value.query_vision_model||value.vision_model);$('vision-model').disabled=false;$('vision-model').setAttribute('aria-busy','false');$('vision-model-hint').textContent=s('local_vision_hint');$('vision-model-hint').classList.remove('error');}
+    this.select('index-vision-model',this.models.filter(model=>model.vision),value.vision_model);
     $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
     this.renderExternalModels();
     this.renderPricing();

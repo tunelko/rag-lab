@@ -149,7 +149,7 @@ class RagService(JobRuntime):
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         return {"message": "Modelo de búsqueda preparado en CPU."}
 
-    def index(self, job_id, only_file=None, *, files=None, preferences=None, provider_key=None):
+    def index(self, job_id, only_file=None, *, files=None, preferences=None):
         documents = self.list_documents()
         if only_file:
             documents = [document for document in documents if document["name"] == only_file]
@@ -194,16 +194,6 @@ class RagService(JobRuntime):
 
         def describe(data, model):
             self.check_cancel(job_id)
-            if settings.response_provider != 'ollama':
-                try:
-                    key = provider_key if provider_key is not None else self.credentials.get(settings.response_provider)
-                    generation_providers.require_vision_model(settings.response_provider, model, key)
-                except (CredentialError, generation_providers.ProviderError) as exc:
-                    raise multimodal.VisualError(str(exc)) from exc
-                label = generation_providers.PROVIDERS[settings.response_provider].label
-                self.update(job_id, phase=f'Describiendo imágenes con {label} · {model}', cancellable=True)
-                return multimodal.describe_remote_image(data, model, settings.response_provider, key,
-                    cancelled=lambda: self.cancelled(job_id))
             if "vision" not in self.model_capabilities(model):
                 raise multimodal.VisualError("Selecciona un modelo visual instalado en Configuración.")
             self.update(job_id, phase="Describiendo imágenes en local con Ollama", cancellable=True)
@@ -656,8 +646,10 @@ def create_app(service=None):
         available = service.ollama_status()
         if body.response_provider == "ollama" and body.response_model and available["connected"] and body.response_model not in available["models"]:
             raise HTTPException(422, "El modelo de respuesta no está instalado en Ollama.")
-        if body.response_provider == 'ollama' and body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
+        if body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
             raise HTTPException(422, "Selecciona un modelo visual local instalado antes de activar el modo multimodal.")
+        if body.response_provider == 'ollama' and body.query_vision_model and (body.query_vision_model not in available['models'] or 'vision' not in service.model_capabilities(body.query_vision_model)):
+            raise HTTPException(422, 'Selecciona un modelo visual local instalado para las respuestas con imágenes.')
         if body.response_provider != 'ollama' and body.external_vision_model:
             try:
                 generation_providers.require_vision_model(body.response_provider, body.external_vision_model,
@@ -866,19 +858,7 @@ def create_app(service=None):
             if not path.is_relative_to(service.documents) or not path.is_file() or path.suffix.lower() not in ALLOWED:
                 raise HTTPException(404, "Documento no disponible.")
         preferences=service.settings.get()
-        provider_key = index_provider_key(preferences, [name] if name else [item['name'] for item in service.list_documents()])
-        return service.start("index", lambda job_id: service.index(job_id, name,preferences=preferences,provider_key=provider_key), document_name=name)
-
-    def index_provider_key(preferences, names):
-        if (preferences.response_provider == 'ollama' or not preferences.multimodal
-                or not any(Path(name).suffix.lower() in multimodal.EXTENSIONS for name in names)):
-            return None
-        try:
-            key = service.credentials.get(preferences.response_provider)
-            generation_providers.require_vision_model(preferences.response_provider, preferences.external_vision_model, key)
-            return key
-        except (CredentialError, generation_providers.ProviderError) as exc:
-            raise HTTPException(422, str(exc)) from exc
+        return service.start("index", lambda job_id: service.index(job_id, name,preferences=preferences), document_name=name)
 
     @app.post("/api/admin/upload")
     async def upload(files: Annotated[list[UploadFile], File()], auto_index: Annotated[bool, Form()] = True,
@@ -901,7 +881,6 @@ def create_app(service=None):
             if Path(name).name != name or ".." in name or any(ord(char) < 32 or char in '\\/:*?"<>|' for char in name) or name.endswith((".", " ")) or name.split('.')[0].upper() in reserved:
                 return JSONResponse({"detail": "Nombre de archivo no válido.", "error_info": {"code": "INVALID_NAME", "message": "El nombre contiene caracteres o rutas no válidos.", "detail": name}}, status_code=422)
         preferences = service.settings.get()
-        provider_key = index_provider_key(preferences, [file.filename for file in files]) if auto_index else None
         saved = []
         created = []
         total = 0
@@ -939,7 +918,7 @@ def create_app(service=None):
         result = {"saved": saved, "document_id": hashlib.sha256(saved[0].encode()).hexdigest()[:24]}
         if auto_index:
             name = saved[0] if len(saved) == 1 else None
-            result.update(service.start("index", lambda job_id: service.index(job_id, name,files=frozenset(saved),preferences=preferences,provider_key=provider_key),
+            result.update(service.start("index", lambda job_id: service.index(job_id, name,files=frozenset(saved),preferences=preferences),
                 document_name=name, document_id=result["document_id"], batch_id=batch_id[:100],
                 bytes=len(payloads[0][1]) if len(payloads) == 1 else sum(len(item[1]) for item in payloads)))
         return result

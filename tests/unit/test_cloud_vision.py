@@ -53,11 +53,12 @@ class AdapterTests(unittest.TestCase):
             providers.generate([], 'groq', 'qwen/qwen3.8-27b', 'test-only-secret', cancelled=lambda: True, opener=opener)
         self.assertIsNone(opener.request)
 
-    def test_incomplete_caption_is_not_accepted(self):
-        for text, reason in [('Partial', 'length'), ('', 'stop'), ('Blocked', 'content_filter')]:
-            with patch('generation_providers.generate', return_value=(text, {'done_reason': reason})):
-                with self.assertRaises(multimodal.VisualError):
-                    multimodal.describe_remote_image(png(), 'qwen/qwen3.8-27b', 'groq', 'test-only-secret')
+    def test_response_choices_do_not_change_index_identity(self):
+        local = Preferences(multimodal=True, vision_model='local-caption-model')
+        remote = local.model_copy(update={'response_provider': 'groq', 'external_model': 'text',
+            'external_vision_model': 'remote-vision', 'query_vision_model': 'another-local-response'})
+        self.assertEqual(multimodal.policy(local), multimodal.policy(remote))
+        self.assertEqual(multimodal.policy(remote), 'visual-v1:local-caption-model')
 
 
 class CloudVisionWebTests(unittest.TestCase):
@@ -70,29 +71,32 @@ class CloudVisionWebTests(unittest.TestCase):
         service = self.client.app.state.service
         preferences = service.settings.get().model_copy(update={
             'response_provider': 'groq', 'external_model': 'openai/gpt-oss-20b',
-            'external_vision_model': 'qwen/qwen3.8-27b', 'multimodal': True, **values})
-        with patch.object(service.credentials, 'get', return_value='test-only-secret'):
+            'external_vision_model': 'qwen/qwen3.8-27b', 'vision_model': 'test-local:latest', 'multimodal': True, **values})
+        with patch.object(service.credentials, 'get', return_value='test-only-secret'), patch.object(service, 'model_capabilities', return_value=['vision']):
             response = self.client.put('/api/settings', headers=self.headers, json=preferences.model_dump())
         self.assertEqual(response.status_code, 200, response.text)
         return service
 
-    def test_selected_provider_indexes_without_ollama_and_reuses_only_matching_cache(self):
+    def test_indexing_stays_local_and_switching_response_provider_preserves_index(self):
         service = self.cloud()
-        with patch.object(service.credentials, 'get', return_value='test-only-secret'), \
-             patch('multimodal.describe_remote_image', return_value='Four USB ports') as remote, \
-             patch('multimodal.describe_image', side_effect=AssertionError('Must not call Ollama')):
+        with patch.object(service, 'model_capabilities', return_value=['vision']), \
+             patch('generation_providers.generate', side_effect=AssertionError('Index must not contact cloud')), \
+             patch('multimodal.describe_image', return_value='Four USB ports') as local:
             self.upload('cloud.png', png())
             self.upload('cloud.png', png())
-            self.assertEqual(remote.call_count, 1)
-            self.assertEqual(remote.call_args.args[1:4], ('qwen/qwen3.8-27b', 'groq', 'test-only-secret'))
+            self.assertEqual(local.call_count, 1)
+            self.assertEqual(local.call_args.args[1], 'test-local:latest')
             state = rag.load_state(service.config)
-            self.assertIn('groq:qwen/qwen3.8-27b', repr(state))
+            self.assertIn('visual-v1:test-local:latest', repr(state))
             self.assertNotIn('test-only-secret', repr(state))
             self.cloud(response_provider='scaleway', external_vision_model='gemma-4-26b-a4b-it')
+            doc, = service.list_documents()
+            self.assertTrue(doc['indexed'])
+            self.assertFalse(doc['needs_reindex'])
             self.wait(self.client.post('/api/admin/index', headers=self.headers).json()['job_id'])
-            self.assertEqual(remote.call_count, 2)
-            self.assertEqual(remote.call_args.args[1:3], ('gemma-4-26b-a4b-it', 'scaleway'))
-        self.assertEqual(len(list(service.visual_root.glob('*.json'))), 2)
+            self.assertEqual(local.call_count, 1)
+        self.assertEqual(len(list(service.visual_root.glob('*.json'))), 1)
+        self.assertEqual(rag.load_state(service.config), state)
 
     def test_cloud_images_use_visual_selection_and_record_actual_route(self):
         service = self.cloud()
@@ -119,14 +123,14 @@ class CloudVisionWebTests(unittest.TestCase):
             self.wait(request.json()['job_id'])
             self.assertEqual(captured[-1], ('groq', 'openai/gpt-oss-20b', []))
 
-    def test_missing_vision_blocks_index_before_upload_and_query_before_queue(self):
+    def test_missing_cloud_vision_does_not_block_local_indexing(self):
         service = self.cloud(external_vision_model='')
         with patch.object(service.credentials, 'get', return_value='test-only-secret'), \
-             patch('generation_providers.generate') as generate:
-            response = self.client.post('/api/admin/upload', headers=self.headers,
-                files=[('files', ('not-saved.png', png()))], data={'auto_index': 'true'})
-            self.assertEqual(response.status_code, 422)
-            self.assertFalse((service.documents / 'not-saved.png').exists())
+             patch('generation_providers.generate') as generate, \
+             patch.object(service, 'model_capabilities', return_value=['vision']), \
+             patch('multimodal.describe_image', return_value='Local caption'):
+            self.upload('saved-locally.png', png())
+            self.assertTrue((service.documents / 'saved-locally.png').exists())
             self.upload('facts.txt', b'Maintenance is Sunday.')
             response = self.client.post('/api/query', headers=self.headers,
                 json={'question': 'Read image', 'images': [base64.b64encode(png()).decode()]})
@@ -143,9 +147,9 @@ class CloudVisionWebTests(unittest.TestCase):
         self.assertEqual(result['image_limits'], {'qwen/qwen3.8-27b': 3})
         generate.assert_not_called()
 
-    def test_queued_index_preserves_provider_model_and_credential(self):
+    def test_queued_index_captures_local_model_without_accessing_cloud_credentials(self):
         service = self.cloud()
-        with patch.object(service.credentials, 'get', return_value='captured-key'), \
+        with patch.object(service.credentials, 'get', side_effect=AssertionError('Index must not access cloud credentials')), \
              patch.object(service, 'start', return_value={'job_id': 'held'}) as start:
             response = self.client.post('/api/admin/upload', headers=self.headers,
                 files=[('files', ('held.png', png()))], data={'auto_index': 'true'})
@@ -155,13 +159,13 @@ class CloudVisionWebTests(unittest.TestCase):
         with patch.object(service, 'index') as index:
             callback('held')
         self.assertEqual(index.call_args.kwargs['preferences'].response_provider, 'groq')
-        self.assertEqual(index.call_args.kwargs['preferences'].external_vision_model, 'qwen/qwen3.8-27b')
-        self.assertEqual(index.call_args.kwargs['provider_key'], 'captured-key')
+        self.assertEqual(index.call_args.kwargs['preferences'].vision_model, 'test-local:latest')
+        self.assertNotIn('provider_key', index.call_args.kwargs)
 
     def test_retrieved_figure_uses_cloud_vision_but_manual_mode_stays_textual(self):
         service = self.cloud()
-        with patch.object(service.credentials, 'get', return_value='test-only-secret'), \
-             patch('multimodal.describe_remote_image', return_value='Four USB ports'):
+        with patch.object(service, 'model_capabilities', return_value=['vision']), \
+             patch('multimodal.describe_image', return_value='Four USB ports'):
             self.upload('diagram.png', png())
         from langchain_core.documents import Document
         text = Document(page_content='Four USB ports.', metadata={

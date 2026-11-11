@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-RAG Local: a single-user, local, multimodal document assistant (Windows x64 / Linux x86_64, Python **3.13**). FastAPI backend + a no-build vanilla JS UI. Embeddings run on CPU (SentenceTransformers, `intfloat/multilingual-e5-small`); generation and vision captions use Ollama by default or an explicitly selected cloud provider. See `docs/CLOUD_VISION.md` for model filtering, routing and data transfer. Vectors live in SQLite with exact NumPy cosine search (ChromaDB was removed for security reasons — do not reintroduce it or `langchain-chroma`).
+RAG Local: a single-user, local, multimodal document assistant (Windows x64 / Linux x86_64, Python **3.13**). FastAPI backend + a no-build vanilla JS UI. Embeddings run on CPU (SentenceTransformers, `intfloat/multilingual-e5-small`); indexing captions always use local Ollama. Only chat answers may use an explicitly selected cloud provider. See `docs/CLOUD_VISION.md` for model filtering, routing and data transfer. Vectors live in SQLite with exact NumPy cosine search (ChromaDB was removed for security reasons — do not reintroduce it or `langchain-chroma`).
 
 UI strings, job phases and most error messages are Spanish; docs exist in English (`README.md`, most of `docs/`) and Spanish (`README.es.md`, `docs/REFERENCE.es.md`, `docs/DESARROLLO.md`). Keep both READMEs in sync when changing user-facing behaviour.
 
@@ -68,7 +68,7 @@ Per collection (`RAG_COLLECTION`, default `documents`), under `data/chroma/` (hi
 
 ### Multimodal ingestion
 
-`multimodal.VisualReader` (used as the `loader` passed into `rag.ingest` by `RagService.index`) extracts PDF text/tables, renders visual/scanned pages, and asks the selected vision model for captions (cached; assets in `data/visual/<sha256>.png`). Ollama uses `vision_model`; external providers use `external_vision_model`, with no automatic selection or fallback. Cloud caption cache/policy identities include provider and model; local identities are preserved. Captions are embedded as ordinary text chunks with `asset_id`/`item_type` metadata; the manifest record keeps a `visuals` list used at query time to attach figures to citations. `parser_policy` (`multimodal.policy(settings)`) is part of the chunk ID and the "needs reindex" check, so files indexed multimodally must be reindexed from the web UI, not the plain CLI. `visual_selection.py` is an offline classifier that has **not** replaced the production page-selection rule (see `docs/VISUAL_AUDIT.md`).
+`multimodal.VisualReader` (used as the `loader` passed into `rag.ingest` by `RagService.index`) extracts PDF text/tables, renders visual/scanned pages, and asks local Ollama `vision_model` for captions (cached; assets in `data/visual/<sha256>.png`). Ingestion never reads cloud credentials. Chat uses a separate `query_vision_model` (local) or `external_vision_model` (cloud). Answer provider/models must never enter caption/cache/parser identities or invalidate indexed documents. Captions are embedded as ordinary text chunks with `asset_id`/`item_type` metadata; the manifest record keeps a `visuals` list used at query time to attach figures to citations. `parser_policy` (`multimodal.policy(settings)`) is part of the chunk ID and the "needs reindex" check, so files indexed multimodally must be reindexed from the web UI, not the plain CLI. `visual_selection.py` is an offline classifier that has **not** replaced the production page-selection rule (see `docs/VISUAL_AUDIT.md`).
 
 ### Web security model
 
