@@ -26,7 +26,7 @@ python -m tools.benchmark_vector_store --output reports/vector-benchmark.json # 
 python -m tools.evaluate_retrieval --dataset <private.jsonl>                 # labeled retrieval metrics
 ```
 
-There is no Python linter/formatter configured. CI (`.github/workflows/ci.yml`) runs the unittest suite + JS tests on Windows and Linux, browser QA on Linux only, with `CUDA_VISIBLE_DEVICES=''` and HF offline.
+There is no Python linter/formatter configured. CI (`.github/workflows/ci.yml`) runs the unittest suite, JS tests and browser QA on Windows and Linux (Linux pinned to `ubuntu-24.04`; the browser is one the runner image ships, selected through `RAG_BROWSER_CHANNEL`), with `CUDA_VISIBLE_DEVICES=''` and HF offline.
 
 Server lifecycle (background process managed by `server_control.py`; never touches Ollama):
 

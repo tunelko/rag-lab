@@ -176,7 +176,7 @@ python -m tests.browser.qa_redesign
 ```
 
 [CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml) ejecuta pruebas CPU
-en Windows/Linux y QA de navegador en Linux con modelos falsos y corpus aislado.
+en Windows/Linux, con QA de navegador en ambos, modelos falsos y corpus aislado.
 Ollama gestiona la GPU independientemente de los embeddings CPU.
 
 El servidor escucha en loopback por defecto. `-Host`/`--host` permite el acceso

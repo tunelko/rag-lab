@@ -11,11 +11,16 @@ Run from the project root in an environment installed with
 | Read-only running-server check | `python -m tests.browser.qa_web --url http://127.0.0.1:8765` |
 
 Browser tests use Edge by default for local QA: `python -m playwright install msedge`.
-CI sets `RAG_BROWSER_CHANNEL=chromium` and installs Playwright Chromium with its
-Linux system libraries. Set the same variable locally to test with bundled Chromium.
-CI installs system libraries and Chromium in separate steps with separate logs,
-bounded download retries and step timeouts. A network/DNS failure during installation
-fails the job; browser checks are never silently skipped or marked successful.
+`RAG_BROWSER_CHANNEL` selects another browser: `chrome` or `msedge` for an installed
+one, `chromium` for the Chromium that Playwright downloads.
+
+CI runs the browser acceptance suite on Linux and Windows with a browser that the
+runner image already ships (Chrome on Linux, Edge on Windows), so it needs neither a
+package mirror nor a browser download. Only if an image has no browser does it
+download Playwright Chromium, with three attempts and step timeouts; a failure
+there fails the job, and browser checks are never skipped or marked successful.
+Linux is pinned to `ubuntu-24.04` rather than `ubuntu-latest`. Each job writes a
+summary with the number of Python tests and browser checks, and uploads `reports/`.
 
 Unit tests use fake vectors/models/sensors and temporary files.
 Lifecycle tests start real Uvicorn workers with a temporary fixture app and verify
