@@ -29,7 +29,7 @@ import rag
 from jobs_runtime import JobFailure, JobRuntime
 from settings_store import SettingsStore, Preferences
 import multimodal
-from model_routing import select_model, asks_for_vision
+from model_routing import select_model, select_external_model, asks_for_vision
 import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
@@ -47,6 +47,7 @@ import library_reset
 from ollama_http import open_ollama
 from credential_store import CredentialError, CredentialStore, CredentialStoreLocked, PROVIDERS as CREDENTIAL_PROVIDERS
 import generation_providers
+import provider_vision
 import provider_pricing
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
@@ -148,7 +149,7 @@ class RagService(JobRuntime):
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         return {"message": "Modelo de búsqueda preparado en CPU."}
 
-    def index(self, job_id, only_file=None, *, files=None, preferences=None):
+    def index(self, job_id, only_file=None, *, files=None, preferences=None, provider_key=None):
         documents = self.list_documents()
         if only_file:
             documents = [document for document in documents if document["name"] == only_file]
@@ -193,6 +194,16 @@ class RagService(JobRuntime):
 
         def describe(data, model):
             self.check_cancel(job_id)
+            if settings.response_provider != 'ollama':
+                try:
+                    key = provider_key if provider_key is not None else self.credentials.get(settings.response_provider)
+                    generation_providers.require_vision_model(settings.response_provider, model, key)
+                except (CredentialError, generation_providers.ProviderError) as exc:
+                    raise multimodal.VisualError(str(exc)) from exc
+                label = generation_providers.PROVIDERS[settings.response_provider].label
+                self.update(job_id, phase=f'Describiendo imágenes con {label} · {model}', cancellable=True)
+                return multimodal.describe_remote_image(data, model, settings.response_provider, key,
+                    cancelled=lambda: self.cancelled(job_id))
             if "vision" not in self.model_capabilities(model):
                 raise multimodal.VisualError("Selecciona un modelo visual instalado en Configuración.")
             self.update(job_id, phase="Describiendo imágenes en local con Ollama", cancellable=True)
@@ -482,20 +493,30 @@ class RagService(JobRuntime):
                        "routing_mode": route.mode, "routing_reason": route.reason}
             phase = "Generando respuesta con Ollama"
         else:
-            if query.images:
-                raise JobFailure("LOCAL_VISION_REQUIRED", "Las imágenes adjuntas se procesan solo en local.",
-                                 "Selecciona Ollama como proveedor de respuesta; la imagen no se ha enviado a la nube.")
-            model = settings.external_model.strip()
-            if not model:
-                raise JobFailure("PROVIDER_MODEL_MISSING", "Falta el modelo externo.",
-                                 "Escribe el identificador exacto del modelo en Configuración.")
             try:
                 external_api_key = provider_key if provider_key is not None else self.credentials.get(provider)
                 profile = generation_providers.PROVIDERS[provider]
+                route = select_external_model(settings, query.question, hits[:len(sources)], bool(images),
+                    history=query.history, input_images=bool(query.images))
+                model = route.model
+                if route.images:
+                    generation_providers.require_vision_model(provider, model, external_api_key)
+                    limit = min(settings.max_images, provider_vision.image_limit(provider, model))
+                    if len(query.images) > limit:
+                        raise ValueError(f'El modelo visual admite como máximo {limit} imágenes por consulta.')
+                    selected_images = list(images.items())[:limit-len(query.images)]
+                    messages[-1]['images'] = [*query.images, *(base64.b64encode((self.visual_root / f'{asset}.png').read_bytes()).decode() for asset, _ in selected_images)]
+                    labels = [f'imagen {i}: aportada por el usuario' for i in range(1, len(query.images)+1)]
+                    labels += [f'imagen {i}: fuente [{citation}]' for i, (_, citation) in enumerate(selected_images, len(query.images)+1)]
+                    messages[-1]['content'] += '\n\nIMÁGENES ADJUNTAS (en este orden): ' + '; '.join(labels)
+                    messages[0]['content'] += ' Inspecciona las imágenes adjuntas; sus descripciones automáticas pueden contener errores.'
+                    visual_mode = 'images'
             except (CredentialError, KeyError) as exc:
                 raise JobFailure("PROVIDER_CREDENTIALS", "El proveedor externo no está preparado.", str(exc)) from exc
+            except (ValueError, generation_providers.ProviderError) as exc:
+                raise JobFailure('PROVIDER_VISION', 'Revisa los modelos del proveedor en Configuración.', str(exc)) from exc
             routing = {"model": model, "provider": provider, "provider_label": profile.label, "cloud": True,
-                       "routing_mode": "external", "routing_reason": f"Respuesta remota mediante {profile.label}; imágenes e índice permanecen locales."}
+                       "routing_mode": route.mode, "routing_reason": route.reason}
             phase = f"Generando respuesta con {profile.label}"
         timings["routing_seconds"] = round(time.perf_counter() - stage_started, 6)
         self.update(job_id, phase=phase, model=model,
@@ -635,8 +656,14 @@ def create_app(service=None):
         available = service.ollama_status()
         if body.response_provider == "ollama" and body.response_model and available["connected"] and body.response_model not in available["models"]:
             raise HTTPException(422, "El modelo de respuesta no está instalado en Ollama.")
-        if body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
+        if body.response_provider == 'ollama' and body.multimodal and (body.vision_model not in available["models"] or "vision" not in service.model_capabilities(body.vision_model)):
             raise HTTPException(422, "Selecciona un modelo visual local instalado antes de activar el modo multimodal.")
+        if body.response_provider != 'ollama' and body.external_vision_model:
+            try:
+                generation_providers.require_vision_model(body.response_provider, body.external_vision_model,
+                    service.credentials.get(body.response_provider))
+            except (CredentialError, generation_providers.ProviderError) as exc:
+                raise HTTPException(422, str(exc)) from exc
         return {"settings": service.settings.save(body).model_dump()}
 
     @app.put("/api/credentials/{provider}")
@@ -686,7 +713,9 @@ def create_app(service=None):
             raise HTTPException(409, str(exc)) from exc
         except generation_providers.ProviderError as exc:
             raise HTTPException(502, str(exc)) from exc
-        return {"provider": provider, "models": models}
+        return {"provider": provider, "models": models,
+                "vision_models": [name for name in models if provider_vision.image_limit(provider, name)],
+                "image_limits": {name: provider_vision.image_limit(provider, name) for name in models if provider_vision.image_limit(provider, name)}}
 
     @app.get("/api/providers/{provider}/pricing")
     def provider_prices(provider: str, request: Request):
@@ -760,14 +789,19 @@ def create_app(service=None):
         provider_key = None
         generates = not body.search_only and not query_intent(body.question).mode.startswith('catalog_')
         if generates and settings.response_provider != 'ollama':
-            if body.images:
-                raise HTTPException(422, 'Las imágenes adjuntas se procesan solo con Ollama local y no se enviarán a la nube.')
-            if not settings.external_model.strip():
+            if not settings.external_model.strip() and not (body.images and settings.external_vision_model):
                 raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')
             try:
                 provider_key = service.credentials.get(settings.response_provider)
+                if body.images:
+                    generation_providers.require_vision_model(settings.response_provider, settings.external_vision_model, provider_key)
+                    limit = provider_vision.image_limit(settings.response_provider, settings.external_vision_model)
+                    if len(body.images) > limit:
+                        raise HTTPException(422, f'El modelo visual admite como máximo {limit} imágenes por consulta.')
             except CredentialError as error:
                 raise HTTPException(409, str(error)) from error
+            except generation_providers.ProviderError as error:
+                raise HTTPException(422, str(error)) from error
         return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,
                              preferences=settings, provider_key=provider_key),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
@@ -832,7 +866,19 @@ def create_app(service=None):
             if not path.is_relative_to(service.documents) or not path.is_file() or path.suffix.lower() not in ALLOWED:
                 raise HTTPException(404, "Documento no disponible.")
         preferences=service.settings.get()
-        return service.start("index", lambda job_id: service.index(job_id, name,preferences=preferences), document_name=name)
+        provider_key = index_provider_key(preferences, [name] if name else [item['name'] for item in service.list_documents()])
+        return service.start("index", lambda job_id: service.index(job_id, name,preferences=preferences,provider_key=provider_key), document_name=name)
+
+    def index_provider_key(preferences, names):
+        if (preferences.response_provider == 'ollama' or not preferences.multimodal
+                or not any(Path(name).suffix.lower() in multimodal.EXTENSIONS for name in names)):
+            return None
+        try:
+            key = service.credentials.get(preferences.response_provider)
+            generation_providers.require_vision_model(preferences.response_provider, preferences.external_vision_model, key)
+            return key
+        except (CredentialError, generation_providers.ProviderError) as exc:
+            raise HTTPException(422, str(exc)) from exc
 
     @app.post("/api/admin/upload")
     async def upload(files: Annotated[list[UploadFile], File()], auto_index: Annotated[bool, Form()] = True,
@@ -854,6 +900,8 @@ def create_app(service=None):
             reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
             if Path(name).name != name or ".." in name or any(ord(char) < 32 or char in '\\/:*?"<>|' for char in name) or name.endswith((".", " ")) or name.split('.')[0].upper() in reserved:
                 return JSONResponse({"detail": "Nombre de archivo no válido.", "error_info": {"code": "INVALID_NAME", "message": "El nombre contiene caracteres o rutas no válidos.", "detail": name}}, status_code=422)
+        preferences = service.settings.get()
+        provider_key = index_provider_key(preferences, [file.filename for file in files]) if auto_index else None
         saved = []
         created = []
         total = 0
@@ -891,8 +939,7 @@ def create_app(service=None):
         result = {"saved": saved, "document_id": hashlib.sha256(saved[0].encode()).hexdigest()[:24]}
         if auto_index:
             name = saved[0] if len(saved) == 1 else None
-            preferences=service.settings.get()
-            result.update(service.start("index", lambda job_id: service.index(job_id, name,files=frozenset(saved),preferences=preferences),
+            result.update(service.start("index", lambda job_id: service.index(job_id, name,files=frozenset(saved),preferences=preferences,provider_key=provider_key),
                 document_name=name, document_id=result["document_id"], batch_id=batch_id[:100],
                 bytes=len(payloads[0][1]) if len(payloads) == 1 else sum(len(item[1]) for item in payloads)))
         return result

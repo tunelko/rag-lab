@@ -193,9 +193,9 @@ class ProviderTests(unittest.TestCase):
         payload = json.loads(opener.request.data)
         self.assertEqual(payload["response_format"]["json_schema"]["schema"], schema)
 
-    def test_images_are_never_sent_to_external_provider(self):
+    def test_images_are_never_sent_to_unconfirmed_models(self):
         for provider in providers.PROVIDERS:
-            with self.subTest(provider=provider), self.assertRaisesRegex(providers.ProviderError, "solo con Ollama local"):
+            with self.subTest(provider=provider), self.assertRaisesRegex(providers.ProviderError, "no está confirmado"):
                 providers.generate([{"role": "user", "content": "image", "images": ["base64"]}],
                                    provider, "chat-model", "secret-value", opener=FakeOpener(b""))
 

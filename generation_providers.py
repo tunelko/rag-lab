@@ -1,4 +1,4 @@
-"""Response-generation adapters. Document ingestion and vision stay on local Ollama."""
+"""Text and image generation through explicitly selected cloud providers."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
+import provider_vision
 
 
 class ProviderError(RuntimeError):
@@ -82,12 +83,20 @@ def _content(value):
     return str(value)
 
 
-def _messages(messages):
+def _messages(messages, provider, model):
+    count = sum(len(message.get('images', [])) for message in messages)
+    limit = provider_vision.image_limit(provider, model)
+    if count and (not limit or count > limit):
+        raise ProviderError(f'El modelo visual no está confirmado o se supera su límite de {limit} imágenes. Revisa Configuración y actualiza el catálogo.')
     clean = []
     for message in messages:
+        content = _content(message.get("content"))
         if message.get("images"):
-            raise ProviderError("Las imágenes se procesan solo con Ollama local; no se enviarán a un proveedor externo.")
-        clean.append({"role": message["role"], "content": _content(message.get("content"))})
+            try:
+                content = [{'type': 'text', 'text': content}, *provider_vision.image_parts(message['images'])]
+            except ValueError as exc:
+                raise ProviderError(str(exc)) from exc
+        clean.append({"role": message["role"], "content": content})
     return clean
 
 
@@ -140,8 +149,18 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
                 and not any(character in identifier for character in "\r\n\0")):
             if provider == "groq" and (item.get("active") is False or not _groq_chat_model(identifier)):
                 continue
+            provider_vision.register(provider, item)
             models.add(identifier)
     return sorted(models, key=str.casefold)
+
+
+def require_vision_model(provider, model, api_key):
+    if not model.strip():
+        raise ProviderError('Selecciona un modelo visual del proveedor en Configuración.')
+    if not provider_vision.image_limit(provider, model):
+        list_models(provider, api_key)
+    if not provider_vision.image_limit(provider, model):
+        raise ProviderError('El catálogo no confirma entrada de imágenes para ese modelo. Elige otro modelo visual.')
 
 
 def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None, cancelled=None,
@@ -160,7 +179,7 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
         raise ProviderError("El límite de salida debe estar entre 1 y 4096 tokens.")
     body = {
         "model": model,
-        "messages": _messages(messages),
+        "messages": _messages(messages, provider, model),
         "temperature": 0.1,
         "max_completion_tokens" if provider == "groq" else "max_tokens": limit,
         "stream": on_chunk is not None,

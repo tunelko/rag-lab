@@ -47,10 +47,16 @@ conflicting or unsupported declarations rather than omitting them silently.
 - Ollama requests bypass ambient HTTP proxies and reject redirects. Cloud model
   tags and remote metadata are excluded from runtime choices. The explicitly
   configured model endpoint must still be trusted.
-- Optional Scaleway, OVHcloud and xAI response adapters use fixed HTTPS hosts,
+- Optional Scaleway, OVHcloud, xAI and Groq adapters use fixed HTTPS hosts,
   bypass ambient proxies and reject redirects. They send retrieved text context
-  only after explicit provider selection; document files, embeddings and images
-  are not uploaded. API credentials are ciphertext in `data/credentials.sqlite3`,
+  only after explicit provider selection. Selecting a cloud vision model also
+  sends normalized figures/page images for explicit indexing and visual queries.
+  The UI discloses this transfer; vision is not selected automatically when
+  changing providers. Original files, embeddings and index remain on the host.
+  Image-input capability and image counts are checked before sending; remote
+  image URLs are not accepted by the adapter. Caption caches include provider and
+  model, and rejected/incomplete descriptions are not cached.
+  API credentials are ciphertext in `data/credentials.sqlite3`,
   protected by user-bound Windows DPAPI or Linux AES-GCM/Scrypt. Credential
   mutation is restricted to requests originating on the server host (loopback or
   its configured bind address), and plaintext values are never returned or logged.

@@ -396,7 +396,9 @@ def run_browser(url):
                 pending_catalog.append(route)
                 return
             route.fulfill(status=catalog['status'], json=(
-                {'provider': route.request.url.split('/')[-2], 'models': catalog['models']} if catalog['status'] == 200
+                {'provider': route.request.url.split('/')[-2], 'models': catalog['models'],
+                 'vision_models': [name for name in catalog['models'] if name == 'qwen/qwen3.8-27b'],
+                 'image_limits': {'qwen/qwen3.8-27b': 3}} if catalog['status'] == 200
                 else {'detail': 'Catálogo de prueba temporalmente no disponible'}))
 
         page.route('**/api/providers/*/models', provider_catalog)
@@ -478,6 +480,7 @@ def run_browser(url):
         expect(page.locator('#credential-state')).to_have_text('Sin configurar')
         expect(page.locator('#external-model')).to_be_disabled()
         expect(page.locator('#external-model option')).to_have_count(1)
+        catalog['models'] = ['qa-cloud-one', 'qwen/qwen3.8-27b']
         page.locator('#response-provider').select_option('groq')
         expect(page.locator('#provider-credential-hint')).to_contain_text('GroqCloud')
         expect(page.locator('#external-model')).to_be_disabled()
@@ -491,6 +494,26 @@ def run_browser(url):
         expect(page.locator('#response-provider')).to_have_value('groq')
         expect(page.locator('#external-model')).to_have_value('qa-cloud-one')
         expect(page.locator('#model-pricing-rates')).to_be_hidden()
+        expect(page.locator('#vision-model option')).to_have_count(2)
+        expect(page.locator('#vision-model')).to_have_value('')
+        expect(page.locator('#vision-model option[value="qa-cloud-one"]')).to_have_count(0)
+        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
+            page.locator('#vision-model').select_option('qwen/qwen3.8-27b')
+        page.reload(wait_until='networkidle')
+        expect(page.locator('#vision-model')).to_have_value('qwen/qwen3.8-27b')
+        expect(page.locator('#vision-model-hint')).to_contain_text('3 imágenes')
+        saved_vision = page.request.get(url + '/api/settings').json()['settings']
+        assert saved_vision['external_vision_model'] == 'qwen/qwen3.8-27b'
+        local_vision = saved_vision['vision_model']
+        catalog['models'] = ['qa-cloud-one']
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#vision-model')).to_be_disabled()
+        expect(page.locator('#vision-model option:checked')).to_contain_text('No aparece en el catálogo actual')
+        catalog['models'] = ['qa-cloud-one', 'qwen/qwen3.8-27b']
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#vision-model')).to_be_enabled()
+        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
+            page.locator('#vision-model').select_option('')
         page.locator('#delete-api-key').click()
         expect(page.locator('#credential-state')).to_have_text('Sin configurar')
         check('Groq provider, encrypted test credential, live catalog selector and persisted model; no invented pricing')
@@ -499,6 +522,9 @@ def run_browser(url):
         check('Provider model dropdown: automatic catalog, explicit choice, autosave/reload, empty/error recovery and stale provider responses')
         page.locator('#response-provider').select_option('ollama')
         expect(page.locator('#settings-message')).to_have_text('Guardado')
+        expect(page.locator('#vision-model')).to_have_value(local_vision)
+        expect(page.locator('#vision-model option[value="qwen/qwen3.8-27b"]')).to_have_count(0)
+        check('Vision dropdown follows provider: confirmed models only, explicit choice, reload, missing-model recovery and preserved local model')
         page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)
         page.locator("#nav-query").click()
         expect(page.locator("#model")).not_to_be_visible()

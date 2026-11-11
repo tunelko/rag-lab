@@ -96,9 +96,12 @@ y hardware. El selector con bandera está arriba a la derecha; fuentes tipográf
 y traducciones se sirven localmente.
 
 El proveedor de respuesta puede seguir siendo **Ollama local** o cambiarse a
-Scaleway, OVHcloud, xAI/Grok o **Groq**. Un proveedor externo recibe únicamente la pregunta,
-el historial y los fragmentos de texto recuperados; embeddings, índices, documentos
-y descripciones visuales permanecen locales. Las claves API se introducen desde
+Scaleway, OVHcloud, xAI/Grok o **Groq**. Un proveedor externo recibe la pregunta,
+el historial y los fragmentos recuperados. Elegir un **Modelo visual** envía también
+las imágenes necesarias para indexar o consultar a ese proveedor. Embeddings,
+índices y archivos originales se conservan localmente. Ambos desplegables siguen
+al proveedor elegido; el visual solo ofrece modelos con entrada de imagen confirmada.
+Consulta [visión externa](docs/CLOUD_VISION.md). Las claves API se introducen desde
 Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
 Windows las cifra con DPAPI ligada al usuario y Linux con AES-GCM y una contraseña
 maestra conservada solo en memoria.
@@ -139,12 +142,12 @@ confirmación, mueve documentos, índice y categorías a una carpeta con fecha e
 [Organización de la biblioteca](docs/LIBRARY.md).
 
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
-  Un modelo visual local describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
+  El modelo visual elegido describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
 - **Recuperación:** busca en texto y descripciones con embeddings multilingües.
 - **Ordenación:** las preguntas enfocadas usan un canal de texto nativo, ámbito
   documental automático y un cross-encoder local opcional. Consulta el [pipeline de recuperación](docs/RETRIEVAL.md#focused-retrieval-pipeline).
 - **Respuesta:** usa Ollama local o un proveedor externo elegido expresamente. La
-  visión local puede adjuntar imágenes; la generación cloud solo recibe texto y devuelve citas verificables.
+  consulta visual puede adjuntar imágenes al modelo visual elegido. Las respuestas incluyen citas.
 - **Seguimiento:** Biblioteca muestra trabajos, Estadísticas aporta gráficas y tiempos,
   y Consola recoge la salida del servidor. El chat muestra Markdown y código.
 

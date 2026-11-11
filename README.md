@@ -94,9 +94,12 @@ status icon opens connection and hardware details. The top-right flag selector
 switches Spanish/English; fonts and translations are served locally.
 
 The response provider can remain **Ollama local** or be changed to Scaleway,
-OVHcloud, xAI/Grok or **Groq**. External providers receive only the question, conversation
-history and retrieved text chunks; embeddings, indexes, source files and visual
-captioning remain local. API keys are entered from Settings on the server host
+OVHcloud, xAI/Grok or **Groq**. External providers receive the question, conversation
+history and retrieved text chunks. Choosing a **Vision model** also sends the images
+needed for indexing or visual queries to that provider. Embeddings, indexes and
+source files remain local. Both model dropdowns follow the selected provider;
+the vision list includes only confirmed image-input models. See [cloud vision](docs/CLOUD_VISION.md).
+API keys are entered from Settings on the server host
 (through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
 user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
 The **External model** dropdown loads the provider catalog automatically when a
@@ -132,13 +135,13 @@ existing PDFs, vectors and captions. **Empty library** starts over: after a type
 confirmation it moves documents, index and categories to a dated folder under
 `data/library-backups/` instead of deleting them. See [library organization](docs/LIBRARY.md).
 
-- **Ingest:** extract PDF text/tables and render visual or scanned pages. A local
+- **Ingest:** extract PDF text/tables and render visual or scanned pages. The selected
   vision model describes the images; descriptions and text enter the local SQLite vector store.
 - **Retrieve:** search text and image descriptions using multilingual embeddings.
 - **Rank:** focused questions use a native-text channel, automatic document scope
   and an optional local cross-encoder. See the [focused retrieval pipeline](docs/RETRIEVAL.md#focused-retrieval-pipeline).
-- **Answer:** use local Ollama or an explicitly selected external provider. Local
-  vision can attach original images; cloud generation receives text only. Answers include citations.
+- **Answer:** use local Ollama or an explicitly selected external provider. The selected
+  vision model can inspect original images. Answers include citations.
 - **Inspect:** Library shows jobs, Statistics offers resource graphs and timings,
   and Console shows server output. Chat renders Markdown and code.
 

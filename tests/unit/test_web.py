@@ -121,7 +121,7 @@ class WebTests(unittest.TestCase):
         with patch('generation_providers.list_models', return_value=['model-a', 'model-b']) as catalog:
             listed = self.client.get('/api/providers/ovh/models')
         self.assertEqual(listed.status_code, 200, listed.text)
-        self.assertEqual(listed.json(), {'provider': 'ovh', 'models': ['model-a', 'model-b']})
+        self.assertEqual(listed.json(), {'provider': 'ovh', 'models': ['model-a', 'model-b'], 'vision_models': [], 'image_limits': {}})
         catalog.assert_called_once_with('ovh', secret)
 
         remote = TestClient(self.client.app, client=('192.168.1.25', 50001))

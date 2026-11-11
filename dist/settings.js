@@ -14,7 +14,8 @@ export class SettingsController {
       if(element.type==='number'){const typed=Math.round(Number(element.value)),fallback=this.value?.[key]??Number(element.min);element.value=String(Math.max(Number(element.min),Math.min(Number(element.max),element.value!==''&&Number.isFinite(typed)?typed:fallback)));}
       if(!element.checkValidity()){element.reportValidity();return;}
       const next=element.type==='checkbox'?element.checked:element.type==='number'?Number(element.value):element.value;
-      if(id==='response-provider'){this.resetCatalog();this.patch({[key]:next,external_model:''});this.loadProviderModels();return;}
+      if(id==='response-provider'){this.resetCatalog();this.patch({[key]:next,external_model:'',external_vision_model:''});this.loadProviderModels();return;}
+      if(id==='vision-model'&&this.value?.response_provider!=='ollama'){this.patch({external_vision_model:next});return;}
       this.patch({[key]:next});
     });
     $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(control)this.patch({response_mode:control.dataset.responseMode});});
@@ -48,7 +49,7 @@ export class SettingsController {
   }
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
   set(result){this.resetCatalog();this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);this.loadProviderModels();}
-  resetCatalog(){this.catalogVersion++;this.externalModels=[];this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;this.pricing=null;this.pricingLoading=false;this.pricingError=null;}
+  resetCatalog(){this.catalogVersion++;this.externalModels=[];this.externalVisionModels=[];this.imageLimits={};this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;this.pricing=null;this.pricingLoading=false;this.pricingError=null;}
   async saveCredential(){
     const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
     try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();if(this.value?.response_provider===provider){this.resetCatalog();await this.loadProviderModels();}}
@@ -69,8 +70,8 @@ export class SettingsController {
     const version=++this.catalogVersion,current=()=>this.catalogVersion===version&&this.value?.response_provider===provider;
     this.modelsLoading=true;this.modelsError=null;this.render();
     const pricing=this.loadProviderPricing(provider,version);
-    try{const result=await this.api(`/api/providers/${provider}/models`);if(current()){this.externalModels=result.models||[];this.modelsLoaded=true;}}
-    catch(error){if(current()){this.externalModels=[];this.modelsLoaded=false;this.modelsError=error;}}
+    try{const result=await this.api(`/api/providers/${provider}/models`);if(current()){this.externalModels=result.models||[];this.externalVisionModels=(result.vision_models||[]).filter(model=>this.externalModels.includes(model));this.imageLimits=result.image_limits||{};this.modelsLoaded=true;}}
+    catch(error){if(current()){this.externalModels=[];this.externalVisionModels=[];this.imageLimits={};this.modelsLoaded=false;this.modelsError=error;}}
     finally{if(current()){this.modelsLoading=false;this.render();}}
     await pricing;
   }
@@ -116,6 +117,20 @@ export class SettingsController {
     const catalogState=$('provider-models-state');catalogState.textContent=this.modelsError?serverText(this.modelsError.message):this.modelsLoaded&&!this.modelsLoading?s('models_found',{count:this.externalModels.length}):s(state);catalogState.classList.toggle('error',Boolean(this.modelsError));
   }
   setStatus(status){this.status=status;this.warning();}
+  renderExternalVision(){
+    const select=$('vision-model'),selected=this.value.external_vision_model||'',models=this.externalVisionModels||[],configured=Boolean(this.credentials?.configured?.[this.value.response_provider]);
+    const state=this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!models.length?'no_vision_models':'choose_vision_model';
+    const signature=JSON.stringify([models,selected,state,s(state),this.modelsLoaded]);
+    if(select.dataset.options!==signature){
+      select.dataset.options=signature;const placeholder=node('option','',s(state));placeholder.value='';select.replaceChildren(placeholder);
+      if(selected&&!models.includes(selected)){const option=node('option','',selected+' · '+s('model_not_in_catalog'));option.value=selected;option.disabled=true;select.append(option);}
+      for(const model of models){const option=node('option','',model);option.value=model;select.append(option);}select.value=selected;
+    }
+    select.disabled=this.modelsLoading||!configured||Boolean(this.credentials?.locked)||!models.length;
+    select.setAttribute('aria-busy',String(this.modelsLoading));
+    const hint=$('vision-model-hint');hint.textContent=this.modelsError?serverText(this.modelsError.message):s('cloud_vision_hint')+(selected&&this.imageLimits?.[selected]?' '+s('vision_image_limit',{count:this.imageLimits[selected]}):'');
+    hint.classList.toggle('error',Boolean(this.modelsError));
+  }
   warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
   patch(patch){
     if(!this.value)return;
@@ -153,11 +168,13 @@ export class SettingsController {
     $('model-selection').value=value.response_mode;
     const providerSelect=$('response-provider'),providerSignature=JSON.stringify(this.providers);
     if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
-    this.select('model',this.models,value.response_model);this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);
+    this.select('model',this.models,value.response_model);
+    if(external)this.renderExternalVision();
+    else{this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);$('vision-model').disabled=false;$('vision-model').setAttribute('aria-busy','false');$('vision-model-hint').textContent=s('local_vision_hint');$('vision-model-hint').classList.remove('error');}
     $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
     this.renderExternalModels();
     this.renderPricing();
-    for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
+    for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=false;
     this.radios('#response-mode-control [data-response-mode]',control=>control.dataset.responseMode===value.response_mode);
     this.radios('#top-k [data-k]',control=>Number(control.dataset.k)===value.k);
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));

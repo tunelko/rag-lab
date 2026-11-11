@@ -1283,7 +1283,7 @@
           <button class="btn btn--ghost btn--sm" id="delete-api-key" type="button"><span data-i18n="sentinel.delete_key">Eliminar clave</span></button>
          </div>
          <p class="cfg-field__hint" data-i18n="sentinel.cloud_disclosure">
-          La pregunta y los fragmentos recuperados se enviarán al proveedor. El índice, los documentos y las imágenes permanecen locales.
+          La pregunta y los fragmentos se enviarán al proveedor. Al elegir un modelo visual también se enviarán las imágenes necesarias para indexar o consultar. Los archivos y el índice se conservan localmente.
          </p>
         </section>
         <section class="cfg-credential" hidden="" id="credential-unlock">
@@ -1298,10 +1298,11 @@
           Modelo visual
          </span>
          <span class="cfg-select">
-          <select class="select" id="vision-model">
+          <select class="select" id="vision-model" aria-describedby="vision-model-hint">
           </select>
          </span>
         </label>
+        <p class="cfg-field__hint" id="vision-model-hint"></p>
         <p class="cfg-field__hint" id="response-mode">
         </p>
        </div>

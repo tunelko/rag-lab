@@ -15,12 +15,17 @@ class Preferences(BaseModel):
     )
     response_model: str = Field(default_factory=lambda: os.getenv("RAG_OLLAMA_MODEL", ""), max_length=300)
     external_model: str = Field(default_factory=lambda: os.getenv("RAG_EXTERNAL_MODEL", ""), max_length=300)
+    external_vision_model: str = Field(default="", max_length=300)
     k: Literal[2, 4, 6, 8] = 4
     search_only: bool = False
     multimodal: bool = False
     vision_model: str = Field(default="qwen3.5:9b-q4_K_M", max_length=300)
     max_images: int = Field(default=3, ge=1, le=4)
     max_visuals_per_document: int = Field(default=500, ge=1, le=500)
+
+    @property
+    def active_vision_model(self):
+        return self.vision_model if self.response_provider == "ollama" else self.external_vision_model
 
 
 class SettingsStore:

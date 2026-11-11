@@ -72,3 +72,19 @@ def select_model(settings, question, hits, has_images, available, capabilities, 
         reason = "La pregunta requiere inspección visual y hay imágenes relacionadas." if visual_question else "La evidencia principal recuperada es una descripción visual; se comprueba su imagen original."
         return Route(vision, True, "automatic", reason)
     return Route(text_model, False, "automatic", "El modelo visual configurado no está disponible; se responde con la evidencia textual recuperada.")
+
+
+def select_external_model(settings, question, hits, has_images, history=(), input_images=False):
+    """Same intent rules; cloud vision uses its explicitly selected model."""
+    text_only = bool(TEXT_ONLY.search(normalize(question)))
+    visual_evidence = bool(hits and hits[0][0].metadata.get('asset_id'))
+    use_images = input_images or (settings.response_mode == 'automatic' and settings.multimodal
+        and has_images and not text_only and (asks_for_vision(question, history) or visual_evidence))
+    if use_images:
+        if not settings.external_vision_model:
+            raise ValueError('Selecciona un modelo visual del proveedor en Configuración para consultar imágenes.')
+        return Route(settings.external_vision_model, True, 'external_vision',
+                     'Consulta visual: imágenes enviadas al modelo visual del proveedor configurado.')
+    if not settings.external_model:
+        raise ValueError('Selecciona un modelo de respuesta del proveedor en Configuración.')
+    return Route(settings.external_model, False, 'external', 'Respuesta textual mediante el proveedor configurado.')
