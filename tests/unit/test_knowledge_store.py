@@ -87,6 +87,12 @@ class KnowledgeStoreTests(unittest.TestCase):
             failed_status = db.execute("SELECT status FROM snapshots WHERE id=?", (failed,)).fetchone()[0]
         self.assertEqual([row[0] for row in visible], ["CVE-2024-0002"])
         self.assertEqual(failed_status, "failed")
+        retry = self.store.start_sync("cisa-kev", run_id="run-c-retry")
+        repeated = self.store.stage_snapshot(
+            retry, "c" * 64, "raw/kev-c-retry.json", snapshot_id="snapshot-c-retry",
+        )
+        self.assertEqual(repeated, "snapshot-c-retry")
+        self.store.fail_sync(retry, "test-cleanup", "Expected retry test cleanup")
 
     def test_new_publication_supersedes_old_snapshot_in_one_transaction(self):
         first_run, first = self.stage_kev("d", "CVE-2024-0004")
@@ -111,6 +117,34 @@ class KnowledgeStoreTests(unittest.TestCase):
             statuses = dict(db.execute("SELECT id,status FROM sync_runs"))
         self.assertEqual(statuses[run], "unchanged")
         self.assertEqual(statuses[next_run], "cancelled")
+
+    def test_abandoned_run_is_recovered_before_retry(self):
+        run = self.store.start_sync("cisa-kev", run_id="run-abandoned")
+        snapshot = self.store.stage_snapshot(
+            run, "f" * 64, "raw/abandoned.json", snapshot_id="snapshot-abandoned",
+        )
+        self.assertEqual(self.store.recover_abandoned("cisa-kev"), 1)
+        replacement = self.store.start_sync("cisa-kev", run_id="run-after-abandoned")
+        with self.store.connect() as db:
+            self.assertEqual(db.execute(
+                "SELECT status FROM sync_runs WHERE id=?", (run,)
+            ).fetchone()[0], "failed")
+            self.assertEqual(db.execute(
+                "SELECT status FROM snapshots WHERE id=?", (snapshot,)
+            ).fetchone()[0], "failed")
+        self.store.fail_sync(replacement, "test-cleanup", "Expected recovery test cleanup")
+
+    def test_version_one_database_migrates_to_retryable_failed_snapshots(self):
+        with closing(sqlite3.connect(self.path)) as db:
+            db.execute("PRAGMA user_version=1")
+            db.commit()
+        migrated = KnowledgeStore(self.path)
+        with migrated.connect() as db:
+            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], SCHEMA_VERSION)
+            index = db.execute(
+                "SELECT sql FROM sqlite_master WHERE type='index' AND name='snapshots_active_digest'"
+            ).fetchone()[0]
+        self.assertIn("WHERE status IN", index)
 
     def test_invalid_identity_urls_hashes_and_unversioned_databases_are_rejected(self):
         with self.assertRaises(KnowledgeError):

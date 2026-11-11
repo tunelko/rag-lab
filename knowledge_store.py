@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 from uuid import uuid4
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 _IDENTIFIER = re.compile(r"[a-z0-9][a-z0-9._-]{0,79}\Z")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -81,10 +81,11 @@ CREATE TABLE snapshots (
     original_path TEXT NOT NULL,
     metadata_json TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL,
-    published_at TEXT,
-    UNIQUE(source_id, sha256)
+    published_at TEXT
 );
 CREATE INDEX snapshots_source_status ON snapshots(source_id, status, created_at);
+CREATE UNIQUE INDEX snapshots_active_digest ON snapshots(source_id, sha256)
+    WHERE status IN ('staged', 'published', 'superseded');
 
 CREATE TABLE sync_runs (
     id TEXT PRIMARY KEY,
@@ -233,6 +234,9 @@ class KnowledgeStore:
             version = db.execute("PRAGMA user_version").fetchone()[0]
             if version == SCHEMA_VERSION:
                 return
+            if version == 1:
+                self._migrate_one_to_two(db)
+                return
             if version != 0:
                 raise KnowledgeError(f"Unsupported knowledge database format: {version}.")
             existing = db.execute(
@@ -243,6 +247,47 @@ class KnowledgeStore:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript(SCHEMA)
             db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+
+    @staticmethod
+    def _migrate_one_to_two(db):
+        """Allow retrying failed content while retaining active digest uniqueness."""
+        db.commit()
+        db.execute("PRAGMA foreign_keys=OFF")
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            db.execute("""
+                CREATE TABLE snapshots_v2 (
+                    id TEXT PRIMARY KEY,
+                    source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE RESTRICT,
+                    sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+                    status TEXT NOT NULL CHECK (status IN ('staged', 'published', 'superseded', 'failed')),
+                    fetched_at TEXT NOT NULL,
+                    source_updated_at TEXT,
+                    etag TEXT,
+                    last_modified TEXT,
+                    original_path TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    published_at TEXT
+                )
+            """)
+            db.execute("INSERT INTO snapshots_v2 SELECT * FROM snapshots")
+            db.execute("DROP TABLE snapshots")
+            db.execute("ALTER TABLE snapshots_v2 RENAME TO snapshots")
+            db.execute("CREATE INDEX snapshots_source_status ON snapshots(source_id,status,created_at)")
+            db.execute("""CREATE UNIQUE INDEX snapshots_active_digest
+                          ON snapshots(source_id,sha256)
+                          WHERE status IN ('staged','published','superseded')""")
+            violations = db.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                raise KnowledgeError("Knowledge database migration failed its foreign-key check.")
+            db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.execute("PRAGMA foreign_keys=ON")
 
     def upsert_space(self, identifier, name, *, vector_collection=None,
                      default_ingestion_profile="structured"):
@@ -311,6 +356,29 @@ class KnowledgeStore:
         except sqlite3.IntegrityError as error:
             raise KnowledgeError("A synchronization is already running for this source.") from error
         return run_id
+
+    def recover_abandoned(self, source_id):
+        """Fail orphaned runs; caller must first own the source's operating-system lock."""
+        source_id = _identifier(source_id, "source")
+        now = utc_now()
+        with self.connect(write=True) as db:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                "SELECT id,snapshot_id FROM sync_runs WHERE source_id=? AND status='running'",
+                (source_id,),
+            ).fetchall()
+            snapshots = [(row["snapshot_id"],) for row in rows if row["snapshot_id"]]
+            if snapshots:
+                db.executemany(
+                    "UPDATE snapshots SET status='failed' WHERE id=? AND status='staged'", snapshots
+                )
+            db.execute(
+                """UPDATE sync_runs SET status='failed',finished_at=?,error_code='abandoned',
+                       error_message='The previous synchronization process ended before completion.'
+                   WHERE source_id=? AND status='running'""",
+                (now, source_id),
+            )
+        return len(rows)
 
     def stage_snapshot(self, run_id, sha256, original_path, *, snapshot_id=None,
                        fetched_at=None, source_updated_at=None, etag=None,
