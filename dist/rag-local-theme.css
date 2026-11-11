@@ -226,6 +226,7 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
    <div class="musa" data-state="idle" style="--musa-size:28px" aria-hidden="true">
      <div class="musa__orbit"><i></i><i></i></div>
      <div class="musa__eyes"><i></i><i></i></div>
+     <svg class="musa__hat" viewBox="0 0 100 110" aria-hidden="true">…</svg>  (montera picona; ver musa.js)
    </div>
    Estados: idle · retrieving · thinking · answering · offline
 */
@@ -250,6 +251,47 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 .musa[data-state="offline"]    { animation: none; box-shadow: 0 0 0 2px var(--danger-border);
   background: radial-gradient(circle at 34% 30%, #6c6d69 0, #3d3e3a 60%, #2a2b28 100%); }
 .musa[data-state="offline"] .musa__eyes > i { height: 30%; margin-top: 30%; border-radius: 2px; background: var(--bg-app); animation: none; }
+
+/* Montera picona (decorativa; su rojo y la escarapela no son colores de estado) */
+.musa {
+  --montera-negro:   #1d1d1b;
+  --montera-vuelta:  #2b2b29;
+  --montera-filo:    #5a5b56;   /* contorno para que el negro se lea sobre fondo oscuro */
+  --montera-costura: #3d3e3a;
+  --montera-vivo:    #c4161c;
+  --escarapela-azul: #2f7fd0;
+  --escarapela-oro:  #f3c623;
+}
+.musa__hat {
+  position: absolute; left: -2%; top: -75%; width: 104%; aspect-ratio: 100 / 110; height: auto;
+  overflow: visible; pointer-events: none; transform-origin: 50% 92%;
+}
+.musa__hat-body { fill: var(--montera-negro); stroke: var(--montera-filo); stroke-width: 1.6; stroke-linejoin: round; }
+.musa__hat-seam { fill: none; stroke: var(--montera-costura); stroke-width: 1.4; stroke-linecap: round; }
+.musa__hat-flap { fill: var(--montera-vuelta); }
+.musa__hat-trim { fill: none; stroke: var(--montera-vivo); stroke-width: 2.2; stroke-linecap: round; }
+.musa__hat-trim--brim { stroke-width: 2.6; }
+.musa__ribbon { stroke-width: 3; stroke-linecap: round; }
+.musa__ribbon--b, .musa__ro-b { stroke: var(--escarapela-azul); fill: var(--escarapela-azul); }
+.musa__ribbon--y, .musa__ro-y { stroke: var(--escarapela-oro);  fill: var(--escarapela-oro); }
+.musa__ro-b, .musa__ro-y { stroke: none; }
+
+/* Tamaño: el JS/plantilla añade .musa--sm (≤ 28 px) o .musa--md (≈ 48 px) */
+.musa--sm .musa__hat-body { stroke-width: 3.5; }
+.musa--sm .musa__hat-trim--brim { stroke-width: 5.5; }
+.musa--sm .musa__hat-seam, .musa--sm .musa__hat-flap, .musa--sm .musa__hat-trim:not(.musa__hat-trim--brim),
+.musa--sm .musa__rosette, .musa--md .musa__rosette, .musa--md .musa__hat-seam { display: none; }
+.musa--md .musa__hat-body { stroke-width: 2; }
+.musa--md .musa__hat-trim { stroke-width: 3; }
+
+.musa--bare .musa__hat { display: none; }
+.musa--no-rosette .musa__rosette { display: none; }
+
+.musa[data-state="thinking"]  .musa__hat { animation: musa-hat-tilt 2.4s ease-in-out infinite; }
+.musa[data-state="answering"] .musa__hat { animation: musa-hat-bob .7s ease-in-out infinite; }
+.musa[data-state="offline"]   .musa__hat { filter: grayscale(1) brightness(.75); }
+@keyframes musa-hat-tilt { 0%,35%,100% { transform: rotate(0) } 45%,70% { transform: rotate(-6deg) } }
+@keyframes musa-hat-bob  { 0%,100% { transform: rotate(0) } 50% { transform: rotate(3deg) } }
 
 /* "Pensando •••" y cursor de streaming */
 .thinking-dots { display: inline-flex; gap: 4px; align-items: center; }
