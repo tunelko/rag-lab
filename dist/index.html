@@ -1266,11 +1266,14 @@
          <span class="cfg-field__label" data-i18n="sentinel.external_model">
           Modelo externo
          </span>
-         <input autocomplete="off" class="input" data-i18n-placeholder="sentinel.external_model_placeholder" id="external-model" list="external-model-options" maxlength="300" placeholder="Identificador exacto del proveedor" type="text"/>
-         <datalist id="external-model-options"></datalist>
+         <span class="cfg-select">
+          <select class="select" id="external-model" aria-describedby="provider-models-state" disabled="">
+           <option value="" data-i18n="sentinel.choose_external_model">Selecciona un modelo</option>
+          </select>
+         </span>
          <span class="cfg-inline-action">
           <button class="btn btn--secondary btn--sm" id="refresh-provider-models" type="button"><span data-i18n="sentinel.refresh_models">Actualizar modelos</span></button>
-          <span class="cfg-field__hint" id="provider-models-state"></span>
+          <span class="cfg-field__hint" id="provider-models-state" role="status" aria-live="polite"></span>
          </span>
         </label>
         <section class="cfg-credential" hidden="" id="credential-panel">

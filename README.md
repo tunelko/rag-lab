@@ -97,8 +97,10 @@ history and retrieved text chunks; embeddings, indexes, source files and visual
 captioning remain local. API keys are entered from Settings on the server host
 (through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
 user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
-After saving a credential, **Refresh models** queries `/v1/models` server-side and
-offers the returned catalog in the model field. For Scaleway, store the **Secret
+The **External model** dropdown loads the provider catalog automatically when a
+credential is saved or a configured provider is opened. **Refresh models** reloads
+it from `/v1/models` server-side. Select a model from the list; the choice is saved
+automatically and restored after reloading the page. For Scaleway, store the **Secret
 Key** used as the Generative APIs Bearer credential; the Access Key is not used for
 inference. Its IAM bearer must have `GenerativeApisModelAccess` (least privilege),
 `GenerativeApisFullAccess` or `AllProductsFullAccess` for the intended Project or

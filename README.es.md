@@ -99,8 +99,10 @@ y descripciones visuales permanecen locales. Las claves API se introducen desde
 Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
 Windows las cifra con DPAPI ligada al usuario y Linux con AES-GCM y una contraseña
 maestra conservada solo en memoria.
-Tras guardar una credencial, **Actualizar modelos** consulta `/v1/models` desde el
-servidor y ofrece el catálogo en el campo de modelo. En Scaleway se guarda la
+La lista desplegable **Modelo externo** carga el catálogo automáticamente al guardar
+una credencial o abrir un proveedor configurado. **Actualizar modelos** vuelve a
+consultar `/v1/models` desde el servidor. Elige un modelo de la lista: la selección
+se guarda automáticamente y se conserva al recargar la página. En Scaleway se guarda la
 **Secret Key**, usada como Bearer por Generative APIs; la Access Key no interviene
 en la inferencia. Su portador IAM necesita `GenerativeApisModelAccess` (mínimo
 privilegio), `GenerativeApisFullAccess` o `AllProductsFullAccess` para el proyecto

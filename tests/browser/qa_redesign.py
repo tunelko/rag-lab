@@ -384,6 +384,74 @@ def run_browser(url):
             'Bloqueado' if credential_status['locked'] else 'Sin configurar')
         if credential_status['locked']:
             expect(page.locator('#credential-unlock')).to_be_visible()
+
+        # Exercise the real selector and autosave using fake catalogs only.
+        # The isolated server stores test credentials; no provider is contacted.
+        catalog = {'models': ['qa-cloud-one', 'qa-cloud-two'], 'status': 200, 'hold': False}
+        pending_catalog = []
+
+        def provider_catalog(route):
+            if catalog['hold']:
+                pending_catalog.append(route)
+                return
+            route.fulfill(status=catalog['status'], json=(
+                {'provider': 'xai', 'models': catalog['models']} if catalog['status'] == 200
+                else {'detail': 'Catálogo de prueba temporalmente no disponible'}))
+
+        page.route('**/api/providers/*/models', provider_catalog)
+        expect(page.locator('select#external-model')).to_be_disabled()
+        if credential_status['locked']:
+            page.locator('#credential-passphrase').fill('qa-only-master-password')
+            page.locator('#unlock-credentials').click()
+            expect(page.locator('#save-api-key')).to_be_enabled()
+        page.locator('#provider-api-key').fill('qa-only-provider-secret')
+        page.locator('#save-api-key').click()
+        expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
+        expect(page.locator('#external-model')).to_have_value('')
+        expect(page.locator('#external-model option')).to_have_count(3)
+        expect(page.locator('#provider-api-key')).to_have_value('')
+        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
+            page.locator('#external-model').select_option('qa-cloud-two')
+        assert page.request.get(url + '/api/settings').json()['settings']['external_model'] == 'qa-cloud-two'
+        page.reload(wait_until='networkidle')
+        expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
+        expect(page.locator('#external-model')).to_have_value('qa-cloud-two')
+
+        catalog['models'] = []
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#provider-models-state')).to_have_text('0 modelos disponibles')
+        expect(page.locator('#external-model')).to_be_disabled()
+        expect(page.locator('#external-model')).to_have_value('qa-cloud-two')
+        expect(page.locator('#external-model option:checked')).to_contain_text('No aparece en el catálogo actual')
+        catalog['status'] = 502
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#provider-models-state')).to_contain_text('temporalmente no disponible')
+        assert page.request.get(url + '/api/settings').json()['settings']['external_model'] == 'qa-cloud-two'
+
+        catalog.update(models=['qa-cloud-one', 'qa-cloud-two'], status=200)
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#external-model')).to_be_enabled()
+        catalog['hold'] = True
+        with page.expect_request('**/api/providers/xai/models'):
+            page.locator('#refresh-provider-models').click()
+        expect(page.locator('#external-model')).to_be_disabled()
+        page.locator('#response-provider').select_option('scaleway')
+        expect(page.locator('#credential-state')).to_have_text('Sin configurar')
+        assert pending_catalog
+        for delayed in pending_catalog:
+            delayed.fulfill(json={'provider': 'xai', 'models': ['wrong-provider-model']})
+        # Changing back must load a new catalog, not the delayed previous one.
+        catalog['hold'] = False
+        page.locator('#response-provider').select_option('xai')
+        expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
+        expect(page.locator('#external-model option[value="wrong-provider-model"]')).to_have_count(0)
+        expect(page.locator('#external-model')).to_have_value('')
+        page.locator('#delete-api-key').click()
+        expect(page.locator('#credential-state')).to_have_text('Sin configurar')
+        expect(page.locator('#external-model')).to_be_disabled()
+        expect(page.locator('#external-model option')).to_have_count(1)
+        page.unroute('**/api/providers/*/models', provider_catalog)
+        check('Provider model dropdown: automatic catalog, explicit choice, autosave/reload, empty/error recovery and stale provider responses')
         page.locator('#response-provider').select_option('ollama')
         expect(page.locator('#settings-message')).to_have_text('Guardado')
         page.screenshot(path=str(reports / "redesign-configuracion.png"), full_page=True)

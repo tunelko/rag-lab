@@ -7,14 +7,14 @@ const formatLabels={'.markdown':'MD','.jpeg':'JPG','.zip':'ZIP MinerU'};
 
 export class SettingsController {
   constructor(api,changed){
-    this.api=api;this.changed=changed;this.value=null;this.models=[];this.providers=[];this.credentials=null;this.externalModels=[];this.modelsLoading=false;this.modelsError=null;this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
+    this.api=api;this.changed=changed;this.value=null;this.models=[];this.providers=[];this.credentials=null;this.externalModels=[];this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;this.catalogVersion=0;this.version=0;this.saved=0;this.inFlight=null;this.error=null;this.timer=null;this.status=null;this.confirmed=false;this.flashTimer=null;
     for(const [id,key] of Object.entries(fields))$(id).addEventListener('change',event=>{
       const element=event.target;
       // A typed number is brought back into the range the server accepts.
       if(element.type==='number'){const typed=Math.round(Number(element.value)),fallback=this.value?.[key]??Number(element.min);element.value=String(Math.max(Number(element.min),Math.min(Number(element.max),element.value!==''&&Number.isFinite(typed)?typed:fallback)));}
       if(!element.checkValidity()){element.reportValidity();return;}
       const next=element.type==='checkbox'?element.checked:element.type==='number'?Number(element.value):element.value;
-      if(id==='response-provider'){this.externalModels=[];this.modelsError=null;this.patch({[key]:next,external_model:''});return;}
+      if(id==='response-provider'){this.resetCatalog();this.patch({[key]:next,external_model:''});this.loadProviderModels();return;}
       this.patch({[key]:next});
     });
     $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(control)this.patch({response_mode:control.dataset.responseMode});});
@@ -48,28 +48,45 @@ export class SettingsController {
     $('settings-formats').replaceChildren(...labels.map(label=>node('span','',label)));
   }
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
-  set(result){this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);}
+  set(result){this.resetCatalog();this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);this.loadProviderModels();}
+  resetCatalog(){this.catalogVersion++;this.externalModels=[];this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;}
   async saveCredential(){
     const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
-    try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();await this.loadProviderModels();}
+    try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();if(this.value?.response_provider===provider){this.resetCatalog();await this.loadProviderModels();}}
     catch(error){this.error=error;}this.render();
   }
   async deleteCredential(){
     const provider=this.value?.response_provider;if(!provider||provider==='ollama')return;
-    try{const result=await this.api(`/api/credentials/${provider}`,{method:'DELETE'});this.credentials=result.credentials;this.error=null;}
+    try{const result=await this.api(`/api/credentials/${provider}`,{method:'DELETE'});this.credentials=result.credentials;this.error=null;if(this.value?.response_provider===provider)this.resetCatalog();}
     catch(error){this.error=error;}this.render();
   }
   async unlockCredentials(){
     const passphrase=$('credential-passphrase').value;if(!passphrase)return;
-    try{const result=await this.api('/api/credentials/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({passphrase})});this.credentials=result.credentials;$('credential-passphrase').value='';this.error=null;}
+    try{const result=await this.api('/api/credentials/unlock',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({passphrase})});this.credentials=result.credentials;$('credential-passphrase').value='';this.error=null;await this.loadProviderModels();}
     catch(error){this.error=error;}this.render();
   }
   async loadProviderModels(){
-    const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading)return;
-    this.modelsLoading=true;this.error=null;this.render();
-    try{const result=await this.api(`/api/providers/${provider}/models`);this.externalModels=result.models||[];this.modelsError=null;}
-    catch(error){this.externalModels=[];this.modelsError=error;}
-    finally{this.modelsLoading=false;this.render();}
+    const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading||this.credentials?.locked||!this.credentials?.configured?.[provider])return;
+    const version=++this.catalogVersion,current=()=>this.catalogVersion===version&&this.value?.response_provider===provider;
+    this.modelsLoading=true;this.modelsError=null;this.render();
+    try{const result=await this.api(`/api/providers/${provider}/models`);if(current()){this.externalModels=result.models||[];this.modelsLoaded=true;}}
+    catch(error){if(current()){this.externalModels=[];this.modelsLoaded=false;this.modelsError=error;}}
+    finally{if(current()){this.modelsLoading=false;this.render();}}
+  }
+  renderExternalModels(){
+    const select=$('external-model'),selected=this.value.external_model||'',configured=Boolean(this.credentials?.configured?.[this.value.response_provider]);
+    const state=this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!this.externalModels.length?'no_models':this.modelsLoaded?'choose_external_model':'refresh_models';
+    const signature=JSON.stringify([this.externalModels,selected,state,s(state),s('model_not_in_catalog'),this.modelsLoaded]);
+    if(select.dataset.options!==signature){
+      select.dataset.options=signature;
+      const placeholder=node('option','',s(state));placeholder.value='';placeholder.disabled=true;select.replaceChildren(placeholder);
+      if(selected&&!this.externalModels.includes(selected)){const option=node('option','',selected+(this.modelsLoaded?' · '+s('model_not_in_catalog'):''));option.value=selected;option.disabled=true;select.append(option);}
+      for(const model of this.externalModels){const option=node('option','',model);option.value=model;select.append(option);}
+      select.value=selected;
+    }
+    select.disabled=this.modelsLoading||!configured||Boolean(this.credentials?.locked)||!this.externalModels.length;
+    select.setAttribute('aria-busy',String(this.modelsLoading));
+    const catalogState=$('provider-models-state');catalogState.textContent=this.modelsError?serverText(this.modelsError.message):this.modelsLoaded&&!this.modelsLoading?s('models_found',{count:this.externalModels.length}):s(state);catalogState.classList.toggle('error',Boolean(this.modelsError));
   }
   setStatus(status){this.status=status;this.warning();}
   warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
@@ -111,9 +128,7 @@ export class SettingsController {
     if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
     this.select('model',this.models,value.response_model);this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);
     $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
-    const modelOptions=$('external-model-options'),modelSignature=JSON.stringify(this.externalModels);
-    if(modelOptions.dataset.options!==modelSignature){modelOptions.dataset.options=modelSignature;modelOptions.replaceChildren(...this.externalModels.map(model=>{const option=document.createElement('option');option.value=model;return option;}));}
-    const catalogState=$('provider-models-state');catalogState.textContent=this.modelsLoading?s('loading_models'):this.modelsError?serverText(this.modelsError.message):this.externalModels.length?s('models_found',{count:this.externalModels.length}):'';catalogState.classList.toggle('error',Boolean(this.modelsError));
+    this.renderExternalModels();
     for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
     const composer=$('composer-model'),selected=value.response_mode==='automatic'?'automatic':'manual:'+value.response_model;
     const signature=JSON.stringify([this.models,selected,s('auto'),s('vision'),external,value.response_provider,value.external_model]);
