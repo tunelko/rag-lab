@@ -142,20 +142,26 @@
 @keyframes pstep-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 
 /* ---------- Móvil (el componente se adapta solo; sin media queries en páginas) ---------- */
-.topbar.app-header{position:sticky}.topbar__bar{gap:12px;min-width:0}.topnav{flex:0 1 auto}.topnav a{padding:0 8px;font-size:12px}.topbar__spacer{min-width:0}.cmdk{min-width:32px}.sysbtn .icon{width:14px;height:14px}.dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--lv,var(--border-control))}.sysbtn[data-level=warn]{border-color:var(--warning-border)}.sysbtn[data-level=crit]{border-color:var(--danger-border)}
+.topbar.app-header{position:sticky}.topbar__bar{gap:12px;min-width:0}.topnav{flex:0 1 auto}.topnav a{padding:0 8px;font-size:13px}.topbar__spacer{min-width:0}.cmdk{min-width:32px}.sysbtn .icon{width:14px;height:14px}.dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--lv,var(--border-control))}.sysbtn[data-level=warn]{border-color:var(--warning-border)}.sysbtn[data-level=crit]{border-color:var(--danger-border)}
+.topbar-settings {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px;
+  color: var(--nav-idle); border: 1px solid var(--border); border-radius: var(--radius-md); text-decoration: none;
+}
+.topbar-settings .icon { width: 18px; height: 18px; }
+.topbar-settings:hover { background: var(--surface-raised); color: var(--ink); }
+.topbar-settings[aria-current="page"] { background: var(--accent-soft); color: var(--accent-text); border-color: var(--accent); }
 .topbar-language{position:relative;display:inline-flex;flex:none;width:76px;align-items:center}.topbar-language img{position:absolute;left:7px;width:16px;height:12px;object-fit:cover;pointer-events:none;border-radius:1px}.topbar-language .langbtn{width:76px;padding:0 4px 0 27px;background:var(--bg-app);font-size:11px}
 .pipeline2__status{background:transparent;border:0;font:inherit;font-size:11px;cursor:pointer;max-width:220px}.pipeline2__steps{min-width:0}.pstep__name{font-size:10px}.pstep__value{font-size:11px}.pstep a{gap:6px;padding:0 8px}.pipeline2__title{font-size:10px;padding:0 12px}.pipeline2__status{padding:0 12px}
 .command-palette{width:min(680px,calc(100% - 32px));padding:0}.command-palette form{display:flex;align-items:center;gap:8px;padding:16px;border-bottom:1px solid var(--border)}.command-palette form .input{flex:1}.command-results{padding:16px;max-height:65dvh;overflow-y:auto}.command-results section+section{margin-top:20px}.command-results .label{font-size:11px;color:var(--text-muted);margin-bottom:8px}.command-result{display:block;width:100%;text-align:left;padding:10px;border:0;border-radius:4px;background:transparent;color:var(--text);font:inherit;font-size:12px;text-decoration:none;overflow-wrap:anywhere}.command-result:hover,.command-result:focus-visible{background:var(--accent-soft);color:var(--accent-text)}
 @media(max-width:1399px){.cmdk__label,.cmdk .kbd{display:none}.cmdk{flex:0 0 32px;width:32px;padding:0;justify-content:center}}
 @media(max-width:1320px){.sysbtn .sysbtn__item:not(:first-child),.sysbtn .sysbtn__sep{display:none}.sysbtn{width:32px;padding:0;justify-content:center}.sysbtn .sysbtn__item:first-child>:not(.dot){display:none}}
 @media(max-width:1320px){.sysbtn[data-level=warn] #system-dot{background:var(--warning)}.sysbtn[data-level=crit] #system-dot{background:var(--danger)}}
-@media(min-width:640px) and (max-width:850px){.topbar__brand{font-size:0;gap:0}.topbar__bar{gap:8px;padding:0 12px}.topnav a{font-size:11px;padding:0 6px}.topnav a svg{display:none}}
 .topbar__mobile-actions { display: none; }
 
 .topnav{flex-shrink:0}.cmdk{min-width:100px}.kbd{white-space:nowrap;flex:none}
 @media(max-width:1399px){.cmdk{min-width:32px}}
 @media(max-width:1399px){.topbar:has(.topnav__badge:not([hidden])) .sysbtn{width:32px;padding:0;justify-content:center}.topbar:has(.topnav__badge:not([hidden])) .sysbtn__item:not(:first-child),.topbar:has(.topnav__badge:not([hidden])) .sysbtn__sep,.topbar:has(.topnav__badge:not([hidden])) .sysbtn__item:first-child>:not(.dot){display:none}}
-@media(min-width:640px) and (max-width:1000px){.topbar__brand{font-size:0;gap:0}.topbar__bar{gap:8px;padding:0 12px}.topnav a{font-size:11px;padding:0 6px}.topnav a svg{display:none}}
+@media(min-width:640px) and (max-width:1000px){.topbar__brand{font-size:0;gap:0}.topbar__bar{gap:8px;padding:0 12px}.topnav a{font-size:12px;padding:0 6px}.topnav a svg{display:none}}
 @media(max-width:639px){.topnav{flex-shrink:1}.cmdk{min-width:44px}}
 @media (max-width: 1023px) {
   .cmdk__label, .cmdk .kbd { display: none; }
@@ -168,6 +174,7 @@
   .topbar__divider { display: none; }
   .topnav { order: 3; flex: 1 0 100%; height: 44px; margin: 0 calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-4)); border-top: 1px solid var(--border); }
   .cmdk, .sysbtn { width: 44px; height: 44px; border: 0; }
+  .topbar-settings { flex-basis: 44px; height: 44px; }
   .sysbtn { position: relative; justify-content: center; padding: 0; }
   .sysbtn .sysbtn__item:first-child > :not(.dot) { display: none; }
 
@@ -179,4 +186,5 @@
   .topbar, .topbar__bar { transition: none; }
   .pstep[data-state="run"]::before, .pipeline2__status.is-busy .dot { animation: none; }
 }
-@media(max-width:359px){.topbar__brand{font-size:11px}.topbar__bar{column-gap:4px}.topbar-language,.topbar-language .langbtn{width:72px}}
+@media(max-width:419px){.topbar__brand{font-size:0;gap:0}}
+@media(max-width:359px){.topbar__bar{column-gap:4px}.topbar-language,.topbar-language .langbtn{width:72px}}
