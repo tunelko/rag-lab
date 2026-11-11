@@ -22,8 +22,20 @@ CATALOG_WORDS = set(('y el la los las de del en un una por favor me puedes dime 
     'and the a an of in please tell me what which how many count number total list '
     'names name documents document files file manuals manual library indexed loaded '
     'do you have are is there currently available').split())
-GLOBAL = re.compile(r'\b(?:tod[oa]s?|all)\b.{0,60}\b(?:documentos?|archivos?|manuales?|biblioteca|documents?|files?|manuals?|library)\b'
-                    r'|\b(?:cada|each)\b.{0,45}\b(?:documento|archivo|manual|placa|equipo|document|file|motherboard|device)\b')
+GLOBAL = re.compile(r'\b(?:tod[oa]s?|all)\b.{0,60}\b(?:documentos?|archivos?|manuales?|biblioteca|pliegos?|licitaci(?:on|ones)|expedientes?|contratos?'
+                    r'|fichas?|documents?|files?|manuals?|library|tenders?|contracts?)\b'
+                    r'|\b(?:cada|each)\b.{0,45}\b(?:documento|archivo|manual|placa|equipo|pliego|licitacion|expediente|contrato|ficha'
+                    r'|document|file|motherboard|device|tender|contract)\b'
+                    # "which tenders…", "how many tenders…": a question about the set, not about one of them
+                    r'|\b(?:que|cuales|cuantos|cuantas|which|how many)\b.{0,12}\b(?:pliegos|licitaciones|expedientes|contratos|tenders|contracts)\b')
+# A summary sheet stands for one item of a collection (for example, one tender with several PDFs).
+SUMMARY_SUFFIX = '__FICHA.md'
+
+
+def summary_scope(documents):
+    """For a question about every item: its summary sheets when the scope has them, else every document."""
+    sheets = [item for item in documents if item['name'].endswith(SUMMARY_SUFFIX) and item.get('indexed')]
+    return sheets or documents
 LIST_REQUEST = re.compile(r'\b(?:lista|listado|listame|enumera|enumerar|enumerate|list|listing)\b')
 FOCUSED_SELECTOR = re.compile(r'\b(?:est[ea]|es[ea]|dich[oa]|this|that)\s+(?:misma?\s+)?'
     r'(?:placa|manual|documento|archivo|equipo|dispositivo|board|motherboard|manual|document|file|device)\b'
@@ -191,7 +203,11 @@ def global_retrieve(config, documents, embeddings, question, *, cancelled=lambda
         scores = matrix @ query / np.maximum(norms, np.finfo(np.float32).tiny)
         if not np.all(np.isfinite(scores)):
             raise ValueError('El índice contiene embeddings no válidos.')
-        best = best_evidence(rows['documents'], scores, topic, rows['metadatas'])
+        if item['name'].endswith(SUMMARY_SUFFIX):
+            # A summary sheet opens with its summary: that part speaks for the item, whatever matches best.
+            best = min(range(len(rows['ids'])), key=lambda index: (rows['metadatas'][index].get('chunk', index), index))
+        else:
+            best = best_evidence(rows['documents'], scores, topic, rows['metadatas'])
         document = rag.Document(page_content=rows['documents'][best][:allowance], metadata=rows['metadatas'][best])
         hits.append((document, float(1 - np.clip(scores[best], -1, 1))))
         if observer:

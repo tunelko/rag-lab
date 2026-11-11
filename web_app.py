@@ -34,7 +34,7 @@ import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
-from library_queries import Intent, query_intent, catalog_answer, global_retrieve, tokens
+from library_queries import Intent, query_intent, catalog_answer, global_retrieve, summary_scope, tokens
 from knowledge_store import KnowledgeError, KnowledgeStore
 import record_answers
 import record_engine
@@ -448,7 +448,9 @@ class RagService(JobRuntime):
             hits, scope = record_answers.evidence(record_plan, record_search.search(store, record_plan, records['record_set']),
                                                   records['record_set'], query.language)
         elif intent.mode == 'global':
-            hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
+            # A question about every item is answered from its summary sheets when the scope has them:
+            # one sheet per tender, instead of every PDF of every tender.
+            hits, scope = global_retrieve(self.config, summary_scope(documents), embeddings, query.question,
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
