@@ -34,7 +34,8 @@ import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
-from library_queries import Intent, query_intent, catalog_answer, global_retrieve, summary_scope, tokens
+from library_queries import (Intent, query_intent, catalog_answer, global_retrieve, summary_scope, tokens,
+                             has_summaries, set_question, topic_query)
 from knowledge_store import KnowledgeError, KnowledgeStore
 import record_answers
 import record_engine
@@ -422,6 +423,10 @@ class RagService(JobRuntime):
         applied = record_answers.conditions_line(record_plan, records['record_set'], query.language) if records else ''
         # A structured plan replaces document retrieval; nothing below reads the library for it.
         intent = Intent('records') if records is not None else query_intent(query.question)
+        if intent.mode == 'focused' and has_summaries(documents) and set_question(query.question):
+            # "Is there any…", "which…", "how many…": with one summary sheet per item in scope, the
+            # question is about the set and every item must be looked at, not the eight best fragments.
+            intent = Intent('global', topic_query(query.question))
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)

@@ -32,6 +32,21 @@ GLOBAL = re.compile(r'\b(?:tod[oa]s?|all)\b.{0,60}\b(?:documentos?|archivos?|man
 SUMMARY_SUFFIX = '__FICHA.md'
 
 
+# Questions that ask which or how many items, or whether any item, has some property. In a scope
+# with summary sheets these are about the set, however they are worded.
+SET_QUESTION = re.compile(r'\b(?:hay|existen?|tenemos|tienes)\s+(?:algun[oa]?s?|algo)\b|\balgun[oa]s?\s+(?:de|del|que|con|en|para)\b'
+                          r'|^(?:¿|\s)*(?:cuales?|cuant[oa]s|que\s+\w+\s+(?:son|estan|tienen|hay))\b|\b(?:lista|listado|listame|enumera|relacion de)\b'
+                          r'|\b(?:is|are) there any\b|\bany of (?:them|the)\b|^(?:\s)*(?:which|how many)\b')
+
+
+def set_question(question):
+    return bool(SET_QUESTION.search(normalize(question)))
+
+
+def has_summaries(documents):
+    return any(item['name'].endswith(SUMMARY_SUFFIX) and item.get('indexed') for item in documents)
+
+
 def summary_scope(documents):
     """For a question about every item: its summary sheets when the scope has them, else every document."""
     sheets = [item for item in documents if item['name'].endswith(SUMMARY_SUFFIX) and item.get('indexed')]

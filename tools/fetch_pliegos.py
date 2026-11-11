@@ -44,7 +44,19 @@ CONTRACT_TYPES = {'1': 'suministros', '2': 'servicios', '3': 'obras', '21': 'ges
                   '22': 'concesión de servicios', '31': 'concesión de obras públicas', '32': 'concesión de obras',
                   '40': 'colaboración público-privada', '7': 'administrativo especial', '8': 'privado', '50': 'patrimonial'}
 METADATA = ('folder', 'title', 'organ', 'cpv', 'status', 'type', 'updated', 'link', 'amount_without_tax',
-            'amount_with_tax', 'estimated_value', 'deadline', 'deadline_time', 'place')
+            'amount_with_tax', 'estimated_value', 'deadline', 'deadline_time', 'place', 'place_code', 'city')
+# Autonomous communities by the first four characters of the NUTS code the platform publishes.
+REGIONS = {'ES11': 'Galicia', 'ES12': 'Principado de Asturias', 'ES13': 'Cantabria', 'ES21': 'País Vasco',
+           'ES22': 'Comunidad Foral de Navarra', 'ES23': 'La Rioja', 'ES24': 'Aragón', 'ES30': 'Comunidad de Madrid',
+           'ES41': 'Castilla y León', 'ES42': 'Castilla-La Mancha', 'ES43': 'Extremadura', 'ES51': 'Cataluña',
+           'ES52': 'Comunitat Valenciana', 'ES53': 'Illes Balears', 'ES61': 'Andalucía', 'ES62': 'Región de Murcia',
+           'ES63': 'Ceuta', 'ES64': 'Melilla', 'ES70': 'Canarias'}
+
+
+def region(tender):
+    """Autonomous community of the place of performance, or '' when the platform gives no regional code."""
+    code = (tender.get('place_code') or '').upper()
+    return REGIONS.get(code[:4], 'toda España' if code in ('ES', 'ES0', 'ES00', 'ES000') else '')
 
 
 def fold(text):
@@ -94,6 +106,8 @@ def parse_entry(block):
         'estimated_value': first(r'<cbc:EstimatedOverallContractAmount[^>]*>([^<]+)', budget),
         'deadline': first(r'<cbc:EndDate>([^<]+)', deadline), 'deadline_time': first(r'<cbc:EndTime>([^<]+)', deadline),
         'place': first(r'<cac:RealizedLocation>.*?<cbc:CountrySubentity>([^<]+)', project),
+        'place_code': first(r'<cac:RealizedLocation>.*?<cbc:CountrySubentityCode[^>]*>([^<]+)', project),
+        'city': first(r'<cac:RealizedLocation>.*?<cbc:CityName>([^<]+)', project),
         'documents': documents,
     }
 
@@ -155,17 +169,22 @@ def sheet(tender):
         open_line = 'Abierta para presentar ofertas: en plazo según la plataforma' + (f', con fecha límite {day(deadline)}' if deadline else ', sin fecha límite publicada')
     else:
         open_line = f"Abierta para presentar ofertas: no ({STATUS.get(status, status or 'estado no publicado')})" + (f'; el plazo terminó el {day(deadline)}' if deadline else '')
+    community = region(tender)
+    where = ' · '.join(item for item in (
+        f'Comunidad autónoma: {community}' if community else '',
+        f"Provincia o zona: {tender['place']}" if tender.get('place') and tender['place'] != community else '') if item)
     # The opening block is what a question about every tender receives, possibly cut short when there
-    # are many tenders: identification and status first, then budget, then the subject.
+    # are many tenders. Every fact goes there, shortest first; the subject, the longest, goes last.
     lines = [
-        f"Licitación {tender['folder']} · {tender.get('organ', '')[:70]}",
+        f"Licitación {tender['folder']} · {tender.get('organ', '')[:60]}",
         f"Estado a {day(data_day)}: {STATUS.get(status, status or 'no publicado')}. {open_line}.",
+        where or 'Comunidad autónoma: no publicada',
         'Presupuesto sin impuestos: ' + (euros(tender.get('amount_without_tax')) or 'no publicado')
         + (f" · Valor estimado: {euros(tender['estimated_value'])}" if euros(tender.get('estimated_value')) else ''),
-        f"Objeto: {tender['title'][:100]}",
+        f"Objeto: {tender['title'][:90]}",
         '',
         f"Tipo de contrato: {CONTRACT_TYPES.get(tender.get('type', ''), tender.get('type', ''))}"
-        + (f" · Lugar de ejecución: {tender['place']}" if tender.get('place') else ''),
+        + (f" · Localidad: {tender['city']}" if tender.get('city') else ''),
         'CPV: ' + ', '.join(tender.get('cpv', [])),
         'Presupuesto con impuestos: ' + (euros(tender.get('amount_with_tax')) or 'no publicado'),
         f"Objeto completo: {tender['title']}",
