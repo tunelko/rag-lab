@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import math
+import re
 import statistics
+import unicodedata
 
 
 def _file(value):
@@ -27,6 +29,42 @@ def hit_matches(hit, qrel):
     if _file(metadata.get('file')) != _file(qrel.get('file')):
         return False
     return qrel.get('page') is None or int(metadata.get('page', -1)) == int(qrel['page'])
+
+
+def _evidence_text(value):
+    return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', str(value)).casefold()).strip()
+
+
+def score_evidence(hits, qrels, evidence, *, ks=(1, 5, 10)):
+    """Detect literal answer anchors inside relevant evidence actually sent at K."""
+    if not isinstance(evidence, list) or not evidence or not all(
+            isinstance(value, str) and value.strip() for value in evidence):
+        raise ValueError('Evidence must be a nonempty list of nonempty literal strings.')
+    anchors = [_evidence_text(value) for value in evidence]
+    result = {}
+    for k in sorted(set(int(value) for value in ks)):
+        if k < 1:
+            raise ValueError('Metric cutoffs must be positive.')
+        buckets = {}
+        for position, hit in enumerate(hits[:k]):
+            metadata = hit.get('metadata') or {}
+            for qrel in qrels:
+                if not hit_matches(hit, qrel):
+                    continue
+                # Never manufacture an answer by joining different physical pages.
+                bucket = (qrel_key(qrel), _file(metadata.get('file')), metadata.get('page'))
+                chunk = metadata.get('chunk')
+                order = int(chunk) if isinstance(chunk, int) or str(chunk).isdigit() else position
+                buckets.setdefault(bucket, []).append((order, position, hit.get('text', '')))
+        covered = False
+        for fragments in buckets.values():
+            joined = _evidence_text(' '.join(
+                text for _order, _position, text in sorted(fragments)))
+            if any(anchor in joined for anchor in anchors):
+                covered = True
+                break
+        result[f'evidence_recall@{k}'] = 1.0 if covered else 0.0
+    return result
 
 
 def score_ranking(hits, qrels, *, ks=(1, 5, 10)):
@@ -116,8 +154,12 @@ def aggregate_rankings(per_query):
         raise ValueError('No query results to aggregate.')
     metric_names = sorted({name for item in per_query for name in item['metrics']
                            if name not in {'relevant_total', 'relevant_retrieved'}})
-    result = {name: statistics.fmean(item['metrics'][name] for item in per_query)
-              for name in metric_names}
+    result = {}
+    for name in metric_names:
+        values = [item['metrics'][name] for item in per_query if name in item['metrics']]
+        result[name] = statistics.fmean(values)
+        if name.startswith('evidence_recall@'):
+            result['evidence_queries'] = len(values)
     latencies = sorted(float(item['latency_ms']) for item in per_query)
     result.update({
         'queries': len(per_query),

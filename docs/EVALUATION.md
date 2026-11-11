@@ -46,6 +46,13 @@ retrieval from one particular language or edition.
 Add `strata` such as `same-language`, `cross-language`, `cjk`, `table`, `visual` or
 `exact-identifier`; the report keeps separate metrics for each declared group.
 
+An optional nonempty `evidence` array adds literal answer anchors. Matching applies
+Unicode NFKC, case folding and whitespace normalization. Anchors may span multiple
+selected chunks from the same relevant physical page, ordered by their stored chunk
+number; text from different pages is never joined. This measures whether the actual
+Top-K context contains an expected answer string, rather than merely reaching the
+right page. Arbitrary regular expressions are deliberately not accepted.
+
 Do not manufacture labels from the current retriever or LLM response. That would
 make the benchmark reward its own errors. Keep private corpus judgments out of Git.
 
@@ -72,6 +79,29 @@ From the project root:
   --mode dense lexical hybrid
 ```
 
+For the diagnostic channel experiment, use `--mode dense dense-native
+dense-routed`. `dense-native` removes `page_image`/`figure` captions from the
+candidate ranking. `dense-routed` keeps all channels for an explicitly visual
+question; otherwise native text/tables are ranked first and visual captions only
+fill unused positions. Both preserve the requested K context budget and leave
+production retrieval unchanged.
+
+The cumulative no-model experiment adds two more offline modes:
+
+```text
+--mode dense dense-native dense-native-scoped dense-native-scoped-expanded
+```
+
+`dense-native-scoped` derives model identifiers from document filenames and native
+first-page titles. When a question contains an unambiguous identifier, search is
+restricted to every matching edition; explicit dataset `files` always wins and no
+match falls back to the complete library. Each decision and matched alias is written
+to the report. `dense-native-scoped-expanded` then adds the immediately previous and
+next native chunk from each selected fragment's physical page, deduplicates them and
+applies `RAG_CONTEXT_CHARS` exactly as answer construction does. It reports seed and
+expanded evidence separately, context characters and fragment/channel counts. These
+modes do not modify the index or production query path.
+
 Linux:
 
 ```bash
@@ -94,6 +124,10 @@ cache diagnostics and aggregate metrics. Both locations are ignored by Git.
 | Precision@K | Distinct relevant units among K collapsed positions. |
 | MRR@K | Reciprocal rank of the first relevant collapsed unit. |
 | nDCG@K | Collapsed rank quality with optional graded relevance. |
+| Evidence Recall@K | Questions whose actual Top-K relevant-page text contains a declared literal answer anchor. |
+| Native/Visual fragments@K | Mean channel composition of the context budget. |
+| Candidate Evidence Recall@20/50/100/512 | Dense upper bound before Top-K selection; separates missing candidates from poor ordering. |
+| Context chars/fragments@K | Actual expanded context after the configured character budget. |
 | P50/P95 | Median and tail retrieval latency, including query embedding for dense modes. |
 
 Default cutoffs are 1, 4 and 8 because the UI offers 2/4/6/8 fragments and defaults

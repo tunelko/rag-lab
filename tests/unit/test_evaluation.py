@@ -8,7 +8,8 @@ from unittest.mock import patch
 
 import numpy as np
 
-from evaluation import anls, aggregate_rankings, score_abstention, score_citations, score_ranking
+from evaluation import (anls, aggregate_rankings, score_abstention, score_citations,
+                        score_evidence, score_ranking)
 import rag
 from tools.evaluate_retrieval import adoption_verdict, paired_comparison, run_mode
 from tools.prepare_lexical_index import backup_database, main as prepare_main, status
@@ -75,6 +76,23 @@ class EvaluationTests(unittest.TestCase):
             ])
         with self.assertRaisesRegex(ValueError, 'nonempty string'):
             score_ranking([], [{'file':'manual.pdf','page':1,'group':'  '}])
+
+    def test_evidence_anchors_can_span_selected_chunks_but_not_pages(self):
+        qrels = [{'file':'manual.pdf','page':8}]
+        hits = [
+            {'id':'a','text':'Supports 80 and','metadata':
+             {'file':'manual.pdf','page':8,'chunk':128,'item_type':'text'}},
+            {'id':'b','text':'94 discrete clients.','metadata':
+             {'file':'manual.pdf','page':8,'chunk':129,'item_type':'text'}},
+        ]
+        result = score_evidence(hits, qrels, ['80 AND 94'], ks=(1,2))
+        self.assertEqual(result['evidence_recall@1'], 0)
+        self.assertEqual(result['evidence_recall@2'], 1)
+        hits[1]['metadata']['page'] = 9
+        self.assertEqual(score_evidence(hits, qrels, ['80 and 94'], ks=(2,))[
+            'evidence_recall@2'], 0)
+        with self.assertRaisesRegex(ValueError, 'nonempty list'):
+            score_evidence([], qrels, '80 and 94')
 
     def test_aggregate_latencies_and_answer_side_metrics(self):
         aggregate=aggregate_rankings([
@@ -194,6 +212,104 @@ class EvaluationTests(unittest.TestCase):
         self.assertIn('mrr@4', dense['summary'])
         verdict = adoption_verdict({'dense':dense,'hybrid':hybrid}, dataset, cutoffs)
         self.assertEqual(verdict['verdict'], 'pass')
+
+    def test_native_and_routed_modes_keep_a_fixed_channel_budget(self):
+        class FakeStore:
+            @staticmethod
+            def embed_query(_question): return [1.0, 0.0]
+            @staticmethod
+            def dense_search_vector(_vector, _limit, **_options):
+                return [
+                    {'id':'visual','text':'Descripción aproximada.',
+                     'metadata':{'file':'manual.pdf','page':8,'chunk':3,
+                                 'item_type':'page_image'},'score':.99},
+                    {'id':'native','text':'Supports 80 and 94 discrete clients.',
+                     'metadata':{'file':'manual.pdf','page':8,'chunk':1,
+                                 'item_type':'text'},'score':.8},
+                    {'id':'other','text':'Other native technical evidence.',
+                     'metadata':{'file':'other.pdf','page':1,'chunk':2,
+                                 'item_type':'table'},'score':.7},
+                ]
+        dataset = [{'id':'q','question':'How many clients are supported?',
+                    'relevant':[{'file':'manual.pdf','page':8}],
+                    'evidence':['80 and 94'],'strata':['paraphrase']}]
+        native = run_mode(FakeStore(), 'dense-native', dataset, ['visual','native','other'], (1,2))
+        routed = run_mode(FakeStore(), 'dense-routed', dataset, ['visual','native','other'], (1,2))
+        self.assertEqual(native['queries'][0]['hits'][0]['id'], 'native')
+        self.assertEqual(routed['queries'][0]['hits'][0]['id'], 'native')
+        self.assertEqual(routed['summary']['evidence_recall@1'], 1)
+        self.assertEqual(routed['summary']['visual_fragments@2'], 0)
+        visual_dataset = [{**dataset[0], 'question':'What does the image show?'}]
+        visual = run_mode(FakeStore(), 'dense-routed', visual_dataset,
+                          ['visual','native','other'], (1,))
+        self.assertEqual(visual['queries'][0]['hits'][0]['id'], 'visual')
+        self.assertEqual(visual['summary']['visual_fragments@1'], 1)
+
+    def test_automatic_scope_uses_first_page_title_and_reports_its_decision(self):
+        class FakeStore:
+            last_options = None
+            @staticmethod
+            def get(**_options):
+                return {
+                    'ids':['title','other'],
+                    'documents':['B550M PRO-VDH Motherboard','Unrelated board'],
+                    'metadatas':[
+                        {'file':'generic-manual.pdf','page':1,'chunk':0,'item_type':'text'},
+                        {'file':'other.pdf','page':1,'chunk':0,'item_type':'text'},
+                    ],
+                }
+            @staticmethod
+            def embed_query(_question): return [1.0, 0.0]
+            @classmethod
+            def dense_search_vector(cls, _vector, _limit, **options):
+                cls.last_options = options
+                return [{'id':'title','text':'B550M PRO-VDH Motherboard',
+                         'metadata':{'file':'generic-manual.pdf','page':1,'chunk':0,
+                                     'item_type':'text'},'score':.1}]
+        dataset = [{'id':'scope','question':'B550M PRO-VDH specifications',
+                    'relevant':[{'file':'generic-manual.pdf','page':1}],
+                    'evidence':['B550M PRO-VDH'],'strata':['exact-identifier']}]
+        result = run_mode(FakeStore(), 'dense-native-scoped', dataset,
+                          ['title','other'], (1,))
+        self.assertEqual(FakeStore.last_options['filter'],
+                         {'file':{'$in':['generic-manual.pdf']}})
+        decision = result['queries'][0]['automatic_scope']
+        self.assertTrue(decision['applied'])
+        self.assertEqual(decision['files'], ['generic-manual.pdf'])
+
+    def test_expansion_adds_only_same_page_native_neighbors_within_budget(self):
+        class FakeStore:
+            @staticmethod
+            def get(**_options):
+                return {
+                    'ids':['before','seed','after','visual'],
+                    'documents':['Technical heading.','Supports 80 and','94 discrete clients.',
+                                 'Visual approximation'],
+                    'metadatas':[
+                        {'file':'B550M.pdf','page':8,'chunk':127,'item_type':'text'},
+                        {'file':'B550M.pdf','page':8,'chunk':128,'item_type':'text'},
+                        {'file':'B550M.pdf','page':8,'chunk':129,'item_type':'text'},
+                        {'file':'B550M.pdf','page':8,'chunk':130,'item_type':'page_image'},
+                    ],
+                }
+            @staticmethod
+            def embed_query(_question): return [1.0, 0.0]
+            @staticmethod
+            def dense_search_vector(_vector, _limit, **_options):
+                return [{'id':'seed','text':'Supports 80 and',
+                         'metadata':{'file':'B550M.pdf','page':8,'chunk':128,
+                                     'item_type':'text'},'score':.1}]
+        dataset = [{'id':'expand','question':'B550M supported clients',
+                    'relevant':[{'file':'B550M.pdf','page':8}],
+                    'evidence':['80 and 94'],'strata':['paraphrase']}]
+        result = run_mode(FakeStore(), 'dense-native-scoped-expanded', dataset,
+                          ['before','seed','after','visual'], (1,), context_chars=1000)
+        summary = result['summary']
+        self.assertEqual(summary['seed_evidence_recall@1'], 0)
+        self.assertEqual(summary['evidence_recall@1'], 1)
+        self.assertEqual(summary['context_fragments@1'], 3)
+        self.assertEqual(summary['context_visual_fragments@1'], 0)
+        self.assertLessEqual(summary['context_chars@1'], 1000)
 
 
 if __name__=='__main__':unittest.main()
