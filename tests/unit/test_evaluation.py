@@ -42,6 +42,40 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'one relevance granularity'):
             score_ranking(hits,[{'file':'manual.pdf'},{'file':'manual.pdf','page':8}],ks=(2,))
 
+    def test_equivalent_judgment_groups_count_once_without_consuming_collapsed_rank(self):
+        qrels = [
+            {'file':'manual-en.pdf','page':36,'group':'reset','relevance':2},
+            {'file':'manual-de.pdf','page':36,'group':'reset','relevance':2},
+            {'file':'manual-en.pdf','page':42,'group':'cpu','relevance':1},
+        ]
+        hits = [
+            {'id':'en-reset','metadata':{'file':'manual-en.pdf','page':36}},
+            {'id':'de-reset','metadata':{'file':'manual-de.pdf','page':36}},
+            {'id':'en-cpu','metadata':{'file':'manual-en.pdf','page':42}},
+        ]
+        result = score_ranking(hits, qrels, ks=(1,2,3))
+        self.assertEqual(result['relevant_total'], 2)
+        self.assertEqual(result['recall@1'], .5)
+        self.assertEqual(result['fragment_recall@2'], .5)
+        self.assertEqual(result['recall@2'], 1)
+        self.assertEqual(result['precision@2'], 1)
+        self.assertEqual(result['ndcg@2'], 1)
+        self.assertEqual(result['fragment_recall@3'], 1)
+
+    def test_equivalent_groups_reject_ambiguous_labels(self):
+        with self.assertRaisesRegex(ValueError, 'same relevance'):
+            score_ranking([], [
+                {'file':'en.pdf','page':1,'group':'socket','relevance':2},
+                {'file':'de.pdf','page':1,'group':'socket','relevance':1},
+            ])
+        with self.assertRaisesRegex(ValueError, 'different groups'):
+            score_ranking([], [
+                {'file':'manual.pdf','page':1,'group':'one'},
+                {'file':'manual.pdf','page':1,'group':'two'},
+            ])
+        with self.assertRaisesRegex(ValueError, 'nonempty string'):
+            score_ranking([], [{'file':'manual.pdf','page':1,'group':'  '}])
+
     def test_aggregate_latencies_and_answer_side_metrics(self):
         aggregate=aggregate_rankings([
             {'latency_ms':10,'metrics':{'recall@1':1,'relevant_total':1,'relevant_retrieved':1}},

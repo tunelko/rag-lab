@@ -34,13 +34,27 @@ def score_ranking(hits, qrels, *, ks=(1, 5, 10)):
     if not qrels:
         raise ValueError('At least one relevance judgment is required.')
     judgments = {}
+    target_groups = {}
+    normalized_qrels = []
     granularities = set()
     for qrel in qrels:
         relevance = float(qrel.get('relevance', 1))
         if not math.isfinite(relevance) or relevance <= 0:
             raise ValueError('Relevance must be a positive finite number.')
-        key = qrel_key(qrel)
-        judgments[key] = max(judgments.get(key, 0), relevance)
+        target = qrel_key(qrel)
+        group = qrel.get('group')
+        if group is not None and (not isinstance(group, str) or not group.strip()):
+            raise ValueError('Judgment group must be a nonempty string.')
+        group_key = 'group:' + group.strip() if group is not None else 'judgment:' + target
+        previous_group = target_groups.get(target)
+        if previous_group is not None and previous_group != group_key:
+            raise ValueError('The same relevance target cannot belong to different groups.')
+        previous_relevance = judgments.get(group_key)
+        if previous_relevance is not None and previous_relevance != relevance:
+            raise ValueError('Equivalent judgments in one group need the same relevance.')
+        target_groups[target] = group_key
+        judgments[group_key] = relevance
+        normalized_qrels.append((qrel, group_key))
         granularities.add('vector' if qrel.get('vector_id') else
                           'page' if qrel.get('page') is not None else 'file')
     if len(granularities) != 1:
@@ -60,13 +74,17 @@ def score_ranking(hits, qrels, *, ks=(1, 5, 10)):
         if hit_key in ranked_keys:
             continue
         ranked_keys.add(hit_key)
-        matches = [(qrel_key(qrel), judgments[qrel_key(qrel)])
-                   for qrel in qrels if hit_matches(hit, qrel)]
+        matches = [(group_key, judgments[group_key])
+                   for qrel, group_key in normalized_qrels if hit_matches(hit, qrel)]
         unseen = [(key, relevance) for key, relevance in matches if key not in seen]
         if unseen:
             key, relevance = max(unseen, key=lambda item: item[1])
             seen.add(key)
             ranked.append(relevance)
+        elif matches:
+            # Another file/page/chunk that is explicitly equivalent to evidence
+            # already covered does not gain or consume a collapsed rank.
+            continue
         else:
             ranked.append(0.0)
     result = {}
@@ -76,8 +94,8 @@ def score_ranking(hits, qrels, *, ks=(1, 5, 10)):
         if k < 1:
             raise ValueError('Metric cutoffs must be positive.')
         found = sum(value > 0 for value in ranked[:k])
-        raw_found = {qrel_key(qrel) for hit in hits[:k] for qrel in qrels
-                     if hit_matches(hit, qrel)}
+        raw_found = {group_key for hit in hits[:k]
+                     for qrel, group_key in normalized_qrels if hit_matches(hit, qrel)}
         result[f'recall@{k}'] = found / total
         result[f'fragment_recall@{k}'] = len(raw_found) / total
         result[f'precision@{k}'] = found / k

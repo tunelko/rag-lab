@@ -30,6 +30,19 @@ larger positive values enable graded nDCG. An optional `files` array restricts a
 query to the same topic/source scope used in the UI.
 Use one judgment granularity within each question: all exact chunks, all pages or
 all whole files. Mixed granularities are rejected rather than scored ambiguously.
+
+When several editions or translations contain interchangeable evidence, give those
+judgments the same nonempty `group`. The group is covered when any member is found
+and contributes only once to Recall, Fragment Recall and nDCG:
+
+```json
+{"id":"z790-reset","question":"Where is JBAT1?","relevant":[{"file":"PROZ790-AMAXWIFI_EN.pdf","page":36,"group":"reset-location"},{"file":"PROZ790-AMAXWIFI_DE.pdf","page":36,"group":"reset-location"}]}
+```
+
+Members of one group must have the same relevance grade. Without `group`, every
+distinct target remains independently relevant. A target cannot belong to multiple
+groups within one question. Use `files` instead when a question deliberately tests
+retrieval from one particular language or edition.
 Add `strata` such as `same-language`, `cross-language`, `cjk`, `table`, `visual` or
 `exact-identifier`; the report keeps separate metrics for each declared group.
 
@@ -76,7 +89,7 @@ cache diagnostics and aggregate metrics. Both locations are ignored by Git.
 
 | Metric | Meaning |
 | --- | --- |
-| Fragment Recall@K | Relevant sources covered by the first K raw fragments; this matches what production sends. |
+| Fragment Recall@K | Relevant evidence groups covered by the first K raw fragments; this matches what production sends. |
 | Recall@K | Recall after collapsing duplicate chunks to the labeled file/page/chunk unit. |
 | Precision@K | Distinct relevant units among K collapsed positions. |
 | MRR@K | Reciprocal rank of the first relevant collapsed unit. |
