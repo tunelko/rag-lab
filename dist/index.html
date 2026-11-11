@@ -52,6 +52,10 @@
      <path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3">
      </path>
     </symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24">
+     <path d="M2 12h5l3-8 4 16 3-8h5">
+     </path>
+    </symbol>
     <symbol id="i-refresh" viewbox="0 0 24 24">
      <path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.1 3M4.8 15a8 8 0 0 0 13.1 3">
      </path>
@@ -220,35 +224,11 @@
        Ctrl K
       </kbd>
      </button>
-     <button aria-controls="system-popover" aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" id="system-button" popovertarget="system-popover" type="button">
-      <span class="sysbtn__item">
-       <i class="dot" id="system-dot">
-       </i>
-       <span id="ollama-header">
-       </span>
-      </span>
-      <i class="sysbtn__sep">
-      </i>
-      <span class="sysbtn__item lv" data-level="info" id="system-vram">
-       VRAM
-       <span class="meter-xs">
-        <i id="header-vram-bar">
-        </i>
-       </span>
-       <span id="vram-percent">
-        —
-       </span>
-      </span>
-      <i class="sysbtn__sep">
-      </i>
-      <span class="sysbtn__item lv" data-level="info" id="server-exposure">
-       <svg aria-hidden="true" class="icon">
-        <use href="#i-lock" id="exposure-icon">
-        </use>
-       </svg>
-       <span id="locality-label">
-       </span>
-      </span>
+     <button aria-label="Estado del sistema" aria-controls="system-popover" aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" data-i18n-title="header.system" id="system-button" popovertarget="system-popover" title="Estado del sistema" type="button">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-activity">
+       </use>
+      </svg>
      </button>
      <a aria-label="Configuración" class="nav-item topbar-settings" data-i18n-aria-label="sentinel.nav_settings" data-i18n-title="sentinel.nav_settings" href="/configuracion" id="nav-settings" title="Configuración">
       <svg aria-hidden="true" class="icon">
@@ -580,17 +560,10 @@
         <div class="query-attachments" hidden="" id="query-attachments">
         </div>
         <div class="composer__tools">
-         <label class="sr-only" for="composer-model">
-          <span data-i18n="sentinel.model">
-           Modelo
-          </span>
-         </label>
-         <select class="select" id="composer-model">
-         </select>
          <input accept="image/png,image/jpeg,image/webp" hidden="" id="query-image-input" multiple="" type="file"/>
          <button aria-label="Adjuntar imagen" class="btn btn--secondary btn--icon" id="attach-image" type="button">
           <svg aria-hidden="true" class="icon">
-           <use href="#i-image">
+           <use href="#i-plus">
            </use>
           </svg>
          </button>

@@ -87,9 +87,11 @@ verify the original source. Start with a short PDF before indexing large batches
 ## Multimodal RAG
 
 The chat uses the full workspace width. Citations open a sliding source panel;
-Escape closes it. Configure fragment counts and retrieval-only mode in Settings.
-Settings save automatically. The top-right flag selector switches Spanish/English;
-fonts and translations are served locally.
+Escape closes it. Configure the response provider/model, automatic/manual mode,
+fragment counts and retrieval-only mode in Settings (the top-right gear). Settings
+save automatically and apply to chat; the **+** button attaches images. The system
+status icon opens connection and hardware details. The top-right flag selector
+switches Spanish/English; fonts and translations are served locally.
 
 The response provider can remain **Ollama local** or be changed to Scaleway,
 OVHcloud or xAI/Grok. External providers receive only the question, conversation

@@ -65,16 +65,13 @@
 .cmdk__label { flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .kbd { font: inherit; font-size: 11px; padding: 0 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); }
 
-/* Píldora de estado del sistema (abre un popover) */
+/* Icono de estado del sistema (abre un popover) */
 .sysbtn {
-  display: flex; align-items: center; gap: 10px; flex: 0 0 auto; height: 32px; padding: 0 10px;
-  background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-md);
-  font: inherit; font-size: 12px; cursor: pointer; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px; padding: 0;
+  background: transparent; color: var(--lv, var(--text)); border: 1px solid var(--border); border-radius: var(--radius-md);
+  font: inherit; cursor: pointer;
 }
 .sysbtn:hover, .sysbtn[aria-expanded="true"] { background: var(--surface-raised); border-color: var(--border-control); }
-.sysbtn__sep { width: 1px; height: 14px; background: var(--border); }
-.sysbtn__item { display: inline-flex; align-items: center; gap: 6px; }
-.sysbtn__label { color: var(--text-muted); }
 
 /* Nivel de un dato: lo pone el JS según umbrales */
 [data-level="ok"]   { --lv: var(--success); }
@@ -82,8 +79,6 @@
 [data-level="warn"] { --lv: var(--warning); }
 [data-level="crit"] { --lv: var(--danger); }
 .lv { color: var(--lv, var(--text)); }
-.meter-xs { display: inline-block; width: 28px; height: 4px; background: var(--bg-app); border-radius: 2px; overflow: hidden; }
-.meter-xs > i { display: block; height: 100%; width: var(--v, 0%); background: var(--lv, var(--accent)); border-radius: 2px; }
 
 .langbtn {
   height: 32px; padding: 0 10px; flex: 0 0 auto; background: transparent; color: var(--text);
@@ -142,7 +137,7 @@
 @keyframes pstep-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
 
 /* ---------- Móvil (el componente se adapta solo; sin media queries en páginas) ---------- */
-.topbar.app-header{position:sticky}.topbar__bar{gap:12px;min-width:0}.topnav{flex:0 1 auto}.topnav a{padding:0 8px;font-size:13px}.topbar__spacer{min-width:0}.cmdk{min-width:32px}.sysbtn .icon{width:14px;height:14px}.dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--lv,var(--border-control))}.sysbtn[data-level=warn]{border-color:var(--warning-border)}.sysbtn[data-level=crit]{border-color:var(--danger-border)}
+.topbar.app-header{position:sticky}.topbar__bar{gap:12px;min-width:0}.topnav{flex:0 1 auto}.topnav a{padding:0 8px;font-size:13px}.topbar__spacer{min-width:0}.cmdk{min-width:32px}.sysbtn .icon{width:18px;height:18px}.dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;background:var(--lv,var(--border-control))}.sysbtn[data-level=warn]{border-color:var(--warning-border)}.sysbtn[data-level=crit]{border-color:var(--danger-border)}
 .topbar-settings {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; height: 32px;
   color: var(--nav-idle); border: 1px solid var(--border); border-radius: var(--radius-md); text-decoration: none;
@@ -154,19 +149,15 @@
 .pipeline2__status{background:transparent;border:0;font:inherit;font-size:11px;cursor:pointer;max-width:220px}.pipeline2__steps{min-width:0}.pstep__name{font-size:10px}.pstep__value{font-size:11px}.pstep a{gap:6px;padding:0 8px}.pipeline2__title{font-size:10px;padding:0 12px}.pipeline2__status{padding:0 12px}
 .command-palette{width:min(680px,calc(100% - 32px));padding:0}.command-palette form{display:flex;align-items:center;gap:8px;padding:16px;border-bottom:1px solid var(--border)}.command-palette form .input{flex:1}.command-results{padding:16px;max-height:65dvh;overflow-y:auto}.command-results section+section{margin-top:20px}.command-results .label{font-size:11px;color:var(--text-muted);margin-bottom:8px}.command-result{display:block;width:100%;text-align:left;padding:10px;border:0;border-radius:4px;background:transparent;color:var(--text);font:inherit;font-size:12px;text-decoration:none;overflow-wrap:anywhere}.command-result:hover,.command-result:focus-visible{background:var(--accent-soft);color:var(--accent-text)}
 @media(max-width:1399px){.cmdk__label,.cmdk .kbd{display:none}.cmdk{flex:0 0 32px;width:32px;padding:0;justify-content:center}}
-@media(max-width:1320px){.sysbtn .sysbtn__item:not(:first-child),.sysbtn .sysbtn__sep{display:none}.sysbtn{width:32px;padding:0;justify-content:center}.sysbtn .sysbtn__item:first-child>:not(.dot){display:none}}
-@media(max-width:1320px){.sysbtn[data-level=warn] #system-dot{background:var(--warning)}.sysbtn[data-level=crit] #system-dot{background:var(--danger)}}
 .topbar__mobile-actions { display: none; }
 
 .topnav{flex-shrink:0}.cmdk{min-width:100px}.kbd{white-space:nowrap;flex:none}
 @media(max-width:1399px){.cmdk{min-width:32px}}
-@media(max-width:1399px){.topbar:has(.topnav__badge:not([hidden])) .sysbtn{width:32px;padding:0;justify-content:center}.topbar:has(.topnav__badge:not([hidden])) .sysbtn__item:not(:first-child),.topbar:has(.topnav__badge:not([hidden])) .sysbtn__sep,.topbar:has(.topnav__badge:not([hidden])) .sysbtn__item:first-child>:not(.dot){display:none}}
 @media(min-width:640px) and (max-width:1000px){.topbar__brand{font-size:0;gap:0}.topbar__bar{gap:8px;padding:0 12px}.topnav a{font-size:12px;padding:0 6px}.topnav a svg{display:none}}
 @media(max-width:639px){.topnav{flex-shrink:1}.cmdk{min-width:44px}}
 @media (max-width: 1023px) {
   .cmdk__label, .cmdk .kbd { display: none; }
   .cmdk { flex: 0 0 auto; width: 32px; padding: 0; justify-content: center; }
-  .sysbtn .sysbtn__item:not(:first-child), .sysbtn .sysbtn__sep { display: none; }
 }
 @media (max-width: 639px) {
   .topbar__bar { flex-wrap: wrap; height: auto; padding: 0 var(--space-2) 0 var(--space-4); row-gap: 0; }
@@ -175,8 +166,6 @@
   .topnav { order: 3; flex: 1 0 100%; height: 44px; margin: 0 calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-4)); border-top: 1px solid var(--border); }
   .cmdk, .sysbtn { width: 44px; height: 44px; border: 0; }
   .topbar-settings { flex-basis: 44px; height: 44px; }
-  .sysbtn { position: relative; justify-content: center; padding: 0; }
-  .sysbtn .sysbtn__item:first-child > :not(.dot) { display: none; }
 
   .pipeline2__steps { grid-template-columns: repeat(6, minmax(130px, 1fr)); }
   .topbar__brand{font-size:12px;gap:6px}.topbar__bar{column-gap:6px}.topbar__spacer{flex:1 1 0}.topnav{width:calc(100% + 24px);min-width:0;flex-shrink:1;box-sizing:border-box}.topnav a svg{display:none}.topnav a{padding:0 10px}.topbar-language .langbtn{height:44px}.sysbtn,.cmdk{flex:0 0 44px}.pipeline2__title{display:none}.pipeline2__steps{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;padding:0 8px;min-width:0}.pstep{border:0}.pstep::before{top:16px;height:3px;border-radius:2px}.pstep__name,.pstep__value,.pstep__check{display:none!important}.pipeline2__status{max-width:180px;font-size:10px}

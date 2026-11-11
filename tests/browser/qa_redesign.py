@@ -279,7 +279,7 @@ def run_browser(url):
         assert page_locations[3]['href'] == '/api/source?file=notes.txt'
         assert all(item['target'] == '_blank' for item in page_locations)
         check('PDF physical page navigation and independent document numbering')
-        expect(page.locator("#ollama-header")).to_have_text("Ollama conectado")
+        expect(page.locator("#system-ollama")).to_have_text("Conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
         expect(page.locator("#empty-banner")).to_be_visible()
         assert page.evaluate("document.fonts.check('16px \\\"Orbitron\\\"')")
@@ -311,7 +311,7 @@ def run_browser(url):
         sensor=page.request.get(url+'/api/telemetry?history_seconds=60').json()
         sensor['gpu']['devices'][0]['memory_used_bytes']=9.5*1024**3
         page.evaluate('data=>window.dispatchEvent(new CustomEvent("rag:telemetry",{detail:data}))',sensor)
-        expect(page.locator('#system-vram')).to_have_attribute('data-level','warn')
+        expect(page.locator('#system-vram-row')).to_have_attribute('data-level','warn')
         page.evaluate('()=>window.dispatchEvent(new CustomEvent("rag:job",{detail:{id:"header-qa",kind:"query",status:"running",model:"qa-local:latest",elapsed_seconds:2}}))')
         expect(page.locator('.pstep[data-pipeline="5"]')).to_have_attribute('data-state','done')
         expect(page.locator('.pstep[data-pipeline="6"]')).to_have_attribute('data-state','run')

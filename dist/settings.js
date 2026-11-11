@@ -21,7 +21,6 @@ export class SettingsController {
     $('top-k').addEventListener('click',event=>{const control=event.target.closest('[data-k]');if(control)this.patch({k:Number(control.dataset.k)});});
     for(const group of $('settings-form').querySelectorAll('[role=radiogroup]'))group.addEventListener('keydown',event=>this.arrows(group,event));
     for(const stepper of $('settings-form').querySelectorAll('.cfg-stepper'))stepper.addEventListener('click',event=>this.step(stepper,event));
-    $('composer-model').addEventListener('change',()=>{const model=$('composer-model').value;this.patch(model==='automatic'?{response_mode:'automatic'}:{response_mode:'manual',response_model:model.slice(7)});});
     $('settings-form').addEventListener('submit',event=>{event.preventDefault();this.flush().catch(()=>{});});
     $('retry-settings').addEventListener('click',()=>{this.error=null;this.flush().catch(()=>{});});
     $('save-api-key').addEventListener('click',()=>this.saveCredential());
@@ -159,9 +158,6 @@ export class SettingsController {
     this.renderExternalModels();
     this.renderPricing();
     for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
-    const composer=$('composer-model'),selected=value.response_mode==='automatic'?'automatic':'manual:'+value.response_model;
-    const signature=JSON.stringify([this.models,selected,s('auto'),s('vision'),external,value.response_provider,value.external_model]);
-    if(composer.dataset.options!==signature){composer.dataset.options=signature;composer.replaceChildren();if(external){const label=this.providers.find(item=>item.id===value.response_provider)?.label||value.response_provider;const option=node('option','',`${label} · ${value.external_model||s('no_models')}`);option.value='external';composer.append(option);}else{const option=node('option','',s('auto'));option.value='automatic';composer.append(option);for(const model of this.models){const option=node('option','',model.name+(model.vision?' · '+s('vision'):''));option.value='manual:'+model.name;composer.append(option);}if(value.response_mode==='manual'&&!this.models.some(model=>model.name===value.response_model)){const option=node('option','',value.response_model+' · '+s('unavailable'));option.value=selected;composer.append(option);}composer.value=selected;}}composer.disabled=external;
     this.radios('#response-mode-control [data-response-mode]',control=>control.dataset.responseMode===value.response_mode);
     this.radios('#top-k [data-k]',control=>Number(control.dataset.k)===value.k);
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));

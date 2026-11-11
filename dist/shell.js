@@ -9,7 +9,7 @@ export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
     this.palette=new CommandPalette(()=>this.status);
-    // Closing with ×, Esc or a click on empty space returns focus to the chip; a click on another control keeps it there.
+    // Closing with ×, Esc or a click on empty space returns focus to the icon; a click on another control keeps it there.
     $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
     $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('system-popover').matches(':popover-open')){this.systemFocus=true;$('system-popover').hidePopover();}});
@@ -29,19 +29,19 @@ export class Shell {
     const llm=this.settings?.response_provider&&this.settings.response_provider!=='ollama'?`${this.settings.response_provider} · ${this.settings.external_model||'—'}`:this.settings?.response_mode==='manual'?this.settings.response_model:s('auto');
     const values={'pipeline-docs':s('document_count',{count:number(status.document_count)}),'pipeline-chunks':s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap}),'pipeline-embedding':status.embedding_model.split('/').at(-1)+' · '+status.embedding_device.toUpperCase(),'pipeline-vectors':status.collection+' · '+number(status.chunk_count),'pipeline-retrieval':'top-k '+(this.settings?.k??4),'pipeline-llm':llm};
     for(const [id,value]of Object.entries(values))$(id).textContent=value;
-    $('ollama-header').textContent=s(status.ollama.connected?'ollama_connected':'ollama_offline');$('system-ollama').textContent=s(status.ollama.connected?'connected':'offline');$('system-ollama-tag').classList.toggle('is-danger',!status.ollama.connected);
+    $('system-ollama').textContent=s(status.ollama.connected?'connected':'offline');$('system-ollama-tag').classList.toggle('is-danger',!status.ollama.connected);
     const loaded=status.ollama.loaded||[],models=loaded.map(item=>item.name).join(' · ');$('system-models').textContent=models||h('no_model');$('system-models').title=models;$('system-models').classList.toggle('is-empty',!models);
     $('system-embeddings').textContent=$('system-embeddings').title=status.embedding_model;$('system-embeddings-device').textContent=status.embedding_device.toUpperCase();
     const host=status.server?.bind_host,local=status.server?.access==='loopback',port=location.port||(location.protocol==='https:'?'443':'80');
-    $('locality-label').textContent=$('exposure-detail').textContent=host?h(local?'local':'lan'):'—';$('server-exposure-tag').classList.toggle('is-warn',Boolean(host)&&!local);
-    $('server-address').textContent=host?host+':'+port:location.host;$('server-exposure').dataset.level=host&&!local?'warn':'info';for(const id of ['exposure-icon','server-exposure-icon'])$(id).setAttribute('href',local?'#i-lock':'#i-wifi');
+    $('exposure-detail').textContent=host?h(local?'local':'lan'):'—';$('server-exposure-tag').classList.toggle('is-warn',Boolean(host)&&!local);
+    $('server-address').textContent=host?host+':'+port:location.host;$('server-exposure-icon').setAttribute('href',local?'#i-lock':'#i-wifi');
     $('config-dimensions').textContent=status.embedding_dimensions==null?'—':number(status.embedding_dimensions);this.badge();this.pipeline();this.level();
   }
   badge(){const badge=$('nav-badge'),status=this.status;if(!status)return;const active=(status.jobs||[]).filter(job=>job.kind==='index'&&['queued','running'].includes(job.status)).length,work=Math.max(active,this.queue?.pending||0),errors=status.documents.filter(item=>item.status==='error').length;badge.hidden=!work&&!errors;badge.className='topnav__badge '+(errors?'topnav__badge--error':'topnav__badge--work');badge.textContent=errors?h('errors',{count:errors}):h('queued',{count:work});}
-  level(){const device=this.telemetry?.gpu?.devices?.[0],level=vramLevel(device?.memory_used_bytes,device?.memory_total_bytes,this.status?.ollama.loaded?.length||0);$('system-vram').dataset.level=level;$('system-button').dataset.level=this.status?.ollama.connected===false?'crit':level==='crit'?'crit':level==='warn'||this.status?.server?.access==='lan'?'warn':'info';$('system-dot').dataset.level=this.status?.ollama.connected===false?'crit':'ok';}
+  level(){const device=this.telemetry?.gpu?.devices?.[0],level=vramLevel(device?.memory_used_bytes,device?.memory_total_bytes,this.status?.ollama.loaded?.length||0);$('system-vram-row').dataset.level=level;$('system-button').dataset.level=this.status?.ollama.connected===false?'crit':level==='crit'?'crit':level==='warn'||this.status?.server?.access==='lan'?'warn':'info';}
   hardware(data){
     this.telemetry=data;const device=data?.gpu?.devices?.[0],used=device?.memory_used_bytes,total=device?.memory_total_bytes,ratio=total?Math.max(0,Math.min(100,100*used/total)):null;
-    $('header-vram').textContent=total?`${number(used/1024**3,1)} / ${number(total/1024**3,1)} GiB`:'—';$('vram-percent').textContent=ratio==null?'—':number(ratio)+' %';$('header-vram-bar').style.width=(ratio??0)+'%';
+    $('header-vram').textContent=total?`${number(used/1024**3,1)} / ${number(total/1024**3,1)} GiB`:'—';
     // A reading that did not arrive hides its row instead of showing a placeholder.
     const bar=$('system-vram-progress');$('system-vram-row').hidden=ratio==null;bar.style.setProperty('--pct',(ratio??0)+'%');bar.classList.toggle('is-warn',ratio!=null&&ratio>=90);bar.setAttribute('aria-valuemax',total?(total/1024**3).toFixed(1):'0');bar.setAttribute('aria-valuenow',total?(used/1024**3).toFixed(1):'0');
     $('system-gpu-row').hidden=!device;$('system-gpu').textContent=$('system-gpu').title=device?.name||'';

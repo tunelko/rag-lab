@@ -88,9 +88,12 @@ el original. Prueba después un PDF corto antes de indexar lotes grandes.
 ## RAG multimodal
 
 El chat ocupa todo el espacio de trabajo. Las citas abren un panel lateral de
-fuentes, que se cierra con Escape. El número de fragmentos y «Solo recuperación»
-están en Configuración, con guardado automático. El selector con bandera está
-arriba a la derecha; fuentes tipográficas y traducciones se sirven localmente.
+fuentes, que se cierra con Escape. El proveedor/modelo, el modo automático/manual,
+el número de fragmentos y «Solo recuperación» se establecen en Configuración
+(engranaje superior), se guardan automáticamente y se aplican al chat. El botón
+**+** adjunta imágenes. El icono de estado del sistema abre el detalle de conexión
+y hardware. El selector con bandera está arriba a la derecha; fuentes tipográficas
+y traducciones se sirven localmente.
 
 El proveedor de respuesta puede seguir siendo **Ollama local** o cambiarse a
 Scaleway, OVHcloud o xAI/Grok. Un proveedor externo recibe únicamente la pregunta,
