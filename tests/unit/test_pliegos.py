@@ -136,3 +136,83 @@ class WholeSetQuestionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BatchedWholeSetTests(unittest.TestCase):
+    """More summary sheets than fit in one answer are read in groups and their rows joined."""
+
+    def setUp(self):
+        import os
+        import tempfile
+        from pathlib import Path
+        from fastapi.testclient import TestClient
+        from langchain_core.embeddings import DeterministicFakeEmbedding
+        import rag
+        from web_app import RagService, create_app
+        os.environ["RAG_RERANKER"] = ""
+
+        class OfflineService(RagService):
+            def model_capabilities(self, model):
+                return []
+
+            def ollama_status(self):
+                return {"connected": True, "models": ["test-local:latest"], "default_model": "test-local:latest", "loaded": []}
+
+            def get_embeddings(self, download=False):
+                if self.embeddings is None:
+                    self.embeddings = DeterministicFakeEmbedding(size=32)
+                return self.embeddings
+
+        root = rag.ROOT / "data" / "test-chroma"
+        root.mkdir(parents=True, exist_ok=True)
+        case = Path(tempfile.mkdtemp(prefix="sheets-", dir=root))
+        # Room for three sheets per answer: seven sheets need three groups.
+        self.service = OfflineService(rag.Config(db=case / "db", collection="sheets_test", context_chars=1500), case / "documents")
+        self.client = TestClient(create_app(self.service), client=("127.0.0.1", 50000))
+        self.client.__enter__()
+        self.addCleanup(self.client.__exit__, None, None, None)
+        self.headers = {"X-RAG-Token": self.client.get("/api/session").json()["token"]}
+        self.service.settings.save(self.service.settings.get().model_copy(
+            update={"response_mode": "manual", "response_model": "test-local:latest", "multimodal": False}))
+        files = [("files", (f"T{number}{SUMMARY_SUFFIX}", f"Licitación T{number}\nEstado: en plazo\n".encode(), "text/markdown"))
+                 for number in range(1, 8)]
+        files.append(("files", ("T1__PPT__pliego.txt", b"Pliego de prescripciones del expediente T1.", "text/plain")))
+        self.wait(self.client.post("/api/admin/upload", headers=self.headers, files=files, data={"auto_index": "true"}).json()["job_id"])
+
+    def wait(self, job_id):
+        import time
+        for _ in range(400):
+            job = self.client.get(f"/api/jobs/{job_id}").json()
+            if job["status"] in {"done", "error"}:
+                self.assertEqual(job["status"], "done", job)
+                return job
+            time.sleep(0.05)
+        self.fail("Job did not complete")
+
+    def test_rows_and_citations_stay_aligned_across_groups(self):
+        import json
+        import re
+        from unittest.mock import patch
+        import rag
+
+        def model(messages, name, on_chunk=None, cancelled=None, **options):
+            # Answers each source with the file name the evidence shows for it, so alignment can be checked.
+            evidence = messages[-1]["content"]
+            answer = json.dumps({key: re.search(rf"\[{key}\] (\S+)", evidence)[1] for key in options["response_format"]["required"]})
+            if on_chunk:
+                on_chunk(answer)
+            return answer, {"output_tokens": 5}
+
+        with patch.object(rag, "generate_ollama", side_effect=model) as generate:
+            response = self.client.post("/api/query", headers=self.headers, json={"question": "¿Cuáles están abiertas?"})
+            job = self.wait(response.json()["job_id"])
+        self.assertEqual(generate.call_count, 3)
+        self.assertEqual((job["metrics"]["answer_batches"], job["metrics"]["answer_documents"]), (3, 7))
+        rows = [line.replace("\\", "") for line in job["answer"].splitlines()[2:]]
+        self.assertEqual(len(rows), 7)
+        self.assertEqual([source["citation"] for source in job["sources"]], list(range(1, 8)))
+        for row in rows:
+            name, citation, answer = re.fullmatch(r"\| (\S+) \[(\d+)\] \| (\S+) \|", row).groups()
+            self.assertEqual(name, answer)                                           # the row answers its own sheet
+            self.assertEqual(job["sources"][int(citation) - 1]["file"], name)        # and cites it
+        self.assertEqual({source["file"] for source in job["sources"]}, {f"T{number}{SUMMARY_SUFFIX}" for number in range(1, 8)})

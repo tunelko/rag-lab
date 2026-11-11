@@ -58,6 +58,7 @@ import provider_vision
 import provider_pricing
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
+SHEET_CHARS = 480   # room one summary sheet needs in a whole-set answer: its opening block
 MAX_FILE = 20 * 1024**2
 
 
@@ -407,6 +408,32 @@ class RagService(JobRuntime):
                 pass
         return result
 
+    def query_in_batches(self, job_id, query, sheets, capacity, scope_label, preferences, provider_key):
+        """Answer a question about every item from its summary sheets, a group at a time, and join the rows."""
+        count = -(-len(sheets) // capacity)
+        size = -(-len(sheets) // count)      # groups of similar size rather than one small last group
+        header, rows, sources, metrics, seconds = [], [], [], {}, 0.0
+        for number in range(count):
+            self.check_cancel(job_id)
+            group = sheets[number * size:(number + 1) * size]
+            part = self.query(job_id, query, frozenset(item['name'] for item in group), scope_label,
+                              preferences=preferences, provider_key=provider_key)
+            offset = len(sources)
+            lines = [line for line in part['answer'].splitlines() if line.startswith('|')]
+            header = header or lines[:2]
+            # Citation numbers restart in every group: shift them so they point at the joined source list.
+            rows += [re.sub(r'\[(\d+)\]', lambda match: f'[{int(match[1]) + offset}]', line) for line in lines[2:]]
+            for source in part['sources']:
+                sources.append({**source, 'citation': source['citation'] + offset})
+            metrics = part['metrics']
+            seconds += metrics.get('generation_wall_seconds', 0)
+            self.update(job_id, answer='\n'.join([*header, *rows]), sources=sources,
+                        phase=f'Leyendo fichas · grupo {number + 1}/{count}')
+        answer = '\n'.join([*header, *rows]) if rows else part['answer']
+        return {'answer': answer, 'sources': sources,
+                'metrics': {**metrics, 'scope_documents': len(sheets), 'documents_indexed': len(sheets), 'documents_retrieved': len(sources),
+                            'answer_documents': len(rows), 'answer_batches': count, 'generation_wall_seconds': round(seconds, 6)}}
+
     def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None, records=None):
         """`records` holds the record plan captured at submission with its profile, or a fixed notice."""
         started = time.perf_counter()
@@ -427,6 +454,13 @@ class RagService(JobRuntime):
             # "Is there any…", "which…", "how many…": with one summary sheet per item in scope, the
             # question is about the set and every item must be looked at, not the eight best fragments.
             intent = Intent('global', topic_query(query.question))
+        if intent.mode == 'global' and has_summaries(documents):
+            sheets = summary_scope(documents)
+            # Each sheet needs room for its whole opening block. More sheets than fit in one answer
+            # are read in several passes and their rows joined, instead of cutting every sheet short.
+            capacity = max(1, self.config.context_chars // SHEET_CHARS)
+            if len(sheets) > capacity:
+                return self.query_in_batches(job_id, query, sheets, capacity, scope_label, preferences, provider_key)
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)

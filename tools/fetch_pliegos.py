@@ -116,6 +116,11 @@ def reason(tender, rules):
     """Why a tender is selected, or None. Acronyms are matched as written; words ignore case and accents."""
     if tender['type'] not in rules['contract_types']:
         return None
+    if rules.get('statuses') and tender.get('status') not in rules['statuses']:
+        return None
+    # Tenders of the current period: by their submission deadline, or by the publication date when none is given.
+    if rules.get('deadline_from') and (tender.get('deadline') or (tender.get('updated') or '')[:10]) < rules['deadline_from']:
+        return None
     title, plain = tender['title'], fold(tender['title']).casefold()
     if any(term in plain for term in rules['excluded_terms']):
         return None

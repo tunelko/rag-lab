@@ -1,32 +1,114 @@
 {
   "id": "pliegos",
-  "name": {"es": "Pliegos", "en": "Tender documents"},
+  "name": {
+    "es": "Pliegos",
+    "en": "Tender documents"
+  },
   "source": {
     "name": "Plataforma de Contratación del Sector Público",
     "feed": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",
-    "document_hosts": ["contrataciondelestado.es"]
-  },
-  "filter": {
-    "contract_types": ["2"],
-    "security_cpv_prefixes": ["4873", "4876", "7221273", "7281", "7280"],
-    "it_cpv_prefixes": ["72", "48", "3242", "3021", "5031", "5032", "6420"],
-    "excluded_cpv_prefixes": ["44", "45", "66", "7971"],
-    "unambiguous_terms": [
-      "ciberseguridad", "ciber-seguridad", "ciberresiliencia", "ciber-resiliencia", "seguridad de la informacion",
-      "seguridad informatica", "centro de operaciones de seguridad", "esquema nacional de seguridad",
-      "hacking etico", "red team", "test de intrusion", "tests de intrusion", "pentest", "pentesting",
-      "respuesta a incidentes", "iso 27001", "iso/iec 27001", "devsecops", "seguridad gestionada"
-    ],
-    "acronyms": ["SOC", "SIEM", "ENS", "EDR", "XDR", "WAF", "CSIRT", "SGSI", "NIS2", "CERT"],
-    "it_only_terms": [
-      "cortafuegos", "firewall", "firewalls", "vulnerabilidades", "auditoria de seguridad", "auditorias de seguridad",
-      "seguridad perimetral", "antivirus", "antimalware", "bastionado", "gestion de identidades", "ransomware",
-      "proteccion de datos", "copias de seguridad", "seguridad logica"
-    ],
-    "excluded_terms": [
-      "seguridad vial", "seguridad viaria", "seguridad y salud", "seguridad alimentaria", "vigilancia y seguridad",
-      "seguridad privada", "vigilantes", "seguridad laboral", "coordinacion de seguridad", "seguridad ciudadana"
+    "document_hosts": [
+      "contrataciondelestado.es"
     ]
   },
-  "documents": ["technical", "legal"]
+  "filter": {
+    "contract_types": [
+      "2"
+    ],
+    "security_cpv_prefixes": [
+      "4873",
+      "4876",
+      "7221273",
+      "7281",
+      "7280"
+    ],
+    "it_cpv_prefixes": [
+      "72",
+      "48",
+      "3242",
+      "3021",
+      "5031",
+      "5032"
+    ],
+    "excluded_cpv_prefixes": [
+      "44",
+      "45",
+      "64",
+      "66",
+      "791",
+      "7971"
+    ],
+    "unambiguous_terms": [
+      "ciberseguridad",
+      "ciber-seguridad",
+      "ciberresiliencia",
+      "ciber-resiliencia",
+      "seguridad de la informacion",
+      "seguridad informatica",
+      "centro de operaciones de seguridad",
+      "esquema nacional de seguridad",
+      "hacking etico",
+      "red team",
+      "test de intrusion",
+      "tests de intrusion",
+      "pentest",
+      "pentesting",
+      "respuesta a incidentes",
+      "iso 27001",
+      "iso/iec 27001",
+      "devsecops",
+      "seguridad gestionada"
+    ],
+    "acronyms": [
+      "SOC",
+      "SIEM",
+      "ENS",
+      "EDR",
+      "XDR",
+      "WAF",
+      "CSIRT",
+      "SGSI",
+      "NIS2",
+      "CERT"
+    ],
+    "it_only_terms": [
+      "cortafuegos",
+      "firewall",
+      "firewalls",
+      "vulnerabilidades",
+      "auditoria de seguridad",
+      "auditorias de seguridad",
+      "seguridad perimetral",
+      "antivirus",
+      "antimalware",
+      "bastionado",
+      "gestion de identidades",
+      "ransomware",
+      "seguridad logica"
+    ],
+    "excluded_terms": [
+      "coordinacion de seguridad",
+      "delegado de proteccion de datos",
+      "seguridad alimentaria",
+      "seguridad ciudadana",
+      "seguridad laboral",
+      "seguridad privada",
+      "seguridad social",
+      "seguridad vial",
+      "seguridad viaria",
+      "seguridad y salud",
+      "telefonia",
+      "vigilancia y seguridad",
+      "vigilantes"
+    ],
+    "statuses": [
+      "PUB",
+      "EV"
+    ],
+    "deadline_from": "2026-01-01"
+  },
+  "documents": [
+    "technical",
+    "legal"
+  ]
 }
