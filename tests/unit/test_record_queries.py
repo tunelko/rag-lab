@@ -113,6 +113,25 @@ class AggregateTests(unittest.TestCase):
             self.assertEqual(plan(question), {"mode": "record_aggregate", "filter": filters, "aggregate": aggregate}, question)
 
 
+    def test_a_grouping_or_count_over_everything_is_exact(self):
+        cases = {
+            "Agrupa vulnerabilidades por CWE": ({}, {"op": "group", "by": "cwe"}),
+            "Agrupa las vulnerabilidades publicadas por mes": ({}, {"op": "group", "by": "published_month"}),
+            "Distribuye las altas de KEV por año": ({"kev": True}, {"op": "group", "by": "kev_added_year"}),
+        }
+        for question, (filters, aggregate) in cases.items():
+            self.assertEqual(plan(question), {"mode": "record_aggregate", "filter": filters, "aggregate": aggregate}, question)
+
+
+class EcosystemTests(unittest.TestCase):
+    def test_an_ecosystem_name_is_not_also_a_vendor_product(self):
+        catalog = {"canonical": ["ubuntu"], "debian": ["debian"]}
+        result = record_queries.plan("Vulnerabilidades del ecosistema Ubuntu", today=TODAY, vendors=catalog)
+        self.assertEqual(result.as_dict(), {"mode": "record_filter", "filter": {"ecosystem": "Ubuntu"}})
+        result = record_queries.plan("Known exploited vulnerabilities affecting Debian packages", today=TODAY, vendors=catalog)
+        self.assertEqual(result.filter, {"kev": True, "ecosystem": "Debian"})
+
+
 class ExistingPathsTests(unittest.TestCase):
     def test_document_questions_are_left_to_the_existing_classifier(self):
         cases = {
@@ -122,7 +141,7 @@ class ExistingPathsTests(unittest.TestCase):
             "Advertencias críticas de seguridad al instalar la CPU": "focused",
             "¿Qué versión de BIOS de 2023 añade soporte para Ryzen 5000?": "focused",
             "Top 5 pasos para actualizar la BIOS con M-Flash": "focused",
-            "¿Cuántas vulnerabilidades corrige esta BIOS?": "focused",
+            "¿Qué vulnerabilidades corrige esta BIOS?": "focused",
             "¿Cuántos documentos hay en la biblioteca?": "catalog_count",
             "Lista los manuales indexados": "catalog_list",
             "Compara el chipset de todos los manuales": "global",

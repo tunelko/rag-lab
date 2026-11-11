@@ -1,8 +1,11 @@
 """Deterministic planner for questions about structured vulnerability records.
 
 `plan()` reads only the question text: no database, no model and no network. It returns
-None when the question belongs to the existing document paths (focused, global, catalog),
-so adding it cannot change how library questions are answered.
+None when the question has no identifier and nothing exact to run.
+
+The caller decides when to consult it: inside the record category for any plan, and for
+the whole library only for a lookup by identifier. A document topic never calls it, which
+is what keeps "how many vulnerabilities does this BIOS fix?" a document question.
 
 Rules that keep the plan honest:
 - a valid identifier always wins over filter words in the same question;
@@ -28,7 +31,7 @@ ARTICLE = r'(?:l|el|la|los|las|the)?\s*'
 CVE = re.compile(r'(?<![a-z0-9])cve[-\s_]?((?:19|20)\d{2})[-\s_](\d{4,7})(?!\d)')
 CWE = re.compile(r'(?<![a-z0-9])cwe[-\s]?(\d{1,4})(?![a-z0-9-])')
 SUBJECT = re.compile(r'\bvulnerabilidad(?:es)?\b|\bvulnerabilit(?:y|ies)\b|\bcves?\b(?![-\s]?\d)|\bkev entries\b'
-                     r'|\bentradas (?:de|en|del) (?:catalogo )?kev\b|\baltas en kev\b')
+                     r'|\bentradas (?:de|en|del) (?:catalogo )?kev\b|\baltas (?:en|de|del|al?) (?:catalogo )?kev\b')
 KEV = re.compile(r'\bkev\b|explotacion conocida|\bexplotad[ao]s?\b|known[- ]exploited|actively exploited'
                  r'|exploited in the wild|evidencias? (?:publicas? )?de explotacion')
 SEVERITY = (('critical', r'\bcritic[ao]s?\b|\bcritical\b'), ('high', r'high[- ]severity|(?:severidad|gravedad) alta'),
@@ -242,17 +245,22 @@ def plan(question, *, today=None, vendors=()):
     listed = weaknesses(text)
     if listed:
         filters['cwe'] = list(listed)
-    vendor, product = _vendor(text, catalog)
+    # An ecosystem name is always the ecosystem: it is not also read as a vendor's product,
+    # which would silently restrict the result to catalogued entries of that vendor.
+    named = text
+    for word, ecosystem in ECOSYSTEMS.items():
+        pattern = rf'(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])'
+        if re.search(pattern, text):
+            filters['ecosystem'] = ecosystem
+            named = re.sub(pattern, ' ', text)
+            break
+    vendor, product = _vendor(named, catalog)
     if vendor is None:
-        vendor, product = _product_only(text, catalog)
+        vendor, product = _product_only(named, catalog)
     if vendor:
         filters['vendor'] = vendor
     if product:
         filters['product'] = product
-    for word, ecosystem in ECOSYSTEMS.items():
-        if re.search(rf'(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])', text):
-            filters['ecosystem'] = ecosystem
-            break
     aggregate = _aggregate(text, added)
     if aggregate is None:
         if re.search(r'\bmayor(?:es)? epss\b|\bepss mas alto\b|\bhighest epss\b|\bby epss\b|\bpor epss\b'
@@ -266,6 +274,6 @@ def plan(question, *, today=None, vendors=()):
                           r'|\b(?:las|los|the)\s+(\d{1,3})\s+(?:primer[ao]s|first)\b', text)
         if limit:
             filters['limit'] = int(limit[1] or limit[2] or limit[3])
-    if not filters:
-        return None  # a bare count or grouping has no exact condition to run
+    if not filters and aggregate is None:
+        return None  # nothing exact to run; a count or grouping over everything is exact
     return RecordPlan('record_aggregate' if aggregate else 'record_filter', filter=filters, aggregate=aggregate)
