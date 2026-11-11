@@ -33,6 +33,13 @@ dependency graph must finish reprocessing the changed manifests. No alerts are
 dismissed as false positives or manually marked fixed to conceal a dependency.
 Check the Dependabot API/UI after publication; do not infer closure from test success.
 
+The automatic pip graph job returned an empty manifest set for these profile names.
+After successful main-branch tests, CI now submits all exact declared pins and
+recursive requirements includes through GitHub's dependency submission API. This
+snapshot is explicitly labelled declarative: it does not resolve unpinned transitive
+dependencies and is not a full installed-environment audit. It fails on unpinned,
+conflicting or unsupported declarations rather than omitting them silently.
+
 ## Application controls and boundaries
 
 - Embeddings run with `trust_remote_code=False`; model downloads do not authorize

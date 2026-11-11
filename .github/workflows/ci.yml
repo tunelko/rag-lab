@@ -73,3 +73,25 @@ jobs:
           path: reports/
           if-no-files-found: ignore
           retention-days: 7
+
+  dependency-graph:
+    name: Publish declared dependency profiles
+    needs: offline-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Build an exact declared-pin snapshot
+        run: python -m tools.dependency_snapshot --sha "$GITHUB_SHA" --job-id "$GITHUB_RUN_ID" --output reports/dependency-snapshot.json
+      - name: Submit profiles to the dependency graph
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh api --method POST "repos/$GH_REPO/dependency-graph/snapshots" --input reports/dependency-snapshot.json
