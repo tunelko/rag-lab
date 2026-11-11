@@ -198,8 +198,30 @@ def installation_commands(root: Path, profile: str):
         [sys.executable, '-m', 'venv', str(root / '.venv')],
         [python, '-m', 'pip', 'install', '--only-binary=:all:', '-r', str(requirements / torch_profile)],
         packages,
+        [python, '-m', 'pip', 'uninstall', '--yes', 'langchain-chroma', 'chromadb'],
         [python, '-m', 'pip', 'check'],
     ]
+
+
+def require_migrated_indexes(root: Path):
+    import sqlite3
+    for manifest in (root/'data/chroma').glob('*-manifest.json'):
+        state=json.loads(manifest.read_text('utf-8'))
+        name=manifest.name.removesuffix('-manifest.json')
+        published={identifier for record in state.get('files',{}).values() for identifier in record.get('ids',[])}
+        if not published:continue
+        migrated=False
+        target=manifest.parent/f'{name}-vectors.sqlite3'
+        if target.is_file():
+            try:
+                db=sqlite3.connect(target.resolve().as_uri()+'?mode=ro',uri=True)
+                try:
+                    migrated=(db.execute('PRAGMA user_version').fetchone()[0]==1
+                              and published<={row[0] for row in db.execute('SELECT id FROM vectors')})
+                finally:db.close()
+            except sqlite3.Error:pass
+        if not migrated:
+            raise ValueError(f'Migra primero la colección {name}: python -m tools.migrate_vectors --collection {name}. No se han cambiado las dependencias.')
 
 
 def install_environment(root: Path, plan: Plan, report=print):
@@ -207,6 +229,7 @@ def install_environment(root: Path, plan: Plan, report=print):
         raise ValueError('La instalación fijada requiere Python 3.13 x64 / x86_64.')
     if probe(root, plan)['servers']:
         raise ValueError('El RAG está abierto. Cierra su servidor antes de instalar dependencias; puedes seguir revisando el asistente.')
+    require_migrated_indexes(root)
     environment = dict(os.environ, PIP_CACHE_DIR=str(root / '.cache/pip'), PIP_DISABLE_PIP_VERSION_CHECK='1',
                        PYTHONUTF8='1', PYTHONIOENCODING='utf-8')
     for index, command in enumerate(installation_commands(root, plan.profile)):

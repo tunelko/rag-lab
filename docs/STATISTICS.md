@@ -1,6 +1,6 @@
 # Local statistics history
 
-Statistics is stored in `data/statistics.sqlite3`, separate from ChromaDB and
+Statistics is stored in `data/statistics.sqlite3`, separate from the vector store and
 ignored by Git. Closing the page or restarting RAG preserves the saved history.
 
 - **Retention:** seven days, automatically pruned; views for 1 hour, 1 day and

@@ -8,7 +8,7 @@ Windows/Linux con Python 3.13 y Node 24:
 
 1. Instala PyTorch CPU y las dependencias fijadas del RAG, wizard y QA.
 2. Comprueba dependencias con `pip check`.
-3. Ejecuta `python -m unittest discover -v`: persistencia Chroma real, vectores
+3. Ejecuta `python -m unittest discover -s tests -t . -v`: persistencia SQLite real, vectores
    deterministas, modelos/sensores falsos, configuración y navegación del wizard.
 4. Ejecuta los tests de gráficas y comprueba sintaxis JS y Bash.
 5. En Linux instala Edge y ejecuta `python -m tests.browser.qa_redesign`; usa un servidor y corpus de prueba propios.
@@ -25,7 +25,7 @@ usa un entorno de desarrollo propio con las dependencias CPU y las de
 `requirements/wizard.txt` y `requirements/dev.txt`. Desde ese entorno:
 
 ```text
-python -m unittest discover -v
+python -m unittest discover -s tests -t . -v
 node --test tests/frontend/*.test.mjs
 python -m playwright install msedge
 python -m tests.browser.qa_redesign

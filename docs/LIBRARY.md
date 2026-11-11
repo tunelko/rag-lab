@@ -33,7 +33,7 @@ its subcategories, one subcategory, or uncategorized documents. The browser reme
 selection. It is independent of the library's display filter.
 
 The server resolves document membership when it accepts the question. Focused
-search applies a Chroma metadata filter before nearest-neighbor search. Global
+search applies a SQLite file filter before nearest-neighbor search. Global
 questions scan every indexed document in that scope. Inventory questions count
 only that scope. An empty or deleted topic never falls back to the whole library.
 Moving files while a question waits in the queue cannot expand its accepted scope.

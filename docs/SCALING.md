@@ -2,7 +2,7 @@
 
 This is a plan for future work. The current supported deployment remains a
 single-user local laboratory, with one API process, an in-process job queue, local
-documents, embedded Chroma, SQLite statistics, CPU embeddings and Ollama generation.
+documents, SQLite vectors with exact NumPy search, SQLite statistics, CPU embeddings and Ollama generation.
 The language selector and per-request response language do not make the service
 multi-user or enable cloud deployment.
 
@@ -47,8 +47,8 @@ Retain originals so indexes can be rebuilt and provenance remains verifiable.
 Introduce a vector-store interface before selecting a shared deployment. Evaluate
 a maintained server release or replacement on retrieval quality, metadata filters,
 access control, Windows/Linux support, migration cost and measured performance.
-The currently pinned Chroma server has unresolved advisories: do not expose it as
-the shortcut to multi-user support. See [security status](../SECURITY.md).
+The current SQLite store has no vector HTTP server or per-user authorization.
+Any server replacement needs its own security review. See [security status](../SECURITY.md).
 
 ## 3. Independent services and optional cloud infrastructure
 

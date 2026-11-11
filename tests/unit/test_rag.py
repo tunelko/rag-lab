@@ -22,7 +22,6 @@ import rag
 
 class RagSmokeTests(unittest.TestCase):
     def test_store_stays_embedded_despite_remote_chroma_environment(self):
-        from chromadb.errors import AuthorizationError
 
         sandbox_root = rag.ROOT / "data" / "test-chroma"
         sandbox_root.mkdir(parents=True, exist_ok=True)
@@ -38,13 +37,9 @@ class RagSmokeTests(unittest.TestCase):
             store = rag.open_store(config, DeterministicFakeEmbedding(size=32))
             store.add_documents([Document(page_content="Local evidence")], ids=["local"])
             self.assertEqual(store.get()["ids"], ["local"])
-            settings = store._client.get_settings()
-            self.assertEqual(settings.chroma_api_impl, "chromadb.api.rust.RustBindingsAPI")
-            self.assertIsNone(settings.chroma_server_host)
-            self.assertIsNone(settings.chroma_server_http_port)
-            self.assertFalse(settings.allow_reset)
-            with self.assertRaises(AuthorizationError):
-                store._client.reset()
+            self.assertTrue(store.path.is_file())
+            self.assertFalse(hasattr(store,'_client'))
+            self.assertFalse(hasattr(store,'reset'))
             self.assertEqual(store.get()["ids"], ["local"])
 
     def test_ingest_persist_deduplicate_update_and_retrieve(self):

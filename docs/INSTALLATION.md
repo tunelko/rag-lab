@@ -6,7 +6,7 @@
 
 Ask questions about your own documents using a local web chat, with citations and
 links to the original pages. RAG Local combines CPU embeddings, a persistent
-ChromaDB index and local Ollama models. It supports text, PDF tables and document
+SQLite vector index and local Ollama models. It supports text, PDF tables and document
 images, plus a terminal setup wizard inspired by OMP.
 
 **Start here:** install the prerequisites, download the project, run the wizard,

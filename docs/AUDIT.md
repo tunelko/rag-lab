@@ -1,5 +1,10 @@
 # Implementation audit — 2026-11-11
 
+This is the review snapshot at commit `8113dd5`. The subsequent security
+remediation replaces Chroma with SQLite/NumPy and pins setuptools in all runtime
+profiles. Current storage and upgrade instructions: [vector migration](VECTOR_MIGRATION.md)
+and [security status](../SECURITY.md). Chroma observations below describe that snapshot.
+
 This review covers the repository, isolated regression tests, local read-only
 index integrity and GitHub dependency status. It distinguishes implemented
 behavior from design limits. It is not a GPU benchmark, a manual evaluation of

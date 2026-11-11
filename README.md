@@ -10,6 +10,9 @@ Setup uses an OMP-style terminal wizard. The web interface supports English and 
 
 ## Install
 
+**Upgrading an existing Chroma library?** Follow [vector migration](docs/VECTOR_MIGRATION.md)
+before updating dependencies. Fresh installations need no migration.
+
 **Requirements:** Python **3.13 x64**, Git and Ollama; Windows x64 or Linux x86_64.
 Install [Python](https://www.python.org/downloads/windows/),
 [Git](https://git-scm.com/install/) and [Ollama](https://ollama.com/download).
@@ -96,7 +99,7 @@ its subcategories, one subcategory, or uncategorized documents. Organization is 
 existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md).
 
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local
-  vision model describes the images; descriptions and text enter ChromaDB.
+  vision model describes the images; descriptions and text enter the local SQLite vector store.
 - **Retrieve:** search text and image descriptions using multilingual embeddings.
 - **Answer:** choose text or vision from the question and evidence, optionally
   attaching retrieved original images to the vision model. Answers include citations.

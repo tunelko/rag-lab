@@ -1,6 +1,6 @@
 """Local visual document adapter and safe importer for MinerU content-list exports.
 
-Text embeddings remain in Chroma. Images are stored separately, described by a
+Text embeddings remain in SQLite. Images are stored separately, described by a
 local Ollama vision model during explicit indexing, and can be sent to a vision
 answer model during explicit queries. No network calls on import/startup.
 """

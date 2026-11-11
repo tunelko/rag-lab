@@ -250,7 +250,7 @@ class RagService(JobRuntime):
         dimensions=getattr(self,'_embedding_dimensions',None)
         if dimensions is None and any(item.get('ids') for item in state['files'].values()):
             try:
-                vectors=rag.open_store(self.config,None)._collection.get(limit=1,include=['embeddings']).get('embeddings')
+                vectors=rag.open_store(self.config,None).get(limit=1,include=['embeddings']).get('embeddings')
                 if vectors is not None and len(vectors):
                     dimensions=self._embedding_dimensions=len(vectors[0])
             except (OSError,RuntimeError,ValueError):

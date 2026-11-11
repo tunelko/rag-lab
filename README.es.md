@@ -1,5 +1,8 @@
 # RAG Local
 
+**Si actualizas una biblioteca Chroma existente**, sigue la [migración de vectores](docs/VECTOR_MIGRATION.md)
+antes de actualizar dependencias. Las instalaciones nuevas no necesitan migración.
+
 [English](README.md) · **Español**
 
 [![CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml)
@@ -99,7 +102,7 @@ en `data/` y conserva PDF, vectores y descripciones ya procesadas.
 [Organización de la biblioteca](docs/LIBRARY.md).
 
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
-  Un modelo visual local describe las imágenes; texto y descripciones entran en ChromaDB.
+  Un modelo visual local describe las imágenes; texto y descripciones entran en el almacén vectorial SQLite local.
 - **Recuperación:** busca en texto y descripciones con embeddings multilingües.
 - **Respuesta:** elige texto o visión según la pregunta y las fuentes; puede adjuntar
   imágenes originales al modelo visual y devuelve citas verificables.

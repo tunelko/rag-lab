@@ -1,76 +1,62 @@
 # Security and dependency status
 
-RAG Local is a single-user application bound to loopback by default, with an embedded Chroma
-database. An explicit private IPv4 bind permits access from a trusted LAN. It is not a hosted Chroma server or a multi-tenant service. Do not expose
-the local UI through a public proxy or run `chroma run` against its private index.
+RAG Local is a shared personal application bound to loopback by default. An
+explicit private-LAN bind is supported. It has no user accounts or tenant isolation.
 
-## Dependency review — 2026-11-11
+## Remediation of the 23 alerts - 2026-11-11
 
-GitHub reported 23 open alerts representing seven distinct advisories. Chroma is
-included by five requirements profiles, so each Chroma advisory appears five times.
-Dependency updates and application-level mitigations have different meanings: a
-mitigation does not patch the dependency or close its alert.
+The starting state was 20 Chroma alerts (four advisories repeated across five
+requirements profiles) and three setuptools alerts. Chroma had no listed patched
+release, so updating its version was not a solution.
 
-| Dependency | Advisory | Action / status |
+| Dependency | Advisories | Remediation |
 |---|---|---|
-| setuptools | [GHSA-5rjg-fvgr-3xxf](https://github.com/advisories/GHSA-5rjg-fvgr-3xxf) | Fixed by the 84.1.0 pin in the Windows environment snapshot (PR #1). |
-| setuptools | [GHSA-h35f-9h28-mq5c](https://github.com/advisories/GHSA-h35f-9h28-mq5c) | Fixed by the same update. |
-| setuptools | [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) | Fixed by the same update. |
-| ChromaDB | [GHSA-36p7-vc44-83pf](https://github.com/advisories/GHSA-36p7-vc44-83pf) | Server collection-update code injection; no patched release listed. |
-| ChromaDB | [GHSA-f4j7-r4q5-qw2c](https://github.com/advisories/GHSA-f4j7-r4q5-qw2c) | Server collection-creation code injection; no patched release listed. |
-| ChromaDB | [GHSA-xph7-9rjv-w5fr](https://github.com/advisories/GHSA-xph7-9rjv-w5fr) | Server RBAC scope checks; no patched release listed. |
-| ChromaDB | [GHSA-2wm9-hf6c-p5cr](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr) | Server cross-tenant authorization; no patched release listed. |
+| ChromaDB | [GHSA-36p7-vc44-83pf](https://github.com/advisories/GHSA-36p7-vc44-83pf), [GHSA-f4j7-r4q5-qw2c](https://github.com/advisories/GHSA-f4j7-r4q5-qw2c), [GHSA-xph7-9rjv-w5fr](https://github.com/advisories/GHSA-xph7-9rjv-w5fr), [GHSA-2wm9-hf6c-p5cr](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr) | Removed ChromaDB and langchain-chroma from runtime and every installation profile. Replaced storage with SQLite and exact NumPy cosine search. |
+| setuptools | [GHSA-5rjg-fvgr-3xxf](https://github.com/advisories/GHSA-5rjg-fvgr-3xxf), [GHSA-h35f-9h28-mq5c](https://github.com/advisories/GHSA-h35f-9h28-mq5c), [GHSA-xmj3-9gf7-h52w](https://github.com/advisories/GHSA-xmj3-9gf7-h52w) | Pinned 84.1.0 in the shared base profile and the Windows snapshot; verify the installed environment too. |
 
-The published ChromaDB version remains 1.5.9. Its 20 alerts must remain open until
-a fixed version is available and tested, or the dependency is safely replaced.
-Changing the requirements layout, suppressing alerts, or lowering the version
-does not remediate them.
+The vector store uses SQLite transactions, parameterized file/ID filters and
+little-endian float32 vectors. Metadata is JSON; no pickle or executable
+embedding-function configuration is deserialized. It has no vector database HTTP
+server or administrative reset API. Search computes exact cosine distances on
+CPU after applying scope and publication filters. This removes the affected
+component rather than suppressing its advisories.
 
-The latest API inspection still returned all 23 open alerts. GitHub's SBOM reports
-setuptools 78.1.0, while the repository pin and inspected local environment are
-84.1.0. This is a dependency-graph discrepancy, not evidence that GitHub has
-closed those alerts. No alerts were dismissed during this review.
+See [migration instructions](docs/VECTOR_MIGRATION.md) before upgrading an existing
+library. The explicit one-time migration tool can read a copy through the previous
+Chroma environment. The application never imports that dependency. After verified
+migration, installers remove both retired packages; failed or missing migrations
+block dependency replacement. Preserved database backups are data, not installed
+packages or running services.
 
-## Controls in this application
+Repository remediation and GitHub's alert state are different observations. The
+dependency graph must finish reprocessing the changed manifests. No alerts are
+dismissed as false positives or manually marked fixed to conceal a dependency.
+Check the Dependabot API/UI after publication; do not infer closure from test success.
 
-- Chroma uses an explicitly selected embedded Rust implementation and a local
-  persistence directory. Shell variables cannot switch this client to Chroma HTTP.
-  Administrative database reset is disabled.
-- The web app does not publish Chroma's `/api/v2/tenants/.../collections` endpoints
-  or accept collection embedding-function configuration from browser requests.
-- Embeddings are supplied by the application with `trust_remote_code=False`.
-  Downloading a model does not authorize execution of remote model code.
-- Runtime Ollama HTTP calls use a direct connection without ambient HTTP proxies
-  and reject redirects, keeping document context at the explicitly configured
-  endpoint. This does not protect against a compromised endpoint/model server.
-- The UI server defaults to `127.0.0.1`. `--host` accepts loopback or an assigned
-  RFC1918 IPv4 address, never a wildcard/public bind. Mutating requests require a
-  session token and a matching origin; Host validation includes only the explicit bind.
-- LAN access shares the same library, configuration, jobs, statistics and console.
-  The token prevents cross-origin mutations; it is not a login or a per-user role.
-  Topics organize retrieval, not access permissions. Use only on a trusted network.
-- Query attachments are validated PNG/JPEG/WebP, limited to four images, 3 MiB
-  each and 16 megapixels, then resized and stripped of metadata. Raw attachments
-  are not saved to chat history or the document library.
-- Fonts, icons, translations and Markdown rendering are self-hosted. Private
-  documents, indexes, topic assignments and credentials stay outside Git.
+## Application controls and boundaries
 
-These controls keep the server entry points described by the Chroma advisories
-outside this application's normal execution path. They are not a fix for ChromaDB
-itself or a guarantee against other vulnerabilities.
+- Embeddings run with `trust_remote_code=False`; model downloads do not authorize
+  execution of remote repository code.
+- Ollama requests bypass ambient HTTP proxies and reject redirects. Cloud model
+  tags and remote metadata are excluded from runtime choices. The explicitly
+  configured model endpoint must still be trusted.
+- The web server defaults to 127.0.0.1. Explicit host selection permits only
+  loopback or an assigned RFC1918 IPv4 address. Do not expose the personal UI
+  through a public proxy.
+- Mutations require the session token and matching origin. LAN clients share the
+  same library, jobs, settings, console and history. This token is not a login.
+  Categories filter retrieval; they are not access permissions.
+- Source paths are constrained to the document directory. Query attachments are
+  validated PNG/JPEG/WebP, at most four images, 3 MiB each and 16 megapixels, then
+  resized and stripped of metadata. Raw query attachments are not persisted.
+- Fonts, translations and sanitized Markdown rendering are local. Private
+  documents, databases, settings, backups and credentials stay outside Git.
 
-## Validation and follow-up
+Tests verify transaction failures, cancellation, uncommitted vectors, scoped
+retrieval, migration fidelity, interrupted migration, proxy/redirect refusal and
+browser behavior. CI runs on Windows/Linux without inference models. `pip check`
+checks dependency consistency; it is not a vulnerability scanner. Passing these
+checks does not establish absence of every vulnerability or model error.
 
-CPU regression tests verify persistent retrieval despite hostile Chroma client
-environment settings, disabled reset, and absence of the affected HTTP endpoints.
-The CI runs on Windows and Linux. Model weights and GPU workloads are not needed
-for these checks.
-
-Updating repository pins does not update an existing virtual environment. Apply
-the reviewed setuptools update to that environment separately and run `pip check`.
-Review Dependabot again when a Chroma fix is published; test compatibility on an
-isolated index before changing an existing document library.
-
-For a private security report, use GitHub's private vulnerability-reporting feature
-if enabled. Otherwise, request a private contact without posting exploit details,
-documents or credentials in a public issue.
+For a private report, use GitHub private vulnerability reporting if available, or
+request a private contact without posting credentials/documents in an issue.

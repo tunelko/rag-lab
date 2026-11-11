@@ -34,6 +34,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertEqual(Path(cuda[1][-1]).name, 'torch-cuda.txt')
         self.assertEqual(Path(cpu[2][-1]).name, 'ollama.txt')
         self.assertEqual(Path(cuda[2][-1]).name, 'cuda.txt')
+        self.assertEqual(cpu[-2][-2:],['langchain-chroma','chromadb'])
         self.assertFalse(any('ollama' == argument or 'sudo' == argument for command in cpu for argument in command))
 
     def test_only_loopback_urls_and_valid_ranges(self):
@@ -123,6 +124,19 @@ class ConfigurationTests(unittest.TestCase):
     def test_existing_cuda_environment_is_selected_without_importing_torch(self):
         (self.root / '.venv/Lib/site-packages/torch-2.14.1+cu130.dist-info').mkdir(parents=True)
         self.assertEqual(setup.load_plan(self.root).profile, 'cuda')
+
+    def test_dependency_update_requires_all_legacy_collections_to_be_migrated(self):
+        db=self.root/'data/chroma';db.mkdir(parents=True)
+        (db/'example-manifest.json').write_text(json.dumps({'files':{'old':{'ids':['published']}}}),encoding='utf-8')
+        with self.assertRaisesRegex(ValueError,'Migra primero'):
+            setup.require_migrated_indexes(self.root)
+        (db/'example-vectors.sqlite3').touch()
+        with self.assertRaisesRegex(ValueError,'Migra primero'):
+            setup.require_migrated_indexes(self.root)
+        (db/'example-vectors.sqlite3').unlink()
+        from vector_store import VectorStore
+        VectorStore(db/'example-vectors.sqlite3').upsert_vectors(['published'],['text'],[{}],[[1,0]])
+        setup.require_migrated_indexes(self.root)
 
     def test_probe_finds_managed_lan_server_and_reports_its_busy_queue(self):
         directory=self.root/'.cache/servers';directory.mkdir(parents=True)

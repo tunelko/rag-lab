@@ -21,7 +21,7 @@ starts and closes its own server/corpus (port 8767, configurable with `--port`) 
 never calls Ollama. Reports go to ignored `reports/`. Test metrics are fixtures,
 not GPU benchmarks.
 
-Index-publication tests use a real isolated Chroma store with deterministic fake
+Index-publication tests use a real isolated SQLite store with deterministic fake
 embeddings. They simulate partial writes, manifest disk failure, cancelled staging,
 orphan vectors and failed cleanup; a separate process checks writer exclusion.
 Ollama transport tests use two local fake HTTP endpoints to verify proxy bypass

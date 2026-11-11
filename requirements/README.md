@@ -13,7 +13,7 @@ Model weights are downloaded separately through Ollama.
 | `torch-cuda.txt` | Pinned PyTorch CUDA 13.0 build from its official index. |
 | `wizard.txt` | Terminal wizard, isolated in `.cache/wizard-venv`. |
 | `dev.txt` | Ollama runtime, wizard and browser test dependencies. |
-| `lock-windows-cu130.txt` | Historical full Windows CUDA environment snapshot. |
+| `lock-windows-cu130.txt` | Windows CUDA environment snapshot with security updates applied. |
 
 For manual installation, create/activate a **Python 3.13 x64** virtual environment
 and run from the project root:

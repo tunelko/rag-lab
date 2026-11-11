@@ -20,9 +20,8 @@ def cpu_imports():
     import torch
     import accelerate
     import bitsandbytes
-    import chromadb
     import sentence_transformers
-    from langchain_chroma import Chroma
+    from vector_store import VectorStore
     from langchain_huggingface import HuggingFaceEmbeddings
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
@@ -49,7 +48,7 @@ def main():
     import torch
 
     packages = ["torch", "transformers", "accelerate", "bitsandbytes", "sentence-transformers",
-                "langchain", "langchain-chroma", "langchain-huggingface", "chromadb", "pypdf"]
+                "langchain", "langchain-huggingface", "numpy", "setuptools", "pypdf"]
     report = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "python": sys.version.split()[0], "executable": sys.executable,

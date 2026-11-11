@@ -798,7 +798,7 @@ def run_browser(url):
         browser.close()
     report={"status":"OK","checks":checks,"external_requests":external,"page_errors":errors,
             "llm":"fake test adapter; no Ollama/GPU calls","embeddings":"deterministic test vectors; no model downloads",
-            "progress":"real XHR byte events and real local Chroma batch completion","screenshots":"Fixture corpus; response metrics are test data, not benchmarks."}
+            "progress":"real XHR byte events and real local SQLite batch completion","screenshots":"Fixture corpus; response metrics are test data, not benchmarks."}
     (reports/"redesign-qa.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
     print(json.dumps(report,ensure_ascii=False),flush=True)
 

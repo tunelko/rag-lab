@@ -70,21 +70,11 @@ def make_embeddings(config: Config, allow_download: bool = False):
 
 
 def open_store(config: Config, embeddings):
-    from chromadb.config import Settings
-    from langchain_chroma import Chroma
-
-    return Chroma(
-        collection_name=config.collection,
-        embedding_function=embeddings,
-        persist_directory=str(config.db),
-        collection_metadata={"hnsw:space": "cosine"},
-        # Keep Chroma embedded even if the shell defines CHROMA_API_IMPL or
-        # CHROMA_SERVER_* for another project. Do not expose its server API.
-        client_settings=Settings(anonymized_telemetry=False,
-                                 chroma_api_impl="chromadb.api.rust.RustBindingsAPI",
-                                 chroma_server_host=None, chroma_server_http_port=None,
-                                 allow_reset=False),
-    )
+    from vector_store import VectorStore
+    path=config.db/f'{config.collection}-vectors.sqlite3'
+    if not path.exists() and published_ids(load_state(config)):
+        raise ValueError('Falta el almacén SQLite de vectores. Migra el índice anterior con python -m tools.migrate_vectors antes de actualizar las dependencias.')
+    return VectorStore(path,embeddings)
 
 
 def load_state(config: Config):

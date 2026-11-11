@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml)
 
-Consulta documental local con chat, fuentes verificables, PDF/figuras, ChromaDB,
+Consulta documental local con chat, fuentes verificables, PDF/figuras, SQLite/NumPy,
 embeddings CPU y generación con Ollama. Incluye un asistente de terminal inspirado
 en OMP: paneles divididos, navegación con teclado, selección de modelos, revisión
 de cambios y registro de instalación. No necesita OMP ni Node.
@@ -163,7 +163,7 @@ incluyen en Git. Repositorio: [tunelko/rag-lab](https://github.com/tunelko/rag-l
 [Desarrollo, CI y diagnóstico](DESARROLLO.md) explica las comprobaciones automáticas.
 
 La instalación de desarrollo original usa Python 3.13 x64, PyTorch 2.14.1 CUDA 13.0,
-Transformers 5.22.2 y ChromaDB 1.5.9. Las dependencias directas están fijadas;
+Transformers 5.22.2 y vectores SQLite con búsqueda NumPy. Las dependencias directas están fijadas;
 `requirements/lock-windows-cu130.txt` conserva la instantánea histórica completa de Windows.
 
 ## Interfaz local: Chat, Biblioteca, Configuración y Estadísticas
@@ -282,7 +282,7 @@ alternar dos modelos puede implicar que Ollama descargue uno de VRAM y cargue el
   con sus imágenes relativas. El importador preserva texto, tablas y figuras,
   convierte páginas de base 0 a páginas de base 1 y rechaza rutas fuera del ZIP.
   No admite ZIP genéricos, extracción Office directa ni exportaciones solo Markdown.
-- **Recuperación:** embeddings textuales en ChromaDB; las descripciones permiten
+- **Recuperación:** embeddings textuales en SQLite; las descripciones permiten
   encontrar imágenes, pero no hay embeddings visuales ni búsqueda por imagen.
 - **Respuesta:** cuando la selección elige visión, el modelo recibe hasta el límite configurado de imágenes
   de las páginas recuperadas. Un modelo de texto recibe los fragmentos/descripciones.
@@ -383,7 +383,7 @@ python verify_env.py --cuda-smoke --write-report
 flowchart LR
     A[PDF / TXT / Markdown] --> B[Chunking 500 caracteres / solapamiento 80]
     B --> C[Embeddings E5 multilingües en CPU]
-    C --> D[(ChromaDB en disco)]
+    C --> D[(Vectores SQLite en disco)]
     Q[Pregunta] --> E[Mismo E5 en CPU]
     E --> F[Similitud de coseno / top K]
     D --> F
@@ -524,5 +524,5 @@ el Python global. Los wheels de PyTorch aportan el runtime CUDA necesario.
 
 Documentación usada: [PyTorch](https://pytorch.org/get-started/previous-versions/),
 [bitsandbytes](https://huggingface.co/docs/bitsandbytes/installation),
-[LangChain + Chroma](https://docs.langchain.com/oss/python/integrations/vectorstores/chroma)
+[SQLite](https://docs.python.org/3/library/sqlite3.html) y [NumPy](https://numpy.org/doc/stable/)
 y [E5 multilingüe](https://huggingface.co/intfloat/multilingual-e5-small).
