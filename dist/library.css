@@ -45,3 +45,8 @@
 .upload-destination>.meta{font-size:10px;line-height:17px;color:var(--text-muted);margin-top:8px;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){.category-expand .icon{transition:none}}
 @container library-content (max-width:875px){.split>.split__aside{order:-1}}
+.empty-library-form{display:flex;flex-direction:column;gap:16px}
+.empty-library-form .dialog-title{margin-bottom:8px}
+.empty-library-form p{margin:0;font-size:12px;line-height:20px}
+.empty-library-form .field{font-size:11px}
+.empty-library-form .dialog-actions{margin-top:4px}

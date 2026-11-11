@@ -133,6 +133,9 @@ Puedes mover una selección de documentos o elegir el destino antes de subirlos.
 En el chat, **Fuentes** permite consultar toda la biblioteca, una categoría con sus
 subcategorías, una subcategoría o los documentos sin categoría. Esta organización se guarda
 en `data/` y conserva PDF, vectores y descripciones ya procesadas.
+**Vaciar biblioteca** permite empezar de cero: tras escribir una palabra de
+confirmación, mueve documentos, índice y categorías a una carpeta con fecha en
+`data/library-backups/` en lugar de borrarlos.
 [Organización de la biblioteca](docs/LIBRARY.md).
 
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.

@@ -263,6 +263,12 @@ _catalogs = {}
 _catalog_lock = threading.Lock()
 
 
+def clear_catalogs():
+    """Forget cached aliases, for example after the library has been emptied."""
+    with _catalog_lock:
+        _catalogs.clear()
+
+
 def _catalog(config, store, published):
     """Aliases and channel ids, rebuilt only when the index or its manifest changes."""
     manifest = config.db / f'{config.collection}-manifest.json'

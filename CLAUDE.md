@@ -72,7 +72,7 @@ Per collection (`RAG_COLLECTION`, default `documents`), under `data/chroma/` (hi
 
 ### Web security model
 
-Loopback by default; `RAG_WEB_HOST`/`--host` accepts only loopback or an assigned RFC1918 address. Every non-GET request needs a matching `Origin` and the per-process `X-RAG-Token` from `/api/session` (a CSRF guard, not a login). Strict CSP (`script-src 'self'`, `style-src 'self'`) — no inline scripts/styles or CDN assets in `dist/`. Source/figure routes resolve paths and require containment in `data/documents` / `data/visual`. No accounts or per-user isolation; there is deliberately no document-delete API.
+Loopback by default; `RAG_WEB_HOST`/`--host` accepts only loopback or an assigned RFC1918 address. Every non-GET request needs a matching `Origin` and the per-process `X-RAG-Token` from `/api/session` (a CSRF guard, not a login). Strict CSP (`script-src 'self'`, `style-src 'self'`) — no inline scripts/styles or CDN assets in `dist/`. Source/figure routes resolve paths and require containment in `data/documents` / `data/visual`. No accounts or per-user isolation; there is deliberately no per-document delete API. The only bulk operation is `POST /api/admin/library/empty` (`library_reset.py`): server-host only, refused while jobs exist, and it *moves* documents, index files, topics and the visual cache to `data/library-backups/<timestamp>/` (manifest first) instead of deleting them.
 
 ### Configuration
 

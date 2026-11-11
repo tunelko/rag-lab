@@ -8,6 +8,7 @@ import hashlib
 import base64
 import ipaddress
 import json
+import logging
 import mimetypes
 import os
 from pathlib import Path
@@ -41,7 +42,8 @@ from localization import text as localized
 from query_images import normalize_query_images
 from server_control import validate_host
 from library_topics import TopicStore, TopicError
-from index_lock import IndexBusyError
+from index_lock import IndexBusyError, index_writer
+import library_reset
 from ollama_http import open_ollama
 from credential_store import CredentialError, CredentialStore, CredentialStoreLocked, PROVIDERS as CREDENTIAL_PROVIDERS
 import generation_providers
@@ -91,6 +93,11 @@ class CredentialRequest(BaseModel):
 
 class UnlockRequest(BaseModel):
     passphrase: str = Field(min_length=12, max_length=1024)
+
+
+class EmptyLibraryRequest(BaseModel):
+    confirm: Literal["empty-library"]
+    keep_captions: bool = False
 
 
 class RagService(JobRuntime):
@@ -214,6 +221,44 @@ class RagService(JobRuntime):
             first = failures[0]["error_info"]
             raise JobFailure(first["code"], first["message"], first["detail"])
         return {"summary": summary, "documents": list(outcomes.values()), "message": "Índice actualizado"}
+
+    def empty_library(self, keep_captions=False):
+        """Move the whole library to a dated backup folder and start from an empty one."""
+        # The job lock is held throughout, so no upload, index or query can start meanwhile.
+        with self.lock:
+            if self.closed:
+                raise HTTPException(503, "El servidor se está cerrando.")
+            if any(job["status"] in {"queued", "running"} for job in self.jobs.values()):
+                raise HTTPException(409, "Hay tareas en curso o en cola. Espera a que terminen o cancélalas antes de vaciar la biblioteca.")
+            manifest = self.config.db / f"{self.config.collection}-manifest.json"
+            # Counted from disk: this must also work when the manifest belongs to another configuration.
+            names = [path for path in self.documents.rglob("*") if path.is_file() and path.suffix.lower() in ALLOWED]
+            if not names and not manifest.exists():
+                raise HTTPException(409, "La biblioteca ya está vacía.")
+            try:
+                chunks = sum(len(item.get("ids", [])) for item in json.loads(manifest.read_text(encoding="utf-8")).get("files", {}).values())
+            except (OSError, ValueError, AttributeError):
+                chunks = 0
+            try:
+                with index_writer(self.config):
+                    result = library_reset.empty_library(self.config, self.documents, self.visual_root,
+                        self.config.db.parent / "library-backups", keep_captions=keep_captions)
+            except IndexBusyError as error:
+                raise HTTPException(409, str(error)) from error
+            except library_reset.LibraryBusyError as error:
+                raise HTTPException(409, f"No se ha vaciado nada: hay un archivo en uso ({error}). Cierra los documentos abiertos y vuelve a intentarlo.") from error
+            finally:
+                # Also after a failed attempt: a concurrent reader may have seen a half-moved state.
+                from vector_store import VectorStore
+                VectorStore.clear_cache(self.config.db / f"{self.config.collection}-vectors.sqlite3")
+                retrieval_pipeline.clear_catalogs()
+                self.fingerprints.clear()
+                self._embedding_dimensions = None
+                self.topics = TopicStore(self.config.db / f"{self.config.collection}-topics.sqlite3")
+            path = result["path"]
+            logging.getLogger("rag.jobs").info("Biblioteca vaciada · %d documentos y %d fragmentos movidos a %s", len(names), chunks, path.name)
+            return {"documents": len(names), "chunks": chunks, "kept_captions": keep_captions,
+                    "backup": path.relative_to(rag.ROOT).as_posix() if path.is_relative_to(rag.ROOT) else str(path)}
 
     def list_documents(self):
         state = rag.load_state(self.config)
@@ -516,7 +561,7 @@ def create_app(service=None):
     service = service or RagService()
     token = secrets.token_urlsafe(32)
 
-    def require_local_credentials(request: Request):
+    def require_local_credentials(request: Request, detail="Las credenciales solo pueden administrarse desde el propio equipo que ejecuta RAG Local."):
         host = request.client.host if request.client else ""
         try:
             local = ipaddress.ip_address(host).is_loopback
@@ -524,7 +569,7 @@ def create_app(service=None):
             local = False
         same_host = host == getattr(service, "bind_host", None)
         if not local and not same_host:
-            raise HTTPException(403, "Las credenciales solo pueden administrarse desde el propio equipo que ejecuta RAG Local.")
+            raise HTTPException(403, detail)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -767,6 +812,11 @@ def create_app(service=None):
             return {'ok': True, 'assigned': len(set(body.names))}
         except TopicError as error:
             raise HTTPException(409, str(error)) from error
+
+    @app.post('/api/admin/library/empty')
+    def empty_library(body: EmptyLibraryRequest, request: Request):
+        require_local_credentials(request, "La biblioteca solo puede vaciarse desde el propio equipo que ejecuta RAG Local.")
+        return service.empty_library(keep_captions=body.keep_captions)
 
     @app.post("/api/admin/prepare", status_code=202)
     def prepare():

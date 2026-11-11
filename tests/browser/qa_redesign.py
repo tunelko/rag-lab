@@ -941,6 +941,35 @@ def run_browser(url):
         assert not external, external
         assert not errors, errors
         check("390px layouts, stacked statistics, reduced motion and no external browser requests/errors")
+
+        # Last on purpose: it moves the fixture library into a backup folder.
+        page.set_viewport_size({"width":1280,"height":900})
+        page.locator("#nav-admin").click()
+        documents=page.evaluate("fetch('/api/status').then(r=>r.json()).then(s=>s.document_count)")
+        assert documents>0
+        expect(page.locator("#empty-library-button")).to_be_enabled()
+        page.locator("#empty-library-button").click()
+        expect(page.locator("#empty-library-dialog")).to_be_visible()
+        expect(page.locator("#empty-library-word")).to_be_focused()
+        expect(page.locator("#empty-library-confirm")).to_be_disabled()
+        page.locator("#empty-library-word").fill("no")
+        page.keyboard.press("Enter")
+        expect(page.locator("#empty-library-confirm")).to_be_disabled()
+        page.keyboard.press("Escape")
+        expect(page.locator("#empty-library-dialog")).not_to_be_visible()
+        assert page.evaluate("fetch('/api/status').then(r=>r.json()).then(s=>s.document_count)")==documents
+        page.locator("#empty-library-button").click()
+        page.locator("#empty-library-word").fill("vaciar" if page.evaluate("document.documentElement.lang")=="es" else "empty")
+        page.locator("#empty-library-confirm").click()
+        expect(page.locator("#toast")).to_contain_text("library-backups")
+        expect(page.locator("#empty-library-dialog")).not_to_be_visible()
+        expect(page.locator("#stat-docs")).to_have_text("0")
+        expect(page.locator("#library-empty")).to_be_visible()
+        expect(page.locator("#empty-library-button")).to_be_disabled()
+        status=page.evaluate("fetch('/api/status').then(r=>r.json())")
+        assert (status["document_count"],status["chunk_count"],status["library"]["topics"])==(0,0,[]), status
+        assert not errors, errors
+        check("Empty library: typed confirmation, cancel without changes, backup instead of deletion and a clean empty state")
         browser.close()
     report={"status":"OK","checks":checks,"external_requests":external,"page_errors":errors,
             "llm":"fake test adapter; no Ollama/GPU calls","embeddings":"deterministic test vectors; no model downloads",

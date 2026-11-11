@@ -128,7 +128,9 @@ In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
 documents and move them in bulk; the upload destination follows the chosen category.
 The chat's **Sources** selector searches the entire library, one category including
 its subcategories, one subcategory, or uncategorized documents. Organization is stored under `data/` and preserves
-existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md).
+existing PDFs, vectors and captions. **Empty library** starts over: after a typed
+confirmation it moves documents, index and categories to a dated folder under
+`data/library-backups/` instead of deleting them. See [library organization](docs/LIBRARY.md).
 
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local
   vision model describes the images; descriptions and text enter the local SQLite vector store.

@@ -756,6 +756,11 @@
       </div>
       <span class="page-head__spacer">
       </span>
+      <button class="btn btn--danger" id="empty-library-button" type="button">
+       <span data-i18n="sentinel.empty_library">
+        Vaciar biblioteca
+       </span>
+      </button>
       <button class="btn btn--secondary" id="index-button" type="button">
        <svg aria-hidden="true" class="icon">
         <use href="#i-refresh">
@@ -2421,6 +2426,54 @@
    </details>
    <div class="dialog-actions" id="dialog-actions">
    </div>
+  </dialog>
+  <dialog aria-describedby="empty-library-description" aria-labelledby="empty-library-title" class="result-dialog" data-variant="error" id="empty-library-dialog" role="alertdialog">
+   <form class="empty-library-form" id="empty-library-form" method="dialog">
+    <div class="dialog-heading">
+     <span class="dialog-icon">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-alert">
+       </use>
+      </svg>
+     </span>
+     <div>
+      <h2 class="dialog-title" id="empty-library-title">
+       <span data-i18n="sentinel.empty_library">
+        Vaciar biblioteca
+       </span>
+      </h2>
+      <p id="empty-library-description">
+      </p>
+     </div>
+    </div>
+    <label class="toggle-field" for="empty-library-keep">
+     <input id="empty-library-keep" role="switch" type="checkbox"/>
+     <span aria-hidden="true" class="toggle">
+     </span>
+     <span data-i18n="sentinel.empty_keep_captions">
+      Conservar las descripciones de imágenes ya calculadas
+     </span>
+    </label>
+    <label class="field" for="empty-library-word">
+     <span id="empty-library-word-label">
+     </span>
+     <input autocapitalize="characters" autocomplete="off" class="input" id="empty-library-word" maxlength="20" spellcheck="false"/>
+    </label>
+    <p class="error-reason" hidden="" id="empty-library-error" role="alert">
+    </p>
+    <div class="dialog-actions">
+     <button class="btn btn--secondary" id="empty-library-cancel" type="button">
+      <span data-i18n="sentinel.empty_cancel">
+       Cancelar
+      </span>
+     </button>
+     <button class="btn btn--danger" disabled="" id="empty-library-confirm" type="submit">
+      <span data-i18n="sentinel.empty_library">
+       Vaciar biblioteca
+      </span>
+     </button>
+    </div>
+   </form>
   </dialog>
   <dialog aria-labelledby="resource-dialog-title" class="resource-dialog" id="resource-dialog">
    <header class="resource-dialog-heading">

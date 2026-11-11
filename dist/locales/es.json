@@ -759,5 +759,16 @@
   "sentinel.formats": "Formatos admitidos",
   "sentinel.preparing": "Preparando…",
   "header.usage": "uso",
-  "header.vram_used": "VRAM en uso"
+  "header.vram_used": "VRAM en uso",
+  "sentinel.empty_library": "Vaciar biblioteca",
+  "sentinel.empty_description": "Se moverán {documents} documentos y {chunks} fragmentos, con sus categorías, a una carpeta de copia de seguridad con fecha. No se borra nada, pero la biblioteca quedará vacía.",
+  "sentinel.empty_keep_captions": "Conservar las descripciones de imágenes ya calculadas",
+  "sentinel.empty_confirm_label": "Escribe {word} para confirmar",
+  "sentinel.empty_word": "VACIAR",
+  "sentinel.empty_cancel": "Cancelar",
+  "sentinel.empty_done": "Biblioteca vaciada. Copia de seguridad en {path}",
+  "server.empty_busy": "Hay tareas en curso o en cola. Espera a que terminen o cancélalas antes de vaciar la biblioteca.",
+  "server.empty_already": "La biblioteca ya está vacía.",
+  "server.empty_in_use": "No se ha vaciado nada: hay un archivo en uso ({file}). Cierra los documentos abiertos y vuelve a intentarlo.",
+  "server.empty_local_only": "La biblioteca solo puede vaciarse desde el propio equipo que ejecuta RAG Local."
 }

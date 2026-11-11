@@ -73,7 +73,7 @@ function statusView(status){
   $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=$('config-embeddings').title=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();const reranker=status.reranker||{};$('config-reranker').textContent=$('config-reranker').title=reranker.model?reranker.model+' · '+(reranker.unavailable?s('reranker_unavailable'):reranker.loaded?String(reranker.device).toUpperCase():s('reranker_on_demand')):s('reranker_off');$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
   const indexedAt=status.last_index_at||(state.lastIndex?new Date(state.lastIndex).toISOString():null);
   $('last-index').textContent=indexedAt?relativeTime(indexedAt):'—';$('last-index').title=indexedAt?new Date(indexedAt).toLocaleString(intlLocale()):'';
-  $('index-button').disabled=!status.document_count;renderDocuments();renderProcess();chat?.setStatus(status);
+  $('index-button').disabled=!status.document_count;$('empty-library-button').disabled=!(status.document_count||status.chunk_count)||(status.jobs||[]).length>0;renderDocuments();renderProcess();chat?.setStatus(status);
 }
 let statusRequest;
 function refreshStatus(){if(statusRequest)return statusRequest;statusRequest=api('/api/status').then(statusView).catch(error=>toast(error.message)).finally(()=>{statusRequest=null;});return statusRequest;}
@@ -153,6 +153,27 @@ $('refresh-button').addEventListener('click',()=>{const control=$('refresh-butto
 let systemPanelTimer;$('system-popover').addEventListener('toggle',event=>{clearInterval(systemPanelTimer);if(event.newState==='open')systemPanelTimer=setInterval(refreshStatus,5000);});
 $('prepare-button').addEventListener('click',async()=>{const control=$('prepare-button'),label=control.querySelector('[data-i18n]');control.setAttribute('aria-busy','true');label.textContent=s('preparing');try{await startOperation('/api/admin/prepare','prepare');}finally{control.removeAttribute('aria-busy');label.textContent=s('prepare');}});$('index-button').addEventListener('click',()=>startOperation('/api/admin/index','index'));
 $('queue-result-button').addEventListener('click',()=>state.lastResult&&showResult(state.lastResult,$('queue-result-button')));
+// Emptying moves the library to a dated backup on the server; the typed word guards against a stray click.
+const emptyDialog=$('empty-library-dialog');
+$('empty-library-button').addEventListener('click',()=>{
+  const status=state.status||{};
+  $('empty-library-description').textContent=s('empty_description',{documents:number(status.document_count||0),chunks:number(status.chunk_count||0)});
+  $('empty-library-word-label').textContent=s('empty_confirm_label',{word:s('empty_word')});
+  $('empty-library-word').value='';$('empty-library-keep').checked=false;$('empty-library-error').hidden=true;$('empty-library-confirm').disabled=true;
+  document.body.classList.add('modal-open');emptyDialog.showModal();$('empty-library-word').focus({preventScroll:true});
+});
+$('empty-library-word').addEventListener('input',()=>{$('empty-library-confirm').disabled=$('empty-library-word').value.trim().toUpperCase()!==s('empty_word');});
+$('empty-library-cancel').addEventListener('click',()=>emptyDialog.close());
+emptyDialog.addEventListener('close',()=>document.body.classList.remove('modal-open'));
+$('empty-library-form').addEventListener('submit',async event=>{
+  event.preventDefault();const confirm=$('empty-library-confirm');if(confirm.disabled)return;confirm.disabled=true;confirm.setAttribute('aria-busy','true');
+  try{
+    const result=await api('/api/admin/library/empty',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'empty-library',keep_captions:$('empty-library-keep').checked})});
+    state.newDocuments.clear();sessionStorage.removeItem('rag-local-new-documents');state.lastResult=null;$('queue-result-button').hidden=true;
+    emptyDialog.close();toast(s('empty_done',{path:result.backup}));await refreshStatus();
+  }catch(error){$('empty-library-error').textContent=error.message;$('empty-library-error').hidden=false;confirm.disabled=false;}
+  finally{confirm.removeAttribute('aria-busy');}
+});
 let searchTimer;$('document-search').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.search=$('document-search').value;state.page=1;renderDocuments();},150);});
 $('document-filters').addEventListener('click',(event)=>{const control=event.target.closest('[data-filter]');if(control){state.filter=control.dataset.filter;state.page=1;renderDocuments();}});
 $('previous-page').addEventListener('click',()=>{state.page--;renderDocuments();});$('next-page').addEventListener('click',()=>{state.page++;renderDocuments();});

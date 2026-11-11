@@ -759,5 +759,16 @@
   "sentinel.formats": "Supported formats",
   "sentinel.preparing": "Preparing…",
   "header.usage": "usage",
-  "header.vram_used": "VRAM in use"
+  "header.vram_used": "VRAM in use",
+  "sentinel.empty_library": "Empty library",
+  "sentinel.empty_description": "{documents} documents and {chunks} chunks, with their categories, will be moved to a dated backup folder. Nothing is deleted, but the library will be left empty.",
+  "sentinel.empty_keep_captions": "Keep the image descriptions already computed",
+  "sentinel.empty_confirm_label": "Type {word} to confirm",
+  "sentinel.empty_word": "EMPTY",
+  "sentinel.empty_cancel": "Cancel",
+  "sentinel.empty_done": "Library emptied. Backup in {path}",
+  "server.empty_busy": "Jobs are running or queued. Wait for them to finish or cancel them before emptying the library.",
+  "server.empty_already": "The library is already empty.",
+  "server.empty_in_use": "Nothing was emptied: a file is in use ({file}). Close any open documents and try again.",
+  "server.empty_local_only": "The library can only be emptied from the computer that runs RAG Local."
 }

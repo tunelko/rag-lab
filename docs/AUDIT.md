@@ -113,8 +113,10 @@ remain outside Git.
    server process remains alive; it cannot retrieve a lost result after a server
    restart. A process crash can leave unreferenced vectors consuming disk space;
    readers ignore them. No automatic destructive cleanup was added.
-5. **Corpus management:** there is no document-delete/trash API or UI. Removing a
-   queue entry or deleting an empty category does not delete a PDF. Existing
+5. **Corpus management:** there is no per-document delete/trash API or UI. Removing a
+   queue entry or deleting an empty category does not delete a PDF. The only bulk
+   operation moves the entire library to a dated backup folder
+   ([Emptying the library](LIBRARY.md#emptying-the-library)); backups are not pruned. Existing
    manifests also contain absolute source paths; moving an already-built index
    between roots/operating systems requires reindexing or an explicit migration.
 6. **Larger deployments:** serial ingestion competes with interactive queries.

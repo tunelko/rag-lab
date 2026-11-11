@@ -49,6 +49,10 @@ class FileFingerprints:
             self.entries.pop(path, None)
             raise OSError('El documento está cambiando; vuelve a consultar su estado.')
 
+    def clear(self):
+        with self.lock:
+            self.entries.clear()
+
     def snapshot(self):
         with self.lock:
             return {'entries': len(self.entries), 'limit': self.limit, 'hits': self.hits, 'misses': self.misses}

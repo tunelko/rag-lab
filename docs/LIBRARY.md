@@ -60,5 +60,37 @@ requires a server-confirmed document identity; matching a filename and size alon
 cannot prove an interrupted upload succeeded. An unconfirmed upload stays retryable
 instead of being silently marked complete.
 
-There is currently no document-delete/trash operation in the API or UI. Removing
+There is no per-document delete/trash operation in the API or UI. Removing
 an upload queue entry does not remove its original file or its published vectors.
+
+## Emptying the library
+
+**Empty library / Vaciar biblioteca**, in the Library header, starts over without
+deleting anything. After typing the confirmation word, the server moves the whole
+library into one new dated folder, `data/library-backups/<YYYYMMDD-HHMMSS>/`:
+
+| Backup folder | Taken from |
+| --- | --- |
+| `documents/` | every file in `data/documents/` |
+| `index/` | the collection's manifest, vector database and categories (`data/chroma/<collection>-*`) |
+| `visual/` | rendered figures and cached image descriptions (`data/visual/`) |
+
+The library is then empty and ready for new uploads. Settings, saved credentials
+and statistics are not touched, and other collections keep their own index files.
+Switch on **Keep the image descriptions already computed** to leave `data/visual/`
+in place: the cache is addressed by image content, so uploading the same documents
+again does not call the vision model for pages it has already described.
+
+The operation is refused while any job is running or queued, while another process
+is writing the index, and from any computer other than the one running RAG Local.
+The manifest is moved first, so an interruption leaves an unpublished index rather
+than a half-published one. If a file is open elsewhere (Windows refuses to move it),
+everything already moved is put back and nothing changes.
+
+Emptying is also the way to reuse a collection name after changing the embedding
+model or chunking in `.env`: the new index is created with the new configuration.
+
+To restore a backup, stop the server and move the three folders' contents back to
+their original locations, replacing what is there; each backup includes a short
+note with these steps. Backups are never removed automatically: delete old ones
+by hand to recover disk space.
