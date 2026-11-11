@@ -1,5 +1,5 @@
 import {$, node} from './ui.js';
-import {t, serverText} from './i18n.js';
+import {t, serverText, intlLocale} from './i18n.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
 const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
@@ -49,7 +49,7 @@ export class SettingsController {
   }
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
   set(result){this.resetCatalog();this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);this.loadProviderModels();}
-  resetCatalog(){this.catalogVersion++;this.externalModels=[];this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;}
+  resetCatalog(){this.catalogVersion++;this.externalModels=[];this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;this.pricing=null;this.pricingLoading=false;this.pricingError=null;}
   async saveCredential(){
     const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
     try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();if(this.value?.response_provider===provider){this.resetCatalog();await this.loadProviderModels();}}
@@ -69,9 +69,37 @@ export class SettingsController {
     const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading||this.credentials?.locked||!this.credentials?.configured?.[provider])return;
     const version=++this.catalogVersion,current=()=>this.catalogVersion===version&&this.value?.response_provider===provider;
     this.modelsLoading=true;this.modelsError=null;this.render();
+    const pricing=this.loadProviderPricing(provider,version);
     try{const result=await this.api(`/api/providers/${provider}/models`);if(current()){this.externalModels=result.models||[];this.modelsLoaded=true;}}
     catch(error){if(current()){this.externalModels=[];this.modelsLoaded=false;this.modelsError=error;}}
     finally{if(current()){this.modelsLoading=false;this.render();}}
+    await pricing;
+  }
+  async loadProviderPricing(provider,version){
+    const current=()=>this.catalogVersion===version&&this.value?.response_provider===provider;
+    this.pricing=null;this.pricingLoading=true;this.pricingError=null;this.render();
+    try{const result=await this.api(`/api/providers/${provider}/pricing`);if(current())this.pricing=result;}
+    catch(error){if(current())this.pricingError=error;}
+    finally{if(current()){this.pricingLoading=false;this.render();}}
+  }
+  renderPricing(){
+    const selected=this.value.external_model,panel=$('model-pricing');panel.hidden=this.value.response_provider==='ollama'||!selected;
+    if(panel.hidden)return;
+    const rates=this.pricing?.models?.[selected],available=Boolean(rates&&Object.keys(rates).length);
+    const state=this.pricingLoading?'price_loading':this.pricingError?'price_failed':!this.pricing?.supported?'price_unsupported':available?'price_realtime':'price_missing';
+    $('model-pricing-state').textContent=s(state);
+    $('model-pricing-state').classList.toggle('error',Boolean(this.pricingError));
+    $('model-pricing-rates').hidden=!available;$('model-pricing-note').hidden=!available;
+    $('model-price-cache-field').hidden=!rates?.cached_input;
+    const format=rate=>{
+      if(!rate||rate.amount==null||!Number.isFinite(Number(rate.amount))||Number(rate.amount)<0||!['million_tokens','audio_minute'].includes(rate.unit))return s('price_unknown');
+      try{return new Intl.NumberFormat(intlLocale(),{style:'currency',currency:rate.currency,minimumFractionDigits:2,maximumFractionDigits:6}).format(Number(rate.amount))+' / '+s(rate.unit==='million_tokens'?'price_million_tokens':'price_audio_minute');}
+      catch{return s('price_unknown');}
+    };
+    $('model-price-input').textContent=format(rates?.input);$('model-price-output').textContent=format(rates?.output);$('model-price-cache').textContent=format(rates?.cached_input);
+    const date=new Date(this.pricing?.retrieved_at||'');
+    $('model-pricing-updated').textContent=Number.isNaN(date.getTime())?'':s('price_updated',{time:new Intl.DateTimeFormat(intlLocale(),{dateStyle:'short',timeStyle:'medium'}).format(date)});
+    $('model-pricing-source').hidden=!this.pricing?.supported||this.value.response_provider!=='scaleway';
   }
   renderExternalModels(){
     const select=$('external-model'),selected=this.value.external_model||'',configured=Boolean(this.credentials?.configured?.[this.value.response_provider]);
@@ -129,6 +157,7 @@ export class SettingsController {
     this.select('model',this.models,value.response_model);this.select('vision-model',this.models.filter(model=>model.vision),value.vision_model);
     $('model').closest('.cfg-field').hidden=external;$('external-model').closest('.cfg-field').hidden=!external;
     this.renderExternalModels();
+    this.renderPricing();
     for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=external;
     const composer=$('composer-model'),selected=value.response_mode==='automatic'?'automatic':'manual:'+value.response_model;
     const signature=JSON.stringify([this.models,selected,s('auto'),s('vision'),external,value.response_provider,value.external_model]);

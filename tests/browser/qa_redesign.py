@@ -399,6 +399,17 @@ def run_browser(url):
                 else {'detail': 'Catálogo de prueba temporalmente no disponible'}))
 
         page.route('**/api/providers/*/models', provider_catalog)
+        tariffs = {'status': 200, 'price': '1.8'}
+
+        def provider_tariffs(route):
+            route.fulfill(status=tariffs['status'], json={
+                'provider': 'xai', 'supported': True, 'retrieved_at': '2026-11-11T14:00:00+00:00',
+                'models': {'qa-cloud-two': {
+                    'input': {'amount': tariffs['price'], 'currency': 'EUR', 'unit': 'million_tokens'},
+                    'output': {'amount': '5.5', 'currency': 'EUR', 'unit': 'million_tokens'},
+                    'cached_input': {'amount': '0.12', 'currency': 'EUR', 'unit': 'million_tokens'}}}})
+
+        page.route('**/api/providers/*/pricing', provider_tariffs)
         expect(page.locator('select#external-model')).to_be_disabled()
         if credential_status['locked']:
             page.locator('#credential-passphrase').fill('qa-only-master-password')
@@ -413,6 +424,19 @@ def run_browser(url):
         with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
             page.locator('#external-model').select_option('qa-cloud-two')
         assert page.request.get(url + '/api/settings').json()['settings']['external_model'] == 'qa-cloud-two'
+        expect(page.locator('#model-price-input')).to_contain_text('1,80')
+        expect(page.locator('#model-price-output')).to_contain_text('5,50')
+        expect(page.locator('#model-price-cache')).to_contain_text('0,12')
+        expect(page.locator('#model-pricing-updated')).to_contain_text('Consultado:')
+        tariffs['price'] = '2.1'
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#model-price-input')).to_contain_text('2,10')
+        tariffs['status'] = 502
+        page.locator('#refresh-provider-models').click()
+        expect(page.locator('#model-pricing-state')).to_contain_text('No se pudieron consultar los precios')
+        expect(page.locator('#model-pricing-rates')).to_be_hidden()
+        expect(page.locator('#external-model')).to_be_enabled()
+        tariffs['status'] = 200
         page.reload(wait_until='networkidle')
         expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
         expect(page.locator('#external-model')).to_have_value('qa-cloud-two')
@@ -451,6 +475,7 @@ def run_browser(url):
         expect(page.locator('#external-model')).to_be_disabled()
         expect(page.locator('#external-model option')).to_have_count(1)
         page.unroute('**/api/providers/*/models', provider_catalog)
+        page.unroute('**/api/providers/*/pricing', provider_tariffs)
         check('Provider model dropdown: automatic catalog, explicit choice, autosave/reload, empty/error recovery and stale provider responses')
         page.locator('#response-provider').select_option('ollama')
         expect(page.locator('#settings-message')).to_have_text('Guardado')

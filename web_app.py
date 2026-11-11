@@ -45,6 +45,7 @@ from index_lock import IndexBusyError
 from ollama_http import open_ollama
 from credential_store import CredentialError, CredentialStore, CredentialStoreLocked, PROVIDERS as CREDENTIAL_PROVIDERS
 import generation_providers
+import provider_pricing
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -640,6 +641,16 @@ def create_app(service=None):
         except generation_providers.ProviderError as exc:
             raise HTTPException(502, str(exc)) from exc
         return {"provider": provider, "models": models}
+
+    @app.get("/api/providers/{provider}/pricing")
+    def provider_prices(provider: str, request: Request):
+        require_local_credentials(request)
+        if provider not in CREDENTIAL_PROVIDERS:
+            raise HTTPException(404, "Proveedor no disponible.")
+        try:
+            return provider_pricing.fetch_pricing(provider)
+        except provider_pricing.PricingError as exc:
+            raise HTTPException(502, str(exc)) from exc
 
     @app.get("/api/statistics")
     def statistics(history_seconds: int = QueryParameter(default=RETENTION, ge=86400, le=RETENTION),

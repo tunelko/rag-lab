@@ -316,6 +316,13 @@
 .sys__link .icon { width: 14px; height: 14px; }
 .sys__link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+.cfg-model-pricing { margin: 0 0 var(--space-4); padding: 10px 0; border-block: 1px solid var(--border); }
+.cfg-model-pricing dl { display: flex; flex-wrap: wrap; gap: 10px 24px; margin: 8px 0; }
+.cfg-model-pricing dt { color: var(--text-muted); font-size: 12px; }
+.cfg-model-pricing dd { margin: 3px 0 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cfg-model-pricing p { margin: 4px 0; }
+.cfg-model-pricing a { color: var(--accent); }
+
 @keyframes sys-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .icon-btn.is-busy .icon, .sys__bar > i, .cfg__save { animation: none; transition: none; }

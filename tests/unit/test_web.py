@@ -132,6 +132,17 @@ class WebTests(unittest.TestCase):
         self.assertEqual(refused.status_code, 403)
         self.assertEqual(models_refused.status_code, 403)
 
+    def test_live_pricing_endpoint_is_read_only_and_keeps_keys_out_of_requests(self):
+        with patch('provider_pricing.fetch_pricing', return_value={'provider': 'scaleway', 'models': {}}) as pricing:
+            response = self.client.get('/api/providers/scaleway/pricing')
+            self.assertEqual(response.status_code, 200)
+            pricing.assert_called_once_with('scaleway')
+            self.assertEqual(self.client.get('/api/providers/unknown/pricing').status_code, 404)
+            remote = TestClient(self.client.app, client=('192.168.1.25', 50001))
+            self.assertEqual(remote.get('/api/providers/scaleway/pricing').status_code, 403)
+            remote.close()
+            self.assertEqual(pricing.call_count, 1)
+
     def test_upload_index_query_sources_and_metrics(self):
         result = self.client.post("/api/admin/upload", headers=self.headers,
             files=[("files", ("manual.txt", "La copia de seguridad se realiza cada viernes.".encode(), "text/plain"))],

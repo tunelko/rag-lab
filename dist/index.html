@@ -1276,6 +1276,17 @@
           <span class="cfg-field__hint" id="provider-models-state" role="status" aria-live="polite"></span>
          </span>
         </label>
+        <section class="cfg-model-pricing" hidden="" id="model-pricing" aria-label="Precios del modelo" data-i18n-aria-label="sentinel.model_pricing">
+         <p class="cfg-field__hint" id="model-pricing-state" role="status"></p>
+         <dl id="model-pricing-rates">
+          <div><dt data-i18n="sentinel.price_input">Entrada</dt><dd id="model-price-input">—</dd></div>
+          <div><dt data-i18n="sentinel.price_output">Salida</dt><dd id="model-price-output">—</dd></div>
+          <div id="model-price-cache-field" hidden=""><dt data-i18n="sentinel.price_cached_input">Entrada en caché</dt><dd id="model-price-cache">—</dd></div>
+         </dl>
+         <p class="cfg-field__hint" id="model-pricing-note" data-i18n="sentinel.price_public_note">Tarifa pública sin impuestos; no incluye descuentos ni tramo gratuito. Entrada: pregunta, historial y fuentes; salida: tokens generados.</p>
+         <p class="cfg-field__hint" id="model-pricing-updated"></p>
+         <a class="cfg-field__hint" id="model-pricing-source" href="https://www.scaleway.com/en/developers/api/product-catalog/public-catalog" target="_blank" rel="noopener noreferrer" data-i18n="sentinel.price_source">API oficial de tarifas</a>
+        </section>
         <section class="cfg-credential" hidden="" id="credential-panel">
          <div class="cfg-credential__head">
           <span class="cfg-field__label" data-i18n="sentinel.api_credential">Credencial API cifrada</span>

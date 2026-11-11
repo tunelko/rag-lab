@@ -108,6 +108,14 @@ en la inferencia. Su portador IAM necesita `GenerativeApisModelAccess` (mínimo
 privilegio), `GenerativeApisFullAccess` o `AllProductsFullAccess` para el proyecto
 u organización correspondientes.
 
+En Scaleway, el modelo seleccionado muestra también las tarifas de entrada/salida
+y de entrada en caché cuando existen. Se consultan por API pública de Product
+Catalog cada vez que se actualiza el catálogo: EUR por millón de tokens, o por
+minuto para audio. El panel indica la hora y fuente de la consulta, excluye los
+precios por lotes y no aplica impuestos, tramo gratuito ni descuentos de cuenta.
+Una tarifa ausente se muestra como no disponible, nunca como gratuita. Los otros
+proveedores aún no tienen integrada la consulta de precios por API.
+
 En **Biblioteca**, organiza los documentos en **categorías y subcategorías** desde
 el árbol lateral. El botón **+** crea una categoría; el menú de cada una permite
 añadir subcategorías, renombrar o eliminar categorías vacías.

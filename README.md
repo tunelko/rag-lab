@@ -106,6 +106,14 @@ inference. Its IAM bearer must have `GenerativeApisModelAccess` (least privilege
 `GenerativeApisFullAccess` or `AllProductsFullAccess` for the intended Project or
 Organization.
 
+For Scaleway, the selected model also shows live input/output rates (and cached
+input where published), fetched from the public Product Catalog API on every
+catalog refresh. Token rates are displayed in EUR per million tokens; audio uses
+its own minute unit. The panel shows the fetch time and source, excludes batch
+prices, and does not apply taxes, free tiers or account discounts. Missing rates
+remain unavailable rather than being treated as free. Other providers do not yet
+have an API pricing integration.
+
 In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
 **+** to create a category and its menu to add subcategories or rename it. Select
 documents and move them in bulk; the upload destination follows the chosen category.
