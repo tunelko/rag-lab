@@ -545,6 +545,8 @@
   "sentinel.router_manual": "Se usa siempre el modelo elegido.",
   "sentinel.router_cloud": "El proveedor elegido se aplica a respuesta y visión. En automático, las consultas visuales usan el modelo visual seleccionado.",
   "sentinel.choose_vision_model": "Selecciona un modelo visual",
+  "sentinel.index_failed": "No se pudo actualizar el índice",
+  "sentinel.index_failed_hint": "Revisa el motivo indicado y vuelve a intentarlo. Tus documentos se conservan.",
   "sentinel.no_vision_models": "Sin modelos con visión confirmada en este catálogo",
   "sentinel.cloud_vision_hint": "Para describir figuras al indexar y consultar imágenes. Se enviarán al proveedor elegido. Solo se muestran modelos con visión confirmada; actualiza el catálogo si falta alguno.",
   "sentinel.local_vision_hint": "Ollama procesa las figuras al indexar y las consultas visuales en este equipo.",

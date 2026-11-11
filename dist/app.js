@@ -127,12 +127,13 @@ function completed(result,opener=$('upload-button')){
   for(const item of result.successes||[])if(item.chunks>0&&!item.skipped&&!item.recovered)state.newDocuments.add(item.name);
   sessionStorage.setItem('rag-local-new-documents',JSON.stringify([...state.newDocuments]));
   if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped&&!item.recovered)){state.lastIndex=Date.now();sessionStorage.setItem('rag-local-last-index',String(state.lastIndex));$('last-index').textContent=t("ui.last_indexing_now_7ae6c0");}
-  if(state.view==='library')showResult(result,opener);else toast(result.kind==='prepare'?t("ui.retrieval_model_ready_view_result_9b1465"):t("ui.indexing_complete_view_result_2c154a"),()=>showResult(result,opener));
+  if(state.view==='library'||result.failures?.length)showResult(result,opener);else toast(result.kind==='prepare'?t("ui.retrieval_model_ready_view_result_9b1465"):t("ui.indexing_complete_view_result_2c154a"),()=>showResult(result,opener));
   refreshStatus();
 }
 async function startOperation(path,kind,payload={}){
-  const opener=document.activeElement;opener.disabled=true;
+  const opener=document.activeElement;opener.disabled=true;opener.setAttribute('aria-busy','true');
   try{
+    if(kind==='index')await settingsController.flush();
     const {job_id}=await api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});state.operationJobs.add(job_id);
     while(true){
       const job=await api(`/api/jobs/${job_id}`);if(state.status){state.status.jobs=[job];renderProcess();}
@@ -145,8 +146,8 @@ async function startOperation(path,kind,payload={}){
       }
       await new Promise((resolve)=>setTimeout(resolve,1000));
     }
-  }catch(error){completed({kind,successes:[],failures:[{name:kind==='prepare'?t("ui.retrieval_model_3204da"):t("ui.index_update_22cc85"),error:error.info||{code:'NETWORK',detail:error.message},retry:()=>startOperation(path,kind,payload)}]},opener);}
-  finally{opener.disabled=false;refreshStatus();}
+  }catch(error){completed({kind,successes:[],failures:[{name:kind==='prepare'?t("ui.retrieval_model_3204da"):t("ui.index_update_22cc85"),error:error.info||{message:error.message},retry:()=>startOperation(path,kind,payload)}]},opener);}
+  finally{opener.disabled=false;opener.removeAttribute('aria-busy');refreshStatus();}
 }
 // The panel refresh spins until the answer arrives; while the panel is open it re-reads every 5 s.
 $('refresh-button').addEventListener('click',()=>{const control=$('refresh-button');control.classList.add('is-busy');refreshStatus().finally(()=>control.classList.remove('is-busy'));});

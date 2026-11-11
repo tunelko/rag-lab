@@ -497,6 +497,36 @@ def run_browser(url):
         expect(page.locator('#vision-model option')).to_have_count(2)
         expect(page.locator('#vision-model')).to_have_value('')
         expect(page.locator('#vision-model option[value="qa-cloud-one"]')).to_have_count(0)
+        # A rejected reindex from Settings must be a persistent error, not a
+        # three-second success toast. Force the autosave/index race in one tick.
+        def reindex_status(route):
+            response = route.fetch()
+            data = response.json()
+            data['documents'][0]['needs_reindex'] = True
+            route.fulfill(response=response, json=data)
+        index_attempts = []
+        def reject_index(route):
+            saved = page.request.get(url + '/api/settings').json()['settings']
+            index_attempts.append(saved['k'])
+            route.fulfill(status=422, json={'detail': 'Selecciona un modelo visual del proveedor en Configuración.'})
+        page.route('**/api/status', reindex_status)
+        page.route('**/api/admin/index', reject_index)
+        expect(page.locator('#reindex-settings')).to_be_visible(timeout=10000)
+        page.locator('#reindex-settings').focus()
+        page.evaluate("document.querySelector('#top-k [data-k=\"8\"]').click();document.getElementById('reindex-settings').click()")
+        expect(page.locator('#result-dialog')).to_have_attribute('role', 'alertdialog')
+        expect(page.locator('#dialog-title')).to_have_text('No se pudo actualizar el índice')
+        expect(page.locator('.dialog-error-card')).to_contain_text('Selecciona un modelo visual')
+        assert index_attempts == [8], 'The pending preferences must be saved before indexing'
+        page.wait_for_timeout(3100)
+        expect(page.locator('#result-dialog')).to_be_visible()
+        dialog_close(page)
+        expect(page.locator('#reindex-settings')).to_be_enabled()
+        page.unroute('**/api/admin/index', reject_index)
+        page.unroute('**/api/status', reindex_status)
+        page.locator('#top-k [data-k="6"]').click()
+        expect(page.locator('#settings-message')).to_have_text('Guardado')
+        check('Rejected index from Settings shows a persistent actionable error and flushes pending preferences before POST')
         with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
             page.locator('#vision-model').select_option('qwen/qwen3.8-27b')
         page.reload(wait_until='networkidle')
