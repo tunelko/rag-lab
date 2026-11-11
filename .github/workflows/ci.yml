@@ -60,11 +60,27 @@ jobs:
           for module in dist/*.js; do node --check "$module"; done
           bash -n configurar.sh
           bash -n web.sh
+      - name: Configure package download retries
+        if: runner.os == 'Linux'
+        run: |
+          sudo tee /etc/apt/apt.conf.d/80-rag-ci-network >/dev/null <<'EOF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          EOF
+      - name: Install Chromium system dependencies
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        run: python -m playwright install-deps chromium 2>&1 | tee reports/browser-dependencies.log
       - name: Install Chromium for browser QA
         if: runner.os == 'Linux'
-        run: python -m playwright install --with-deps chromium
+        timeout-minutes: 5
+        env:
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: '60000'
+        run: python -m playwright install chromium 2>&1 | tee reports/browser-install.log
       - name: Browser regression tests (isolated corpus, no inference)
         if: runner.os == 'Linux'
+        timeout-minutes: 10
         run: python -m tests.browser.qa_redesign 2>&1 | tee reports/browser-tests.log
       - name: Upload test reports
         if: always()
