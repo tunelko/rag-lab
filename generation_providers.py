@@ -29,8 +29,9 @@ PROVIDERS = {
     "groq": Provider("groq", "Groq", "https://api.groq.com/openai/v1", "api.groq.com"),
 }
 
-# Identify this API client explicitly instead of urllib's generic default.
-CLIENT_USER_AGENT = "RAG-Local/1.0 (+https://github.com/tunelko/rag-lab)"
+# Identify this API client instead of using urllib's generic default, which some
+# provider edges reject. Product name only: no URL or anything naming the installation.
+CLIENT_USER_AGENT = "RAG-Local/1.0"
 
 
 def _groq_chat_model(identifier):
