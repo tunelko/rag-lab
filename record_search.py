@@ -110,6 +110,18 @@ def vocabulary(store):
     return result
 
 
+def summary(store):
+    """What is published, for the status card: sources with the date of their data, and record counts."""
+    with store.connect() as db:
+        sources = provenance(db)
+        counts = {name: db.execute(f'SELECT COUNT(*) FROM current_{name}').fetchone()[0]
+                  for name in ('kev', 'vulnerabilities', 'epss')} if sources else {}
+    return {'available': bool(sources), 'counts': counts,
+            'sources': [{'id': source['source_id'], 'name': source['name'], 'license': source['license_name'],
+                         'data_date': (source.get('source_updated_at') or source['fetched_at'])[:10],
+                         'fetched_at': source['fetched_at']} for source in sources]}
+
+
 def _details(db, identifiers):
     """Weaknesses, references and affected packages for a few records."""
     extra = {identifier: {'cwe': [], 'references': [], 'affected': []} for identifier in identifiers}

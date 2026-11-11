@@ -34,7 +34,12 @@ import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
-from library_queries import query_intent, catalog_answer, global_retrieve, tokens
+from library_queries import Intent, query_intent, catalog_answer, global_retrieve, tokens
+from knowledge_store import KnowledgeError, KnowledgeStore
+import record_answers
+import record_queries
+import record_search
+import sqlite3
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
@@ -327,6 +332,7 @@ class RagService(JobRuntime):
                 "chunk_size": self.config.chunk_size, "chunk_overlap": self.config.chunk_overlap,
                 "embedding_dimensions": dimensions,
                 "reranker": retrieval_pipeline.reranker_status(),
+                "records": self.records_status(),
                 "visual_count": sum(len(item.get('visuals',[])) for item in state['files'].values()),
                 "last_index_at": self.statistics_archive.last_index_time(),
                 "active_job": self.active, "ollama": self.ollama_status(),
@@ -364,30 +370,63 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None):
+    def knowledge_store(self):
+        """Structured records, if a synchronization has created them. Never created by the server."""
+        path = self.config.db.parent / "knowledge" / "knowledge.sqlite3"
+        if not path.is_file():
+            return None
+        if getattr(self, "_knowledge", None) is None:
+            try:
+                self._knowledge = KnowledgeStore(path)
+            except (KnowledgeError, sqlite3.Error):
+                logging.getLogger("rag.records").exception("No se puede abrir el almacén de registros.")
+                return None
+        return self._knowledge
+
+    def records_status(self):
+        store = self.knowledge_store()
+        try:
+            return record_search.summary(store) if store else {"available": False, "sources": []}
+        except sqlite3.Error:
+            return {"available": False, "sources": []}
+
+    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None, records=None):
+        """`records` is the structured plan captured at submission, or the name of a fixed notice."""
         started = time.perf_counter()
         documents = self.list_documents()
         if document_names is not None:
             documents = [item for item in documents if item['name'] in document_names]
         scope_metrics = {'topic_id': query.topic_id, 'scope_label': scope_label, 'scope_documents': len(documents)}
-        intent = query_intent(query.question)
+        if isinstance(records, str):
+            return {'answer': record_answers.text(records, query.language), 'sources': [],
+                    'metrics': {**scope_metrics, 'retrieval_mode': 'records'}}
+        # A structured plan replaces document retrieval; nothing below reads the library for it.
+        intent = Intent('records') if records is not None else query_intent(query.question)
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
             return {'answer': answer, 'sources': [], 'metrics': {**metrics, **scope_metrics}}
-        if not any(item.get('indexed') for item in documents):
+        if records is None and not any(item.get('indexed') for item in documents):
             return {'answer': localized('answer.empty', query.language), 'sources': [], 'metrics': scope_metrics}
-        if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
+        if records is None and not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
-        self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
+        self.update(job_id, phase="Consultando registros estructurados" if records is not None else "Recuperando fragmentos relevantes en CPU")
         stage_started = time.perf_counter()
-        try:
-            embeddings = self.get_embeddings()
-        except Exception as exc:
-            raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
+        embeddings = None
+        if records is None:
+            try:
+                embeddings = self.get_embeddings()
+            except Exception as exc:
+                raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics}
         stage_started = time.perf_counter()
-        if intent.mode == 'global':
+        if records is not None:
+            store = self.knowledge_store()
+            if store is None:
+                return {'answer': record_answers.text('unavailable', query.language), 'sources': [],
+                        'metrics': {**scope_metrics, 'retrieval_mode': 'records'}}
+            hits, scope = record_answers.evidence(records, record_search.search(store, records), query.language)
+        elif intent.mode == 'global':
             hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
@@ -405,6 +444,8 @@ class RagService(JobRuntime):
             return {"answer": localized('answer.empty',query.language), "sources": [], "metrics": timings}
         stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars, language=query.language)
+        if records is not None:
+            messages[0]['content'] += record_answers.text('system', query.language)
         if intent.mode == 'global':
             represented = len({source['file'] for source in sources})
             if represented != scope['documents_indexed']:
@@ -437,6 +478,8 @@ class RagService(JobRuntime):
                 source["chunk"] = int(document.metadata["chunk"]) + 1
             path = Path(source.pop("source")).resolve()
             source["url"] = "/api/source?file=" + quote(path.relative_to(self.documents).as_posix(), safe="") if path.is_relative_to(self.documents) else None
+            if records is not None:
+                source["url"] = document.metadata.get("url")  # the public record, not a library file
             if source["url"] and path.suffix.lower() == ".pdf":
                 source["page_label"] = pdf_page_label(path, source["page"])
                 if source["page"]:
@@ -758,13 +801,28 @@ def create_app(service=None):
     def query(body: Query):
         if not body.question.strip():
             raise HTTPException(422, "Escribe una pregunta.")
+        # Structured records answer only inside their own category, or for a valid CVE identifier
+        # when the whole library is selected. A document topic never reaches the record planner.
+        record_scope = body.topic_id in record_answers.TOPICS
+        records = None
+        if record_scope or body.topic_id is None:
+            knowledge = service.knowledge_store()
+            if knowledge is not None:
+                # Captured at submission, like preferences: the date and vocabulary of this moment.
+                plan = record_queries.plan(body.question, today=datetime.now().date(), vendors=record_search.vocabulary(knowledge))
+                if plan is not None and (record_scope or plan.mode == 'record_lookup'):
+                    records = plan
+            if record_scope and records is None:
+                records = 'unavailable' if knowledge is None else 'guidance'
+        if records is not None and body.images:
+            raise HTTPException(422, 'Las consultas sobre registros de vulnerabilidades no admiten imágenes adjuntas.')
         try:
-            documents, scope_label = service.topics.scope(body.topic_id, service.list_documents())
+            documents, scope_label = ([], record_answers.TOPICS[body.topic_id]) if record_scope else service.topics.scope(body.topic_id, service.list_documents())
         except TopicError as error:
             raise HTTPException(404, str(error)) from error
         # Freeze membership when accepted: moving files while queued cannot broaden a query.
         document_names = frozenset(item['name'] for item in documents)
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
+        if records is None and not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
         if "k" not in body.model_fields_set:
@@ -779,7 +837,8 @@ def create_app(service=None):
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
         provider_key = None
-        generates = not body.search_only and not query_intent(body.question).mode.startswith('catalog_')
+        generates = not body.search_only and not isinstance(records, str) and (
+            records is not None or not query_intent(body.question).mode.startswith('catalog_'))
         if generates and settings.response_provider != 'ollama':
             if not settings.external_model.strip() and not (body.images and settings.external_vision_model):
                 raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')
@@ -795,7 +854,7 @@ def create_app(service=None):
             except generation_providers.ProviderError as error:
                 raise HTTPException(422, str(error)) from error
         return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,
-                             preferences=settings, provider_key=provider_key),
+                             preferences=settings, provider_key=provider_key, records=records),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
                              image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
 
