@@ -70,7 +70,7 @@ function statusView(status){
   $('ollama-label').textContent=s(status.ollama.connected?'connected':'offline');
   const busy=(status.jobs||[]).some(job=>job.status==='running'&&['index','prepare'].includes(job.kind));
   $('embedding-label').textContent=status.embedding_device.toUpperCase()+(busy?' · '+s('busy'):'');
-  $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=$('config-embeddings').title=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
+  $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=$('config-embeddings').title=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();const reranker=status.reranker||{};$('config-reranker').textContent=$('config-reranker').title=reranker.model?reranker.model+' · '+(reranker.unavailable?s('reranker_unavailable'):reranker.loaded?String(reranker.device).toUpperCase():s('reranker_on_demand')):s('reranker_off');$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
   const indexedAt=status.last_index_at||(state.lastIndex?new Date(state.lastIndex).toISOString():null);
   $('last-index').textContent=indexedAt?relativeTime(indexedAt):'—';$('last-index').title=indexedAt?new Date(indexedAt).toLocaleString(intlLocale()):'';
   $('index-button').disabled=!status.document_count;renderDocuments();renderProcess();chat?.setStatus(status);

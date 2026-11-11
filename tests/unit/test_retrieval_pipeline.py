@@ -119,6 +119,18 @@ class RetrievalPipelineTests(unittest.TestCase):
         # Unpublished vectors are never candidates.
         self.assertEqual(self.ids(hits), ['Memory: supports up to 192GB.'])
 
+    def test_reranker_status_reports_configuration_without_loading(self):
+        with patch.dict(os.environ, {'RAG_RERANKER': ''}):
+            self.assertEqual(retrieval_pipeline.reranker_status()['model'], None)
+        with patch.dict(os.environ, {'RAG_RERANKER': 'local/reranker', 'RAG_RERANK_WINDOW': '30'}),                 patch.dict(retrieval_pipeline._reranker, {'key': None, 'scorer': None}),                 patch.object(retrieval_pipeline, 'load_reranker', side_effect=AssertionError('must not load')):
+            status = retrieval_pipeline.reranker_status()
+            self.assertEqual((status['model'], status['window'], status['loaded'], status['unavailable']),
+                             ('local/reranker', 30, False, False))
+        with patch.dict(os.environ, {'RAG_RERANKER': 'local/reranker'}),                 patch.dict(retrieval_pipeline._reranker, {'key': None, 'scorer': None}),                 patch.object(retrieval_pipeline, 'load_reranker', side_effect=OSError('not cached')):
+            with self.assertLogs('rag.retrieval', level='WARNING'):
+                self.assertIsNone(retrieval_pipeline.configured_reranker())
+            self.assertTrue(retrieval_pipeline.reranker_status()['unavailable'])
+
     def test_aliases_respect_token_boundaries_of_the_question(self):
         aliases = {'magb660mmortarddr4c': {'datasheet.pdf'},
                    'magb660mmortarddr4': {'manual.pdf', 'datasheet.pdf'}}

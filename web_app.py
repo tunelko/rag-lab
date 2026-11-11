@@ -280,6 +280,7 @@ class RagService(JobRuntime):
                 "embedding_device": self.config.embedding_device, "embedding_loaded": self.embeddings is not None,
                 "chunk_size": self.config.chunk_size, "chunk_overlap": self.config.chunk_overlap,
                 "embedding_dimensions": dimensions,
+                "reranker": retrieval_pipeline.reranker_status(),
                 "visual_count": sum(len(item.get('visuals',[])) for item in state['files'].values()),
                 "last_index_at": self.statistics_archive.last_index_time(),
                 "active_job": self.active, "ollama": self.ollama_status(),

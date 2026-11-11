@@ -235,6 +235,16 @@ def configured_reranker():
         return _reranker['scorer']
 
 
+def reranker_status():
+    """What the service is configured to use; reading it never loads the model."""
+    model_id = os.getenv('RAG_RERANKER', '').strip()
+    attempted = _reranker['key'] is not None and _reranker['key'][0] == model_id
+    scorer = _reranker['scorer'] if attempted else None
+    return {'model': model_id or None, 'window': rerank_window() if model_id else None,
+            'loaded': scorer is not None, 'device': getattr(scorer, 'device', None),
+            'unavailable': bool(model_id) and attempted and scorer is None}
+
+
 def rerank_window():
     try:
         return max(1, int(os.getenv('RAG_RERANK_WINDOW', '50')))
