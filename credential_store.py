@@ -14,7 +14,7 @@ import sqlite3
 from threading import RLock
 
 
-PROVIDERS = frozenset({"scaleway", "ovh", "xai"})
+PROVIDERS = frozenset({"scaleway", "ovh", "xai", "groq"})
 _AAD = b"rag-local:provider-credential:v1"
 _VERIFIER = b"rag-local encrypted credential store v1"
 

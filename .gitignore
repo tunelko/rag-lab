@@ -39,3 +39,6 @@ dist/runtime-console.pending
 
 # Local design source package.
 /rag-local-rediseno/
+
+# User-supplied commercial fonts remain local and are never published.
+/dist/design/fonts/pangram/

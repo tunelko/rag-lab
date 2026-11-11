@@ -26,7 +26,27 @@ PROVIDERS = {
     "scaleway": Provider("scaleway", "Scaleway", "https://api.scaleway.ai/v1", "api.scaleway.ai"),
     "ovh": Provider("ovh", "OVHcloud", "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1", "oai.endpoints.kepler.ai.cloud.ovh.net"),
     "xai": Provider("xai", "xAI · Grok", "https://api.x.ai/v1", "api.x.ai"),
+    "groq": Provider("groq", "Groq", "https://api.groq.com/openai/v1", "api.groq.com"),
 }
+
+# Identify this API client explicitly instead of urllib's generic default.
+CLIENT_USER_AGENT = "RAG-Local/1.0 (+https://github.com/tunelko/rag-lab)"
+
+
+def _groq_chat_model(identifier):
+    """The live /models catalog also includes audio, classifiers and hosted agents."""
+    return not identifier.casefold().startswith((
+        "whisper-", "distil-whisper-", "playai-tts", "canopylabs/orpheus-",
+        "meta-llama/llama-prompt-guard-", "meta-llama/llama-guard-",
+        "openai/gpt-oss-safeguard-", "groq/compound", "compound-beta",
+    ))
+
+
+def _usage(result, provider):
+    usage = result.get("usage")
+    if not usage and provider == "groq":
+        usage = (result.get("x_groq") or {}).get("usage")
+    return usage if isinstance(usage, dict) else {}
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -90,7 +110,7 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
     profile = _profile(provider)
     request = urllib.request.Request(
         profile.base_url + "/models",
-        headers={"Authorization": "Bearer " + api_key, "Accept": "application/json"},
+        headers={"Authorization": "Bearer " + api_key, "Accept": "application/json", "User-Agent": CLIENT_USER_AGENT},
         method="GET",
     )
     client = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
@@ -101,7 +121,8 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
         try:
             detail = json.loads(exc.read(4096).decode("utf-8", "replace"))
             detail = detail.get("error", detail)
-            detail = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+            if isinstance(detail, dict):
+                detail = detail.get("message") or detail.get("detail") or detail.get("title") or str(detail)
         except (ValueError, OSError):
             detail = exc.reason
         clean_detail = str(detail).replace(api_key, "[credencial omitida]")
@@ -116,6 +137,8 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
         identifier = item.get("id") if isinstance(item, dict) else None
         if (isinstance(identifier, str) and 1 <= len(identifier) <= 300
                 and not any(character in identifier for character in "\r\n\0")):
+            if provider == "groq" and (item.get("active") is False or not _groq_chat_model(identifier)):
+                continue
             models.add(identifier)
     return sorted(models, key=str.casefold)
 
@@ -129,6 +152,8 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
     model = model.strip()
     if not model or len(model) > 300:
         raise ProviderError("Configura un nombre de modelo externo válido.")
+    if provider == "groq" and not _groq_chat_model(model):
+        raise ProviderError("Selecciona un modelo de chat de Groq; audio, clasificación y Compound no se usan para responder al RAG.")
     limit = 512 if max_output_tokens is None else int(max_output_tokens)
     if not 1 <= limit <= 4096:
         raise ProviderError("El límite de salida debe estar entre 1 y 4096 tokens.")
@@ -136,17 +161,24 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
         "model": model,
         "messages": _messages(messages),
         "temperature": 0.1,
-        "max_tokens": limit,
+        "max_completion_tokens" if provider == "groq" else "max_tokens": limit,
         "stream": on_chunk is not None,
     }
     if on_chunk is not None:
         body["stream_options"] = {"include_usage": True}
     if response_format is not None:
-        body["response_format"] = _json_schema(response_format)
+        if provider == "groq":
+            # JSON object mode supports streaming across Groq chat models. Strict
+            # schema mode does not; GlobalAnswer still validates every document.
+            body["response_format"] = {"type": "json_object"}
+            body["messages"].insert(0, {"role": "system", "content":
+                "Return only a JSON object matching this schema: " + json.dumps(response_format, ensure_ascii=False)})
+        else:
+            body["response_format"] = _json_schema(response_format)
     request = urllib.request.Request(
         profile.base_url + "/chat/completions",
         data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-        headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json", "Accept": "text/event-stream" if on_chunk else "application/json"},
+        headers={"Authorization": "Bearer " + api_key, "Content-Type": "application/json", "Accept": "text/event-stream" if on_chunk else "application/json", "User-Agent": CLIENT_USER_AGENT},
         method="POST",
     )
     client = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
@@ -160,7 +192,7 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
                 result = json.load(response)
                 choice = (result.get("choices") or [{}])[0]
                 answer = _content(choice.get("message", {}).get("content"))
-                usage = result.get("usage") or {}
+                usage = _usage(result, provider)
                 finish_reason = choice.get("finish_reason")
             else:
                 for raw in response:
@@ -176,12 +208,11 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
                         completed = True
                         break
                     item = json.loads(data)
-                    if item.get("error"):
-                        error = item["error"]
+                    error = item.get("error") or ((item.get("x_groq") or {}).get("error") if provider == "groq" else None)
+                    if error:
                         detail = error.get("message", "El proveedor devolvió un error.") if isinstance(error, dict) else str(error)
                         raise ProviderError(detail.replace(api_key, "[credencial omitida]"))
-                    if item.get("usage"):
-                        usage = item["usage"]
+                    usage = _usage(item, provider) or usage
                     choice = (item.get("choices") or [{}])[0]
                     finish_reason = choice.get("finish_reason") or finish_reason
                     piece = _content(choice.get("delta", {}).get("content"))
@@ -197,7 +228,8 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
         try:
             detail = json.loads(exc.read(4096).decode("utf-8", "replace"))
             detail = detail.get("error", detail)
-            detail = detail.get("message", str(detail)) if isinstance(detail, dict) else str(detail)
+            if isinstance(detail, dict):
+                detail = detail.get("message") or detail.get("detail") or detail.get("title") or str(detail)
         except (ValueError, OSError):
             detail = exc.reason
         detail = str(detail).replace(api_key, "[credencial omitida]")

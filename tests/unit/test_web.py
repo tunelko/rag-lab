@@ -3,6 +3,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["OMP_NUM_THREADS"] = "2"
+os.environ["RAG_RERANKER"] = ""  # Keep local .env models out of offline API tests.
 
 from pathlib import Path
 import tempfile
@@ -131,6 +132,47 @@ class WebTests(unittest.TestCase):
         remote.close()
         self.assertEqual(refused.status_code, 403)
         self.assertEqual(models_refused.status_code, 403)
+
+    def test_groq_credentials_catalog_settings_and_generation(self):
+        import json
+        from tests.unit.test_generation_providers import FakeOpener
+        settings = self.client.get('/api/settings').json()
+        self.assertIn('groq', [provider['id'] for provider in settings['providers']])
+        if settings['credentials']['locked']:
+            self.assertEqual(self.client.post('/api/credentials/unlock', headers=self.headers,
+                json={'passphrase': 'groq test-only master password'}).status_code, 200)
+        secret = 'gsk_test-only-never-a-real-key'
+        saved = self.client.put('/api/credentials/groq', headers=self.headers, json={'api_key': secret})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertNotIn(secret, saved.text)
+        with patch('generation_providers.list_models', return_value=['openai/gpt-oss-20b']) as catalog:
+            response = self.client.get('/api/providers/groq/models')
+            self.assertEqual(response.json()['models'], ['openai/gpt-oss-20b'])
+            catalog.assert_called_once_with('groq', secret)
+        preferences = {**settings['settings'], 'response_provider': 'groq', 'external_model': 'openai/gpt-oss-20b'}
+        self.assertEqual(self.client.put('/api/settings', headers=self.headers, json=preferences).status_code, 200)
+        self.assertEqual(self.client.get('/api/settings').json()['settings']['response_provider'], 'groq')
+        self.assertFalse(self.client.get('/api/providers/groq/pricing').json()['supported'])
+        upload = self.client.post('/api/admin/upload', headers=self.headers,
+            files=[('files', ('groq.txt', b'Maintenance runs every Friday.', 'text/plain'))],
+            data={'auto_index': 'true'})
+        self.wait(upload.json()['job_id'])
+        packet = {'choices': [{'delta': {'content': 'Friday [1].'}, 'finish_reason': 'stop'}],
+                  'x_groq': {'usage': {'prompt_tokens': 100, 'completion_tokens': 4}}}
+        opener = FakeOpener(b'data: ' + json.dumps(packet).encode() + b'\n\ndata: [DONE]\n\n')
+        with patch('generation_providers.urllib.request.build_opener', return_value=opener):
+            submitted = self.client.post('/api/query', headers=self.headers, json={'question': 'When is maintenance?'})
+            self.assertEqual(submitted.status_code, 202, submitted.text)
+            reply = self.wait(submitted.json()['job_id'])
+        self.assertEqual(reply['answer'], 'Friday [1].')
+        self.assertEqual(reply['metrics']['provider'], 'groq')
+        self.assertEqual(reply['metrics']['output_tokens'], 4)
+        self.assertEqual(opener.request.get_header('Authorization'), 'Bearer ' + secret)
+        self.assertNotIn(secret, self.client.get('/api/settings').text)
+        service = self.client.app.state.service
+        self.assertNotIn(secret.encode(), service.credentials.path.read_bytes())
+        removed = self.client.delete('/api/credentials/groq', headers=self.headers)
+        self.assertFalse(removed.json()['credentials']['configured']['groq'])
 
     def test_live_pricing_endpoint_is_read_only_and_keeps_keys_out_of_requests(self):
         with patch('provider_pricing.fetch_pricing', return_value={'provider': 'scaleway', 'models': {}}) as pricing:

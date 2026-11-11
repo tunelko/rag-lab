@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 class Preferences(BaseModel):
     response_mode: Literal["automatic", "manual"] = "automatic"
-    response_provider: Literal["ollama", "scaleway", "ovh", "xai"] = Field(
+    response_provider: Literal["ollama", "scaleway", "ovh", "xai", "groq"] = Field(
         default_factory=lambda: os.getenv("RAG_GENERATION_PROVIDER", "ollama")
     )
     response_model: str = Field(default_factory=lambda: os.getenv("RAG_OLLAMA_MODEL", ""), max_length=300)

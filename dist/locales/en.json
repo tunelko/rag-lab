@@ -572,6 +572,7 @@
   "sentinel.api_credential": "Encrypted API credential",
   "sentinel.api_key": "API key / Secret Key",
   "sentinel.scaleway_secret_hint": "Scaleway Generative APIs uses the Secret Key as its Bearer credential; the Access Key is not required for inference.",
+  "sentinel.groq_key_hint": "Enter your GroqCloud API key. Saving it fetches active models; audio, classifiers and Compound systems are excluded.",
   "sentinel.save_key": "Save encrypted",
   "sentinel.delete_key": "Delete key",
   "sentinel.cloud_disclosure": "The question and retrieved chunks will be sent to the provider. The index, documents and images remain local.",

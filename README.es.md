@@ -96,7 +96,7 @@ y hardware. El selector con bandera está arriba a la derecha; fuentes tipográf
 y traducciones se sirven localmente.
 
 El proveedor de respuesta puede seguir siendo **Ollama local** o cambiarse a
-Scaleway, OVHcloud o xAI/Grok. Un proveedor externo recibe únicamente la pregunta,
+Scaleway, OVHcloud, xAI/Grok o **Groq**. Un proveedor externo recibe únicamente la pregunta,
 el historial y los fragmentos de texto recuperados; embeddings, índices, documentos
 y descripciones visuales permanecen locales. Las claves API se introducen desde
 Configuración en el propio equipo servidor (por loopback o por su dirección de escucha) y nunca vuelven al navegador:
@@ -110,6 +110,13 @@ se guarda automáticamente y se conserva al recargar la página. En Scaleway se 
 en la inferencia. Su portador IAM necesita `GenerativeApisModelAccess` (mínimo
 privilegio), `GenerativeApisFullAccess` o `AllProductsFullAccess` para el proyecto
 u organización correspondientes.
+
+Para Groq, selecciona **Groq** en Configuración, guarda una API key de la
+[consola de Groq](https://console.groq.com/keys) y elige un modelo de la lista
+consultada en directo. Se excluyen modelos de audio, clasificación y sistemas
+Compound. El streaming admite los contadores nativos de Groq. Las tablas de toda
+la biblioteca usan modo JSON con la validación por documento de la aplicación.
+Las tarifas de Groq no están integradas; se muestran como no disponibles.
 
 En Scaleway, el modelo seleccionado muestra también las tarifas de entrada/salida
 y de entrada en caché cuando existen. Se consultan por API pública de Product

@@ -70,7 +70,8 @@ class PricingTests(unittest.TestCase):
 
     def test_unsupported_provider_does_not_contact_any_endpoint(self):
         client = Catalog([])
-        self.assertFalse(fetch_pricing('ovh', opener=client)['supported'])
+        for provider in ('ovh', 'xai', 'groq'):
+            self.assertFalse(fetch_pricing(provider, opener=client)['supported'])
         self.assertEqual(client.requests, [])
 
     def test_incomplete_or_failed_fetch_is_an_error_not_a_free_price(self):

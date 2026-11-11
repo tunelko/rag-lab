@@ -63,6 +63,7 @@ Fuente desconocida [99].
 def fixture_server(port):
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["RAG_RERANKER"] = ""  # The fixture must not load the deployment's model.
     os.environ["OMP_NUM_THREADS"] = "2"
     from langchain_core.embeddings import DeterministicFakeEmbedding
     import rag
@@ -395,13 +396,16 @@ def run_browser(url):
                 pending_catalog.append(route)
                 return
             route.fulfill(status=catalog['status'], json=(
-                {'provider': 'xai', 'models': catalog['models']} if catalog['status'] == 200
+                {'provider': route.request.url.split('/')[-2], 'models': catalog['models']} if catalog['status'] == 200
                 else {'detail': 'Catálogo de prueba temporalmente no disponible'}))
 
         page.route('**/api/providers/*/models', provider_catalog)
         tariffs = {'status': 200, 'price': '1.8'}
 
         def provider_tariffs(route):
+            if '/groq/' in route.request.url:
+                route.fulfill(json={'provider': 'groq', 'supported': False, 'models': {}})
+                return
             route.fulfill(status=tariffs['status'], json={
                 'provider': 'xai', 'supported': True, 'retrieved_at': '2026-11-11T14:00:00+00:00',
                 'models': {'qa-cloud-two': {
@@ -474,6 +478,22 @@ def run_browser(url):
         expect(page.locator('#credential-state')).to_have_text('Sin configurar')
         expect(page.locator('#external-model')).to_be_disabled()
         expect(page.locator('#external-model option')).to_have_count(1)
+        page.locator('#response-provider').select_option('groq')
+        expect(page.locator('#provider-credential-hint')).to_contain_text('GroqCloud')
+        expect(page.locator('#external-model')).to_be_disabled()
+        page.locator('#provider-api-key').fill('gsk_qa-only-provider-secret')
+        page.locator('#save-api-key').click()
+        expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
+        expect(page.locator('#provider-api-key')).to_have_value('')
+        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
+            page.locator('#external-model').select_option('qa-cloud-one')
+        page.reload(wait_until='networkidle')
+        expect(page.locator('#response-provider')).to_have_value('groq')
+        expect(page.locator('#external-model')).to_have_value('qa-cloud-one')
+        expect(page.locator('#model-pricing-rates')).to_be_hidden()
+        page.locator('#delete-api-key').click()
+        expect(page.locator('#credential-state')).to_have_text('Sin configurar')
+        check('Groq provider, encrypted test credential, live catalog selector and persisted model; no invented pricing')
         page.unroute('**/api/providers/*/models', provider_catalog)
         page.unroute('**/api/providers/*/pricing', provider_tariffs)
         check('Provider model dropdown: automatic catalog, explicit choice, autosave/reload, empty/error recovery and stale provider responses')

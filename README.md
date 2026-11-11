@@ -94,7 +94,7 @@ status icon opens connection and hardware details. The top-right flag selector
 switches Spanish/English; fonts and translations are served locally.
 
 The response provider can remain **Ollama local** or be changed to Scaleway,
-OVHcloud or xAI/Grok. External providers receive only the question, conversation
+OVHcloud, xAI/Grok or **Groq**. External providers receive only the question, conversation
 history and retrieved text chunks; embeddings, indexes, source files and visual
 captioning remain local. API keys are entered from Settings on the server host
 (through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
@@ -107,6 +107,13 @@ Key** used as the Generative APIs Bearer credential; the Access Key is not used 
 inference. Its IAM bearer must have `GenerativeApisModelAccess` (least privilege),
 `GenerativeApisFullAccess` or `AllProductsFullAccess` for the intended Project or
 Organization.
+
+For Groq, select **Groq** in Settings, save an API key from the
+[Groq console](https://console.groq.com/keys), then choose a model from the live
+dropdown. Audio models, classifiers and Compound systems are excluded. Streaming
+usage counters support Groq's native format. Global document tables use JSON
+object mode with the application's existing per-document validation. Groq pricing
+is not integrated; the UI shows it as unavailable instead of guessing a rate.
 
 For Scaleway, the selected model also shows live input/output rates (and cached
 input where published), fetched from the public Product Catalog API on every
