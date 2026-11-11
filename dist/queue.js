@@ -62,7 +62,7 @@ export class UploadQueue {
     for(const file of list.slice(0,20)){
       const entry={uid:randomId(),name:file.name,size:file.size,file,state:'queued',upload:0,process:0,stageProgress:0,chunks:0,batchId:this.running?this.batch.id:null,autoIndex:$('auto-index').checked,topicId:$('upload-topic').value||null};
       const extension='.'+(file.name.split('.').pop()||'').toLowerCase();
-      if(!['.pdf','.txt','.md','.markdown','.png','.jpg','.jpeg','.webp','.zip'].includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:t("ui.unsupported_format_b5e884", {value1: (extension)})});
+      if(!$('file-input').accept.split(',').includes(extension))entry.error=errorData({code:'UNSUPPORTED_TYPE',message:t("ui.unsupported_format_b5e884", {value1: (extension)})});
       else if(file.size>20*1024*1024)entry.error=errorData({code:'FILE_TOO_LARGE',message:t("ui.exceeds_the_20_mb_file_limit_eab388", {value1: (size(file.size))})});
       if(entry.error){entry.state='rejected';announce(t("ui.failed_1c52f6", {value1: (entry.name)}));}else valid++;
       this.entries.push(entry); if(this.running)this.batch.ids.push(entry.uid);

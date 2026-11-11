@@ -70,7 +70,7 @@ function statusView(status){
   $('ollama-label').textContent=s(status.ollama.connected?'connected':'offline');
   const busy=(status.jobs||[]).some(job=>job.status==='running'&&['index','prepare'].includes(job.kind));
   $('embedding-label').textContent=status.embedding_device.toUpperCase()+(busy?' · '+s('busy'):'');
-  $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
+  $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=$('config-embeddings').title=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
   const indexedAt=status.last_index_at||(state.lastIndex?new Date(state.lastIndex).toISOString():null);
   $('last-index').textContent=indexedAt?relativeTime(indexedAt):'—';$('last-index').title=indexedAt?new Date(indexedAt).toLocaleString(intlLocale()):'';
   $('index-button').disabled=!status.document_count;renderDocuments();renderProcess();chat?.setStatus(status);
@@ -148,7 +148,10 @@ async function startOperation(path,kind,payload={}){
   }catch(error){completed({kind,successes:[],failures:[{name:kind==='prepare'?t("ui.retrieval_model_3204da"):t("ui.index_update_22cc85"),error:error.info||{code:'NETWORK',detail:error.message},retry:()=>startOperation(path,kind,payload)}]},opener);}
   finally{opener.disabled=false;refreshStatus();}
 }
-$('refresh-button').addEventListener('click',refreshStatus);$('prepare-button').addEventListener('click',()=>startOperation('/api/admin/prepare','prepare'));$('index-button').addEventListener('click',()=>startOperation('/api/admin/index','index'));
+// The panel refresh spins until the answer arrives; while the panel is open it re-reads every 5 s.
+$('refresh-button').addEventListener('click',()=>{const control=$('refresh-button');control.classList.add('is-busy');refreshStatus().finally(()=>control.classList.remove('is-busy'));});
+let systemPanelTimer;$('system-popover').addEventListener('toggle',event=>{clearInterval(systemPanelTimer);if(event.newState==='open')systemPanelTimer=setInterval(refreshStatus,5000);});
+$('prepare-button').addEventListener('click',async()=>{const control=$('prepare-button'),label=control.querySelector('[data-i18n]');control.setAttribute('aria-busy','true');label.textContent=s('preparing');try{await startOperation('/api/admin/prepare','prepare');}finally{control.removeAttribute('aria-busy');label.textContent=s('prepare');}});$('index-button').addEventListener('click',()=>startOperation('/api/admin/index','index'));
 $('queue-result-button').addEventListener('click',()=>state.lastResult&&showResult(state.lastResult,$('queue-result-button')));
 let searchTimer;$('document-search').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.search=$('document-search').value;state.page=1;renderDocuments();},150);});
 $('document-filters').addEventListener('click',(event)=>{const control=event.target.closest('[data-filter]');if(control){state.filter=control.dataset.filter;state.page=1;renderDocuments();}});

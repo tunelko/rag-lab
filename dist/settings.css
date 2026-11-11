@@ -1,0 +1,301 @@
+/* Settings view v2 and system status panel v2. Colors come only from theme tokens. */
+
+/* ---------- 1. Page ---------- */
+.cfg {
+  --cfg-control: max(40px, var(--control-h));
+  display: block;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6) 48px;
+}
+/* Same header as the other sections: icon, title and its one-line description. */
+.cfg__head { margin-bottom: var(--space-5); }
+.cfg > .banner { margin-bottom: var(--space-4); }
+
+/* Save state: invisible at rest, shown for about 1.8 s after each confirmed save. */
+.cfg__save {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 12px/1 var(--font-mono);
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.cfg__save .icon { width: 14px; height: 14px; color: var(--success); }
+.cfg__save.is-visible { opacity: 1; }
+.cfg__save.is-error { opacity: 1; color: var(--danger); }
+.cfg__save.is-error .icon { display: none; }
+
+/* 2×2 grid: equal-height rows, identical columns, stacks without media queries. */
+.cfg__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  gap: var(--space-4);
+  align-items: stretch;
+}
+
+/* ---------- 2. Card ---------- */
+.cfg-card { display: flex; flex-direction: column; min-width: 0; }
+.cfg-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 48px;
+  padding: 0 var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.cfg-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: var(--space-5);
+}
+.cfg-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 14px var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+/* ---------- 3. Fields ---------- */
+.cfg-field { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.cfg-field__label { font: 500 12px/1.2 var(--font-mono); color: var(--text); }
+.cfg-field__hint { margin: 0; font: 12px/1.5 var(--font-mono); color: var(--text-muted); }
+
+/* Select: native control with a token-colored chevron. */
+.cfg-select { position: relative; display: block; min-width: 0; }
+.cfg-select > select {
+  appearance: none;
+  width: 100%;
+  height: var(--cfg-control);
+  padding: 0 36px 0 var(--space-3);
+  font-size: 13px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.cfg-select > select:hover { border-color: var(--text-muted); }
+.cfg-select > select:focus-visible { outline-offset: 1px; }
+.cfg-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  width: 7px;
+  height: 7px;
+  margin-top: -6px;
+  border: solid var(--text-muted);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* Segmented radiogroup: full width, one equal cell per option. */
+.cfg-seg { display: grid; width: 100%; height: var(--cfg-control); }
+.cfg-seg > button { font-size: 13px; transition: background-color .12s, color .12s; }
+.cfg-seg > button + button { border-left: 1px solid var(--border-control); }
+.cfg-seg > button:hover:not([aria-checked="true"]) { background: var(--surface-raised); color: var(--ink); }
+.cfg-seg > button:focus-visible { outline-offset: -3px; }
+.cfg-seg > button[aria-checked="true"]:focus-visible { outline-color: var(--on-accent); }
+
+/* Top-k meter: one segment per possible value, lit segments = k. */
+.cfg-meter { display: grid; grid-template-columns: repeat(var(--steps, 8), 1fr); gap: 4px; }
+.cfg-meter > i { height: 6px; border-radius: 1px; background: var(--surface-raised); }
+.cfg-meter > i.is-on { background: var(--accent); }
+
+/* Switch: the theme toggle, sized for this view. */
+.cfg .toggle-field { width: fit-content; max-width: 100%; min-height: 20px; gap: 10px; font-size: 13px; line-height: 1.3; color: var(--ink); }
+
+/* Numeric stepper: − [value] +, without the native spin buttons. */
+.cfg-stepper {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 40px;
+  height: var(--cfg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-app);
+}
+.cfg-stepper:focus-within { border-color: var(--accent); }
+.cfg-stepper:has(input:disabled) { border-color: var(--border); }
+.cfg-stepper button {
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+.cfg-stepper button:hover:not(:disabled) { background: var(--surface-raised); color: var(--ink); }
+.cfg-stepper button:disabled { opacity: .35; }
+.cfg-stepper button:focus-visible { outline-offset: -3px; }
+.cfg-stepper input {
+  min-width: 0;
+  border: 0;
+  border-inline: 1px solid var(--border-control);
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.cfg-stepper input:focus { outline: none; }
+.cfg-stepper input:disabled { color: var(--text-disabled); border-color: var(--border); }
+.cfg-stepper input::-webkit-inner-spin-button,
+.cfg-stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Supported formats (Multimodal footer). */
+.cfg-formats { display: flex; flex-wrap: wrap; gap: 6px; }
+.cfg-formats span {
+  padding: 4px 6px;
+  font: 11px/1 var(--font-mono);
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Index data: two columns, label above value. */
+.cfg-kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px var(--space-6); margin: 0; }
+.cfg-kv > div { min-width: 0; }
+.cfg-kv > .is-wide { grid-column: 1 / -1; }
+.cfg-kv dt {
+  margin-bottom: 6px;
+  font: 11px/1 var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.cfg-kv dd {
+  margin: 0;
+  font: 13px/1.3 var(--font-mono);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 4. System status panel ---------- */
+.sys {
+  position: fixed;
+  inset: calc(var(--header-h) + 8px) 16px auto auto;
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100dvh - var(--header-h) - 24px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+}
+.sys__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 48px;
+  padding: 0 var(--space-2) 0 var(--space-4);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.sys__title {
+  flex: 1;
+  margin: 0;
+  font: 700 12px/1 var(--font-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+}
+.icon-btn:hover { background: var(--surface-raised); color: var(--ink); }
+.icon-btn:focus-visible { outline-offset: 1px; }
+.icon-btn.is-busy .icon { animation: sys-spin .8s linear infinite; }
+
+.sys__list { margin: 0; padding: 0 var(--space-4); list-style: none; }
+.sys__row { min-width: 0; padding: var(--space-3) 0; border-bottom: 1px solid var(--border); }
+.sys__row:last-child { border-bottom: 0; }
+.sys__top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: 6px; }
+.sys__label {
+  font: 11px/1 var(--font-mono);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.sys__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 12px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+}
+.sys__tag .icon { width: 13px; height: 13px; }
+.sys__tag.is-warn { color: var(--warning); }
+.sys__tag.is-danger { color: var(--danger); }
+.sys__dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+.sys__tag.is-danger .sys__dot { background: var(--danger); }
+
+.sys__value {
+  margin: 0;
+  font: 13px/1.35 var(--font-mono);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sys__value.is-empty { color: var(--text-muted); }
+.sys__metrics {
+  display: flex;
+  gap: var(--space-4);
+  margin: 4px 0 0;
+  font: 12px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.sys__metrics b { font-weight: 500; color: var(--ink); }
+
+.sys__bar { height: 4px; margin-top: 2px; border-radius: 2px; overflow: hidden; background: var(--surface-raised); }
+.sys__bar > i { display: block; width: var(--pct, 0%); height: 100%; background: var(--accent); transition: width .3s ease; }
+.sys__bar.is-warn > i { background: var(--warning); }
+
+.sys__foot { padding: 10px var(--space-4); border-top: 1px solid var(--border); }
+.sys__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 12px/1 var(--font-mono);
+  color: var(--accent);
+  text-decoration: none;
+}
+.sys__link .icon { width: 14px; height: 14px; }
+.sys__link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@keyframes sys-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.is-busy .icon, .sys__bar > i, .cfg__save { animation: none; transition: none; }
+}

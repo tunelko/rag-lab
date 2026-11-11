@@ -13,4 +13,6 @@
 .toggle-field>.toggle{pointer-events:none}
 @keyframes context-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce){.context-drawer[open]{animation:none}}
-#main{min-width:0}.page[hidden]{display:none}.context-aside .card{width:100%}.page-head>.page-head__spacer{min-width:0}.page-head>.btn,.page-head>.segmented{flex:none}.card .pagination{margin-top:12px}.library-card .pagination{margin-top:0}.settings-grid>.card{min-width:0}.resource-dialog .resource-card{border:0;background:transparent}.ingestion-history .card{margin-top:8px}
+#main{min-width:0}.page[hidden]{display:none}.context-aside .card{width:100%}.page-head>.page-head__spacer{min-width:0}.page-head>.btn,.page-head>.segmented{flex:none}.card .pagination{margin-top:12px}.library-card .pagination{margin-top:0}.resource-dialog .resource-card{border:0;background:transparent}.ingestion-history .card{margin-top:8px}
+/* Page title with its one-line description underneath; the icon stays on the title line. */
+.page-head__text{display:flex;flex-direction:column;gap:2px;min-width:0}.page-head>.icon{align-self:flex-start;margin-top:3px}

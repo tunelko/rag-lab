@@ -1,16 +1,17 @@
 import {$,number,node} from './ui.js';
-import {t,serverText} from './i18n.js';
+import {t,serverText,intlLocale} from './i18n.js';
 import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
+const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[]};
 export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
     this.palette=new CommandPalette(()=>this.status);
-    for(let i=1;i<=6;i++){$('system-pipeline-stages').append(node('li'));}
-    $('pipeline-live').addEventListener('click',event=>{if(matchMedia('(max-width:639px)').matches&&event.target.closest('.pstep')){event.preventDefault();$('system-pipeline-detail').open=true;$('system-popover').showPopover();$('system-pipeline-detail').querySelector('summary').focus();}});
-    $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));if(event.newState==='closed'&&this.systemFocus)$('system-button').focus({preventScroll:true});this.systemFocus=false;});
+    // Closing with ×, Esc or a click on empty space returns focus to the chip; a click on another control keeps it there.
+    $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
+    $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('system-popover').matches(':popover-open')){this.systemFocus=true;$('system-popover').hidePopover();}});
     $('system-popover').querySelectorAll('a,button').forEach(control=>control.addEventListener('click',()=>{if(control.id!=='refresh-button')$('system-popover').hidePopover();}));
     window.addEventListener('rag:languagechange',()=>{this.render();if(this.telemetry)this.hardware(this.telemetry);});
@@ -27,19 +28,24 @@ export class Shell {
     const status=this.status;if(!status)return;
     const values={'pipeline-docs':s('document_count',{count:number(status.document_count)}),'pipeline-chunks':s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap}),'pipeline-embedding':status.embedding_model.split('/').at(-1)+' · '+status.embedding_device.toUpperCase(),'pipeline-vectors':status.collection+' · '+number(status.chunk_count),'pipeline-retrieval':'top-k '+(this.settings?.k??4),'pipeline-llm':this.settings?.response_mode==='manual'?this.settings.response_model:s('auto')};
     for(const [id,value]of Object.entries(values))$(id).textContent=value;
-    $('ollama-header').textContent=s(status.ollama.connected?'ollama_connected':'ollama_offline');$('system-ollama').textContent=s(status.ollama.connected?'connected':'offline');
-    const loaded=status.ollama.loaded||[];$('system-models').textContent=loaded.length?loaded.map(item=>item.name).join(' · '):h('no_model');$('system-embeddings').textContent=status.embedding_model+' · '+status.embedding_device.toUpperCase();
-    const host=status.server?.bind_host,local=status.server?.access==='loopback';
-    $('locality-label').textContent=host?h(local?'local':'lan'):'—';$('exposure-detail').textContent=host?h(local?'local_detail':'lan_detail'):'—';$('exposure-hint').textContent=host&&!local?h('restrict_lan'):'';
-    $('server-address').textContent=location.host+(host?' · '+h('bind',{host}):'');$('server-exposure').dataset.level=host&&!local?'warn':'info';$('exposure-icon').setAttribute('href',local?'#i-lock':'#i-wifi');
+    $('ollama-header').textContent=s(status.ollama.connected?'ollama_connected':'ollama_offline');$('system-ollama').textContent=s(status.ollama.connected?'connected':'offline');$('system-ollama-tag').classList.toggle('is-danger',!status.ollama.connected);
+    const loaded=status.ollama.loaded||[],models=loaded.map(item=>item.name).join(' · ');$('system-models').textContent=models||h('no_model');$('system-models').title=models;$('system-models').classList.toggle('is-empty',!models);
+    $('system-embeddings').textContent=$('system-embeddings').title=status.embedding_model;$('system-embeddings-device').textContent=status.embedding_device.toUpperCase();
+    const host=status.server?.bind_host,local=status.server?.access==='loopback',port=location.port||(location.protocol==='https:'?'443':'80');
+    $('locality-label').textContent=$('exposure-detail').textContent=host?h(local?'local':'lan'):'—';$('server-exposure-tag').classList.toggle('is-warn',Boolean(host)&&!local);
+    $('server-address').textContent=host?host+':'+port:location.host;$('server-exposure').dataset.level=host&&!local?'warn':'info';for(const id of ['exposure-icon','server-exposure-icon'])$(id).setAttribute('href',local?'#i-lock':'#i-wifi');
     $('config-dimensions').textContent=status.embedding_dimensions==null?'—':number(status.embedding_dimensions);this.badge();this.pipeline();this.level();
   }
   badge(){const badge=$('nav-badge'),status=this.status;if(!status)return;const active=(status.jobs||[]).filter(job=>job.kind==='index'&&['queued','running'].includes(job.status)).length,work=Math.max(active,this.queue?.pending||0),errors=status.documents.filter(item=>item.status==='error').length;badge.hidden=!work&&!errors;badge.className='topnav__badge '+(errors?'topnav__badge--error':'topnav__badge--work');badge.textContent=errors?h('errors',{count:errors}):h('queued',{count:work});}
   level(){const device=this.telemetry?.gpu?.devices?.[0],level=vramLevel(device?.memory_used_bytes,device?.memory_total_bytes,this.status?.ollama.loaded?.length||0);$('system-vram').dataset.level=level;$('system-button').dataset.level=this.status?.ollama.connected===false?'crit':level==='crit'?'crit':level==='warn'||this.status?.server?.access==='lan'?'warn':'info';$('system-dot').dataset.level=this.status?.ollama.connected===false?'crit':'ok';}
   hardware(data){
     this.telemetry=data;const device=data?.gpu?.devices?.[0],used=device?.memory_used_bytes,total=device?.memory_total_bytes,ratio=total?Math.max(0,Math.min(100,100*used/total)):null;
-    $('header-vram').textContent=total?`${number(used/1024**3,1)} / ${number(total/1024**3,1)} GiB`:'—';$('vram-percent').textContent=ratio==null?'—':number(ratio)+' %';$('header-vram-bar').style.width=(ratio??0)+'%';if(ratio==null)$('system-vram-progress').removeAttribute('value');else $('system-vram-progress').value=ratio;
-    $('system-gpu').textContent=device?[device.name,device.utilization_percent==null?null:number(device.utilization_percent,1)+' %',device.temperature_c==null?null:number(device.temperature_c)+' °C',device.power_w==null?null:number(device.power_w,1)+' W'].filter(Boolean).join(' · '):'—';this.level();
+    $('header-vram').textContent=total?`${number(used/1024**3,1)} / ${number(total/1024**3,1)} GiB`:'—';$('vram-percent').textContent=ratio==null?'—':number(ratio)+' %';$('header-vram-bar').style.width=(ratio??0)+'%';
+    // A reading that did not arrive hides its row instead of showing a placeholder.
+    const bar=$('system-vram-progress');$('system-vram-row').hidden=ratio==null;bar.style.setProperty('--pct',(ratio??0)+'%');bar.classList.toggle('is-warn',ratio!=null&&ratio>=90);bar.setAttribute('aria-valuemax',total?(total/1024**3).toFixed(1):'0');bar.setAttribute('aria-valuenow',total?(used/1024**3).toFixed(1):'0');
+    $('system-gpu-row').hidden=!device;$('system-gpu').textContent=$('system-gpu').title=device?.name||'';
+    const metrics=device?[[device.utilization_percent,' %',h('usage')],[device.temperature_c,' °C',''],[device.power_w,' W','']].filter(([value])=>value!=null).map(([value,unit,label])=>{const item=node('span');item.append(node('b','',compact(value)+unit));if(label)item.append(' '+label);return item;}):[];
+    $('system-gpu-metrics').replaceChildren(...metrics);$('system-gpu-metrics').hidden=!metrics.length;this.level();
   }
   pipeline(){
     if(!this.status)return;
@@ -58,7 +64,7 @@ export class Shell {
     if(job?.kind==='query'&&job.sources?.length)$('pipeline-retrieval').textContent=s('sources_ready',{count:job.sources.length});
     if(job?.kind==='query'&&(job.model||job.metrics?.model))$('pipeline-llm').textContent=(job.model||job.metrics.model)+(job.metrics?.generation_tok_s?' · '+number(job.metrics.generation_tok_s,1)+' tok/s':'');
     if(job?.kind==='index'&&job.progress!=null){const label=number(job.progress)+' %';for(const index of [2,3])if(states[index]==='run')document.querySelectorAll('.pstep__value')[index].textContent=label;}
-    for(const [index,element]of [...document.querySelectorAll('.pstep')].entries()){element.dataset.state=states[index];const value=element.querySelector('.pstep__value');value.title=index===2?this.status.embedding_model+' · '+this.status.embedding_device:value.textContent;const label=element.querySelector('.pstep__name').textContent+' · '+value.title;element.querySelector('a').setAttribute('aria-label',label);$('system-pipeline-stages').children[index].textContent=label;}
+    for(const [index,element]of [...document.querySelectorAll('.pstep')].entries()){element.dataset.state=states[index];const value=element.querySelector('.pstep__value');value.title=index===2?this.status.embedding_model+' · '+this.status.embedding_device:value.textContent;const label=element.querySelector('.pstep__name').textContent+' · '+value.title;element.querySelector('a').setAttribute('aria-label',label);}
     $('pipeline-state').textContent=caption;$('pipeline-status').classList.toggle('is-busy',states.includes('run'));$('pipeline-live').setAttribute('aria-label',h('pipeline')+' · '+caption);
   }
   schedule(delay=2000){clearTimeout(this.timer);if(!document.hidden)this.timer=setTimeout(()=>this.poll(),delay);}

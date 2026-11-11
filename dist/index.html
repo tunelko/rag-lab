@@ -17,6 +17,7 @@
   </script>
   <link href="/assets/header.css" rel="stylesheet"/>
  <link rel="stylesheet" href="/assets/library.css"/>
+ <link rel="stylesheet" href="/assets/settings.css"/>
 </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -222,7 +223,7 @@
        Ctrl K
       </kbd>
      </button>
-     <button aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" id="system-button" popovertarget="system-popover" type="button">
+     <button aria-controls="system-popover" aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" id="system-button" popovertarget="system-popover" type="button">
       <span class="sysbtn__item">
        <i class="dot" id="system-dot">
        </i>
@@ -267,93 +268,111 @@
       </select>
      </label>
     </div>
-    <section aria-labelledby="system-title" class="syspop" id="system-popover" popover="auto">
-     <header class="syspop__head">
-      <h2 class="card-title" data-i18n="header.system" id="system-title">
+    <section aria-labelledby="system-title" class="sys" id="system-popover" popover="auto" role="dialog">
+     <header class="sys__head">
+      <h2 class="sys__title" data-i18n="header.system" id="system-title">
        Estado del sistema
       </h2>
-      <button class="btn btn--secondary btn--icon" data-i18n-aria-label="header.close" popovertarget="system-popover" popovertargetaction="hide" type="button">
+      <button aria-label="Actualizar estado" class="icon-btn" data-i18n-aria-label="sentinel.refresh_status" id="refresh-button" type="button">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-refresh">
+        </use>
+       </svg>
+      </button>
+      <button aria-label="Cerrar" class="icon-btn" data-i18n-aria-label="header.close" id="system-close" popovertarget="system-popover" popovertargetaction="hide" type="button">
        <svg aria-hidden="true" class="icon">
         <use href="#i-x">
         </use>
        </svg>
       </button>
      </header>
-     <dl>
-      <div>
-       <dt>
-        Ollama
-       </dt>
-       <dd>
-        <span id="system-ollama">
+     <ul class="sys__list">
+      <li class="sys__row">
+       <div class="sys__top">
+        <span class="sys__label">
+         Ollama
+        </span>
+        <span class="sys__tag" id="system-ollama-tag">
+         <i class="sys__dot">
+         </i>
+         <span id="system-ollama">
+          —
+         </span>
+        </span>
+       </div>
+       <p class="sys__value" id="system-models">
+        —
+       </p>
+      </li>
+      <li class="sys__row" hidden="" id="system-vram-row">
+       <div class="sys__top">
+        <span class="sys__label">
+         VRAM
+        </span>
+        <span class="sys__tag" id="header-vram">
          —
         </span>
-        <span class="syspop__hint" id="system-models">
+       </div>
+       <div aria-label="VRAM en uso" aria-valuemax="0" aria-valuemin="0" aria-valuenow="0" class="sys__bar" data-i18n-aria-label="header.vram_used" id="system-vram-progress" role="meter">
+        <i>
+        </i>
+       </div>
+      </li>
+      <li class="sys__row" hidden="" id="system-gpu-row">
+       <div class="sys__top">
+        <span class="sys__label">
+         GPU
         </span>
-       </dd>
-      </div>
-      <div>
-       <dt>
-        VRAM
-       </dt>
-       <dd>
-        <span id="header-vram">
+       </div>
+       <p class="sys__value" id="system-gpu">
+        —
+       </p>
+       <p class="sys__metrics" id="system-gpu-metrics">
+       </p>
+      </li>
+      <li class="sys__row">
+       <div class="sys__top">
+        <span class="sys__label">
+         Embeddings
+        </span>
+        <span class="sys__tag" id="system-embeddings-device">
          —
         </span>
-        <progress id="system-vram-progress" max="100" value="0">
-        </progress>
-        <span class="syspop__hint" data-i18n="header.vram_hint">
-         Ollama reserva memoria al cargar un modelo. El detalle permite distinguir reserva y uso.
-        </span>
-       </dd>
-      </div>
-      <div>
-       <dt>
-        GPU
-       </dt>
-       <dd id="system-gpu">
+       </div>
+       <p class="sys__value" id="system-embeddings">
         —
-       </dd>
-      </div>
-      <div>
-       <dt>
-        Embeddings
-       </dt>
-       <dd id="system-embeddings">
+       </p>
+      </li>
+      <li class="sys__row">
+       <div class="sys__top">
+        <span class="sys__label" data-i18n="header.server">
+         Servidor
+        </span>
+        <span class="sys__tag" id="server-exposure-tag">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-lock" id="server-exposure-icon">
+          </use>
+         </svg>
+         <span id="exposure-detail">
+          —
+         </span>
+        </span>
+       </div>
+       <p class="sys__value" id="server-address">
         —
-       </dd>
-      </div>
-      <div>
-       <dt data-i18n="header.server">
-        Servidor
-       </dt>
-       <dd>
-        <span id="server-address">
-        </span>
-        <span id="exposure-detail">
-        </span>
-        <span class="syspop__hint" id="exposure-hint">
-        </span>
-       </dd>
-      </div>
-     </dl>
-     <details class="syspop__pipeline" id="system-pipeline-detail">
-      <summary data-i18n="header.pipeline">
-       Estado del pipeline
-      </summary>
-      <ol id="system-pipeline-stages">
-      </ol>
-     </details>
-     <footer class="syspop__foot">
-      <a data-i18n="header.statistics" href="/estadisticas">
-       Ver en Estadísticas
-      </a>
-      <button aria-label="Actualizar estado" class="btn btn--secondary btn--icon" data-i18n-aria-label="sentinel.refresh_status" id="refresh-button">
+       </p>
+      </li>
+     </ul>
+     <footer class="sys__foot">
+      <a class="sys__link" href="/estadisticas">
+       <span data-i18n="header.statistics">
+        Ver en Estadísticas
+       </span>
        <svg aria-hidden="true" class="icon">
-        <use href="#i-refresh">
+        <use href="#i-arrow">
         </use>
        </svg>
-      </button>
+      </a>
      </footer>
     </section>
     <div class="pipeline2" id="pipeline-live">
@@ -461,16 +480,18 @@
        <use href="#i-chat">
        </use>
       </svg>
-      <h1 class="page-title">
-       <span data-i18n="sentinel.chat">
-        Chat
-       </span>
-      </h1>
-      <p class="meta">
-       <span data-i18n="sentinel.chat_sub">
-        Consulta con evidencia documental
-       </span>
-      </p>
+      <div class="page-head__text">
+       <h1 class="page-title">
+        <span data-i18n="sentinel.chat">
+         Chat
+        </span>
+       </h1>
+       <p class="meta">
+        <span data-i18n="sentinel.chat_sub">
+         Consulta con evidencia documental
+        </span>
+       </p>
+      </div>
       <span class="page-head__spacer">
       </span>
       <button class="btn btn--secondary" id="new-chat" type="button">
@@ -745,16 +766,18 @@
        <use href="#i-library">
        </use>
       </svg>
-      <h1 class="page-title">
-       <span data-i18n="sentinel.library">
-        Biblioteca
-       </span>
-      </h1>
-      <p class="meta">
-       <span data-i18n="sentinel.library_sub">
-        Ingesta, documentos y estado del índice
-       </span>
-      </p>
+      <div class="page-head__text">
+       <h1 class="page-title">
+        <span data-i18n="sentinel.library">
+         Biblioteca
+        </span>
+       </h1>
+       <p class="meta">
+        <span data-i18n="sentinel.library_sub">
+         Ingesta, documentos y estado del índice
+        </span>
+       </p>
+      </div>
       <span class="page-head__spacer">
       </span>
       <button class="btn btn--secondary" id="index-button" type="button">
@@ -1015,7 +1038,7 @@
             </p>
            </section>
            <div class="dropzone" id="drop-zone">
-            <input accept=".pdf,.txt,.md,.markdown,.png,.jpg,.jpeg,.webp,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
+            <input accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.markdown,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
             <svg aria-hidden="true" class="icon">
              <use href="#i-upload">
              </use>
@@ -1149,26 +1172,37 @@
      <div aria-live="polite" class="sr-only" id="queue-announcements" role="status">
      </div>
     </section>
-    <section class="page" hidden="" id="settings-view">
-     <header class="page-head">
+    <section class="page cfg" hidden="" id="settings-view">
+     <header class="page-head cfg__head">
       <svg aria-hidden="true" class="icon">
        <use href="#i-settings">
        </use>
       </svg>
-      <h1 class="page-title">
-       <span data-i18n="sentinel.settings">
-        Configuración
+      <div class="page-head__text">
+       <h1 class="page-title">
+        <span data-i18n="sentinel.settings">
+         Configuración
+        </span>
+       </h1>
+       <p class="meta">
+        <span data-i18n="sentinel.settings_sub">
+         Modelos, recuperación e índice
+        </span>
+       </p>
+      </div>
+      <span aria-live="polite" class="cfg__save" id="settings-save" role="status">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-check">
+        </use>
+       </svg>
+       <span id="settings-message">
        </span>
-      </h1>
-      <p class="meta">
-       <span data-i18n="sentinel.settings_sub">
-        Guardado instantáneo · un único estado compartido
+      </span>
+      <button class="btn btn--secondary btn--sm" hidden="" id="retry-settings" type="button">
+       <span data-i18n="sentinel.retry_save">
+        Reintentar guardado
        </span>
-      </p>
-      <span class="page-head__spacer">
-      </span>
-      <span class="meta" id="settings-message" role="status">
-      </span>
+      </button>
      </header>
      <div class="banner banner--warn" hidden="" id="reindex-warning">
       <svg aria-hidden="true" class="icon">
@@ -1184,89 +1218,149 @@
        </span>
       </button>
      </div>
-     <div class="split">
-      <form class="split__main settings-grid" id="settings-form">
-       <section class="card">
-        <header class="card__head">
-         <h2 class="card-title">
-          <span data-i18n="sentinel.generation">
-           Generación
+     <form class="cfg__grid" id="settings-form">
+      <section aria-labelledby="settings-generation-title" class="card cfg-card">
+       <header class="cfg-card__head">
+        <h2 class="card-title" id="settings-generation-title">
+         <span data-i18n="sentinel.generation">
+          Generación
+         </span>
+        </h2>
+       </header>
+       <div class="cfg-card__body">
+        <input id="model-selection" type="hidden" value="automatic"/>
+        <div aria-label="Modo de generación" class="segmented cfg-seg" data-i18n-aria-label="sentinel.generation_mode" id="response-mode-control" role="radiogroup">
+         <button aria-checked="true" data-response-mode="automatic" role="radio" type="button">
+          <span data-i18n="sentinel.auto">
+           Automática
           </span>
-         </h2>
-        </header>
-        <div class="card__body">
-         <input id="model-selection" type="hidden" value="automatic"/>
-         <div class="segmented" id="response-mode-control">
-          <button aria-pressed="true" data-response-mode="automatic" type="button">
-           <span data-i18n="sentinel.auto">
-            Automática
-           </span>
-          </button>
-          <button aria-pressed="false" data-response-mode="manual" type="button">
-           <span data-i18n="sentinel.manual">
-            Manual
-           </span>
-          </button>
-         </div>
-         <label class="field" for="model">
-          <span data-i18n="sentinel.text_model">
-           Modelo de texto
+         </button>
+         <button aria-checked="false" data-response-mode="manual" role="radio" tabindex="-1" type="button">
+          <span data-i18n="sentinel.manual">
+           Manual
           </span>
+         </button>
+        </div>
+        <label class="cfg-field" for="model">
+         <span class="cfg-field__label" data-i18n="sentinel.text_model">
+          Modelo de texto
+         </span>
+         <span class="cfg-select">
           <select class="select" id="model">
            <option data-i18n="ui.connecting_to_ollama_4410a1" value="">
             Conectando con Ollama…
            </option>
           </select>
-         </label>
-         <label class="field" for="vision-model">
-          <span data-i18n="sentinel.vision_model">
-           Modelo visual
-          </span>
+         </span>
+        </label>
+        <label class="cfg-field" for="vision-model">
+         <span class="cfg-field__label" data-i18n="sentinel.vision_model">
+          Modelo visual
+         </span>
+         <span class="cfg-select">
           <select class="select" id="vision-model">
           </select>
+         </span>
+        </label>
+        <p class="cfg-field__hint" id="response-mode">
+        </p>
+       </div>
+      </section>
+      <section aria-labelledby="settings-multimodal-title" class="card cfg-card">
+       <header class="cfg-card__head">
+        <h2 class="card-title" id="settings-multimodal-title">
+         <span data-i18n="sentinel.multimodal">
+          Multimodal
+         </span>
+        </h2>
+       </header>
+       <div class="cfg-card__body">
+        <label class="toggle-field" for="multimodal">
+         <input id="multimodal" role="switch" type="checkbox"/>
+         <span aria-hidden="true" class="toggle">
+         </span>
+         <span data-i18n="sentinel.enable_multimodal">
+          Procesar figuras, tablas e imágenes
+         </span>
+        </label>
+        <div class="cfg-field">
+         <label class="cfg-field__label" for="max-images">
+          <span data-i18n="sentinel.max_images">
+           Imágenes por consulta
+          </span>
          </label>
-         <p class="meta" id="response-mode">
-         </p>
-         <div aria-hidden="true" class="router-diagram">
-          QUERY → ROUTER → TEXT / VISION
+         <div class="cfg-stepper">
+          <button aria-label="Reducir imágenes por consulta" data-i18n-aria-label="sentinel.decrease_images" data-step="-1" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-minus">
+            </use>
+           </svg>
+          </button>
+          <input id="max-images" inputmode="numeric" max="4" min="1" step="1" type="number" value="3"/>
+          <button aria-label="Aumentar imágenes por consulta" data-i18n-aria-label="sentinel.increase_images" data-step="1" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-plus">
+            </use>
+           </svg>
+          </button>
          </div>
         </div>
-       </section>
-       <section class="card">
-        <header class="card__head">
-         <h2 class="card-title">
-          <span data-i18n="sentinel.retrieval">
-           Recuperación
+        <div class="cfg-field">
+         <label class="cfg-field__label" for="max-visuals">
+          <span data-i18n="sentinel.max_visuals">
+           Límite de vistas por documento
           </span>
-         </h2>
-        </header>
-        <div class="card__body">
-         <label class="label">
-          Top-k
          </label>
-         <div class="segmented" id="top-k">
-          <button aria-pressed="false" data-k="2" type="button">
+         <div class="cfg-stepper">
+          <button aria-label="Reducir límite de vistas por documento" data-i18n-aria-label="sentinel.decrease_visuals" data-step="-10" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-minus">
+            </use>
+           </svg>
+          </button>
+          <input id="max-visuals" inputmode="numeric" max="500" min="1" required="" step="1" type="number" value="500"/>
+          <button aria-label="Aumentar límite de vistas por documento" data-i18n-aria-label="sentinel.increase_visuals" data-step="10" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-plus">
+            </use>
+           </svg>
+          </button>
+         </div>
+        </div>
+       </div>
+       <footer class="cfg-card__foot">
+        <div aria-label="Formatos admitidos" class="cfg-formats" data-i18n-aria-label="sentinel.formats" id="settings-formats">
+        </div>
+       </footer>
+      </section>
+      <section aria-labelledby="settings-retrieval-title" class="card cfg-card">
+       <header class="cfg-card__head">
+        <h2 class="card-title" id="settings-retrieval-title">
+         <span data-i18n="sentinel.retrieval">
+          Recuperación
+         </span>
+        </h2>
+       </header>
+       <div class="cfg-card__body">
+        <div class="cfg-field">
+         <span class="cfg-field__label" data-i18n="sentinel.top_k_label" id="top-k-label">
+          Fragmentos por consulta (top-k)
+         </span>
+         <div aria-labelledby="top-k-label" class="segmented cfg-seg" id="top-k" role="radiogroup">
+          <button aria-checked="false" data-k="2" role="radio" tabindex="-1" type="button">
            2
           </button>
-          <button aria-pressed="true" data-k="4" type="button">
+          <button aria-checked="true" data-k="4" role="radio" type="button">
            4
           </button>
-          <button aria-pressed="false" data-k="6" type="button">
+          <button aria-checked="false" data-k="6" role="radio" tabindex="-1" type="button">
            6
           </button>
-          <button aria-pressed="false" data-k="8" type="button">
+          <button aria-checked="false" data-k="8" role="radio" tabindex="-1" type="button">
            8
           </button>
          </div>
-         <div aria-hidden="true" class="k-preview" id="k-preview">
-          <i>
-          </i>
-          <i>
-          </i>
-          <i>
-          </i>
-          <i>
-          </i>
+         <div aria-hidden="true" class="cfg-meter" id="k-preview">
           <i>
           </i>
           <i>
@@ -1284,161 +1378,97 @@
           <i>
           </i>
          </div>
-         <label class="toggle-field" for="search-only">
-          <input id="search-only" role="switch" type="checkbox"/>
-          <span aria-hidden="true" class="toggle">
-          </span>
-          <span data-i18n="sentinel.search_only">
-           Solo buscar fragmentos
-          </span>
-         </label>
-         <p class="meta">
-          <span data-i18n="sentinel.retrieval_hint">
-           Más fragmentos amplían el contexto de la consulta.
-          </span>
-         </p>
         </div>
-       </section>
-       <section class="card settings-wide">
-        <header class="card__head">
-         <h2 class="card-title">
-          <span data-i18n="sentinel.multimodal">
-           Multimodal
-          </span>
-         </h2>
-        </header>
-        <div class="card__body">
-         <label class="toggle-field" for="multimodal">
-          <input id="multimodal" role="switch" type="checkbox"/>
-          <span aria-hidden="true" class="toggle">
-          </span>
-          <span data-i18n="sentinel.enable_multimodal">
-           Procesar figuras, tablas e imágenes
-          </span>
-         </label>
-         <div class="field-grid">
-          <label class="field" for="max-images">
-           <span data-i18n="sentinel.max_images">
-            Imágenes por consulta
+        <label class="toggle-field" for="search-only">
+         <input id="search-only" role="switch" type="checkbox"/>
+         <span aria-hidden="true" class="toggle">
+         </span>
+         <span data-i18n="sentinel.search_only">
+          Solo buscar fragmentos
+         </span>
+        </label>
+        <p class="cfg-field__hint">
+         <span data-i18n="sentinel.retrieval_hint">
+          Más fragmentos amplían el contexto de la consulta.
+         </span>
+        </p>
+       </div>
+      </section>
+      <section aria-labelledby="settings-index-title" class="card cfg-card">
+       <header class="cfg-card__head">
+        <h2 class="card-title" id="settings-index-title">
+         <span data-i18n="sentinel.index">
+          Índice
+         </span>
+        </h2>
+       </header>
+       <div class="cfg-card__body">
+        <dl class="cfg-kv">
+         <div>
+          <dt>
+           <span data-i18n="sentinel.collection">
+            Colección
            </span>
-           <input class="input select" id="max-images" max="4" min="1" type="number" value="3"/>
-          </label>
-          <label class="field" for="max-visuals">
-           <span data-i18n="sentinel.max_visuals">
-            Límite de vistas por documento
+          </dt>
+          <dd id="config-collection">
+           —
+          </dd>
+         </div>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.dimensions">
+            Dimensiones
            </span>
-           <input class="input" id="max-visuals" max="500" min="1" required="" type="number" value="500"/>
-          </label>
+          </dt>
+          <dd id="config-dimensions">
+           —
+          </dd>
          </div>
-         <p class="meta">
-          PDF · PNG · JPG · WEBP · TXT · MD · ZIP MinerU
-         </p>
-        </div>
-       </section>
-       <button class="btn btn--secondary" hidden="" id="retry-settings" type="button">
-        <span data-i18n="sentinel.retry_save">
-         Reintentar guardado
-        </span>
-       </button>
-      </form>
-      <aside class="split__aside">
-       <section class="card">
-        <header class="card__head">
-         <h2 class="card-title">
-          <span data-i18n="sentinel.index">
-           Índice
-          </span>
-         </h2>
-        </header>
-        <div class="card__body">
-         <dl class="config-data">
-          <div>
-           <dt>
-            <span data-i18n="sentinel.collection">
-             Colección
-            </span>
-           </dt>
-           <dd id="config-collection">
-            —
-           </dd>
-          </div>
-          <div>
-           <dt>
-            <span data-i18n="sentinel.embeddings">
-             Embeddings
-            </span>
-           </dt>
-           <dd id="config-embeddings">
-            —
-           </dd>
-          </div>
-          <div>
-           <dt>
-            <span data-i18n="sentinel.dimensions">
-             Dimensiones
-            </span>
-           </dt>
-           <dd id="config-dimensions">
-            —
-           </dd>
-          </div>
-          <div>
-           <dt>
-            <span data-i18n="sentinel.device">
-             Dispositivo
-            </span>
-           </dt>
-           <dd id="config-device">
-            —
-           </dd>
-          </div>
-          <div>
-           <dt>
-            <span data-i18n="sentinel.chunk_overlap">
-             Fragmento / solape
-            </span>
-           </dt>
-           <dd id="config-chunk">
-            —
-           </dd>
-          </div>
-          <div>
-           <dt>
-            <span data-i18n="sentinel.generation">
-             Generación
-            </span>
-           </dt>
-           <dd>
-            Ollama
-           </dd>
-          </div>
-         </dl>
-         <div aria-hidden="true" class="chunk-diagram">
-          <i>
-          </i>
-          <i>
-          </i>
-          <i>
-          </i>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.device">
+            Dispositivo
+           </span>
+          </dt>
+          <dd id="config-device">
+           —
+          </dd>
          </div>
-         <button class="btn btn--secondary" id="prepare-button" type="button">
-          <svg aria-hidden="true" class="icon">
-           <use href="#i-cpu">
-           </use>
-          </svg>
-          <span data-i18n="sentinel.prepare">
-           Preparar modelo de búsqueda
-          </span>
-         </button>
-        </div>
-       </section>
-       <p class="meta">
-        <span data-i18n="sentinel.language_hint">
-         El idioma del navegador se cambia arriba a la derecha.
-        </span>
-       </p>
-      </aside>
-     </div>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.chunk_overlap">
+            Fragmento / solape
+           </span>
+          </dt>
+          <dd id="config-chunk">
+           —
+          </dd>
+         </div>
+         <div class="is-wide">
+          <dt>
+           <span data-i18n="sentinel.embeddings">
+            Embeddings
+           </span>
+          </dt>
+          <dd id="config-embeddings">
+           —
+          </dd>
+         </div>
+        </dl>
+       </div>
+       <footer class="cfg-card__foot">
+        <button class="btn btn--secondary" id="prepare-button" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-cpu">
+          </use>
+         </svg>
+         <span data-i18n="sentinel.prepare">
+          Preparar modelo de búsqueda
+         </span>
+        </button>
+       </footer>
+      </section>
+     </form>
     </section>
     <section class="page" hidden="" id="statistics-view">
      <header class="page-head">
@@ -1446,16 +1476,18 @@
        <use href="#i-cpu">
        </use>
       </svg>
-      <h1 class="page-title">
-       <span data-i18n="sentinel.statistics">
-        Estadísticas
-       </span>
-      </h1>
-      <p class="meta">
-       <span data-i18n="sentinel.statistics_sub">
-        Métricas reales del equipo y las consultas
-       </span>
-      </p>
+      <div class="page-head__text">
+       <h1 class="page-title">
+        <span data-i18n="sentinel.statistics">
+         Estadísticas
+        </span>
+       </h1>
+       <p class="meta">
+        <span data-i18n="sentinel.statistics_sub">
+         Métricas reales del equipo y las consultas
+        </span>
+       </p>
+      </div>
       <span class="page-head__spacer">
       </span>
       <div aria-label="Ventana del historial" class="segmented" data-i18n-aria-label="ui.history_window_4dfc50" id="hardware-range">
@@ -2152,16 +2184,18 @@
        <use href="#i-console">
        </use>
       </svg>
-      <h1 class="page-title">
-       <span data-i18n="sentinel.console">
-        Consola
-       </span>
-      </h1>
-      <p class="meta">
-       <span data-i18n="sentinel.console_sub">
-        Registro del servidor · solo lectura
-       </span>
-      </p>
+      <div class="page-head__text">
+       <h1 class="page-title">
+        <span data-i18n="sentinel.console">
+         Consola
+        </span>
+       </h1>
+       <p class="meta">
+        <span data-i18n="sentinel.console_sub">
+         Registro del servidor · solo lectura
+        </span>
+       </p>
+      </div>
       <span class="page-head__spacer">
       </span>
       <span class="meta live-status" id="console-status" role="status">
