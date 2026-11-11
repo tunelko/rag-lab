@@ -1,0 +1,155 @@
+# Retrieval and RAG evaluation
+
+> **Experimental:** this harness does not alter production retrieval. Keep the
+> optional lexical index disabled on a real library until its preparation and
+> adoption checks have been validated for that release.
+
+RAG Local can compare exact dense retrieval, SQLite FTS5/BM25 and reciprocal-rank
+fusion against the same explicit relevance judgments. Evaluation is local: it does
+not call Ollama, send documents to a service or treat generated text as ground truth.
+The command does not switch the production retriever.
+
+## Create a small trusted set first
+
+Start with about 50 questions from the current corpus. Include direct facts, exact
+technical identifiers, tables and multi-document questions. A human must identify
+the source file and physical PDF page (or exact vector
+ID) that constitutes relevant evidence.
+
+Save one JSON object per line, for example `benchmarks/manuals.jsonl`:
+
+```json
+{"id":"cpu-001","question":"¿Qué zócalo usa esta placa?","relevant":[{"file":"manual.pdf","page":8,"relevance":2}]}
+{"id":"cpu-002","question":"¿Dónde está el conector ATX_12V?","relevant":[{"file":"manual.pdf","page":26}]}
+```
+
+`file` is the relative name shown in Library and `page` is the physical, one-based
+PDF page. Omit `page` only when any page from that file is a correct target. Use
+`vector_id` instead of `file` for exact-chunk judgments. `relevance` defaults to 1;
+larger positive values enable graded nDCG. An optional `files` array restricts a
+query to the same topic/source scope used in the UI.
+Use one judgment granularity within each question: all exact chunks, all pages or
+all whole files. Mixed granularities are rejected rather than scored ambiguously.
+Add `strata` such as `same-language`, `cross-language`, `cjk`, `table`, `visual` or
+`exact-identifier`; the report keeps separate metrics for each declared group.
+
+Do not manufacture labels from the current retriever or LLM response. That would
+make the benchmark reward its own errors. Keep private corpus judgments out of Git.
+
+## Run the comparison
+
+Dense evaluation needs no index change. Lexical and hybrid evaluation use an
+optional derived FTS5 index. Prepare it as a separate, explicit operation while
+the server is stopped or idle:
+
+```text
+python -m tools.prepare_lexical_index
+```
+
+This takes the collection writer lock, makes a verified SQLite/manifest backup in
+`data/vector-backups/`, builds FTS and leaves the base `user_version=1`. It does not
+load a model or use the network. Check with `--status`; remove only the derived
+index with `--remove`.
+
+From the project root:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.evaluate_retrieval `
+  --dataset benchmarks\manuals.jsonl `
+  --mode dense lexical hybrid
+```
+
+Linux:
+
+```bash
+.venv/bin/python -m tools.evaluate_retrieval \
+  --dataset benchmarks/manuals.jsonl \
+  --mode dense lexical hybrid
+```
+
+The embedding model must already be cached. Add `--allow-download` only when an
+explicit first download is intended. Reports are written below
+`reports/evaluation/` and include the dataset hash, corpus identity, per-query hits,
+cache diagnostics and aggregate metrics. Both locations are ignored by Git.
+
+## Metrics
+
+| Metric | Meaning |
+| --- | --- |
+| Fragment Recall@K | Relevant sources covered by the first K raw fragments; this matches what production sends. |
+| Recall@K | Recall after collapsing duplicate chunks to the labeled file/page/chunk unit. |
+| Precision@K | Distinct relevant units among K collapsed positions. |
+| MRR@K | Reciprocal rank of the first relevant collapsed unit. |
+| nDCG@K | Collapsed rank quality with optional graded relevance. |
+| P50/P95 | Median and tail retrieval latency, including query embedding for dense modes. |
+
+Default cutoffs are 1, 4 and 8 because the UI offers 2/4/6/8 fragments and defaults
+to 4. The adoption verdict is computed, not merely described: it requires at least
+50 questions, protected `exact-identifier`, `cross-language` and `cjk` strata,
+non-regressing Fragment Recall@4, an nDCG@4 gain whose deterministic bootstrap
+interval excludes zero, and a bounded absolute P95 overhead. Missing strata produce
+`insufficient_data`; a small or incomplete set cannot approve hybrid retrieval.
+
+Questions with no valid answer belong to answer-side abstention evaluation, not to
+this retrieval-ranking command, which deliberately requires at least one explicit
+relevance judgment per query. Use `score_abstention` for those cases until an
+end-to-end answer evaluator is added.
+
+The report records the evaluated hybrid parameters (`candidate_window=512` and
+`rrf_k=60`). If hybrid retrieval is adopted, production must use those same values;
+changing either one requires rerunning the benchmark and adoption checks.
+
+`evaluation.py` also provides ANLS for short document answers, page/file citation
+precision and recall, and abstention decision metrics. These are answer-side building
+blocks; the retrieval CLI does not claim end-to-end answer quality.
+
+Visual page selection is evaluated separately with [the visual audit](VISUAL_AUDIT.md).
+Its precision/recall applies only to manually reviewed pages and must not be confused
+with retrieval Recall@K.
+
+## Public datasets
+
+Public suites are useful only for the pipeline stage they actually exercise:
+
+- BEIR/SciFact: retriever ranking and embeddings.
+- FinanceBench and RAGBench (`emanual`, `techqa`): grounded long-document answers.
+- DocVQA: page understanding and ANLS after the target page is known; it does not
+  by itself test selecting the correct page from a PDF collection.
+- CRAG/CRAG-MM: later web or multimodal experiments, not the first local PDF baseline.
+- MITRE ATT&CK, NVD and CISA KEV: valuable technical corpora, but they need a curated
+  question/relevance set before producing comparable metrics.
+
+Adapters or downloads should be added only after the 50-question local baseline is
+stable. Dataset licenses and original splits must be preserved.
+
+## Storage and performance interpretation
+
+SQLite is the durable source of truth. Exact dense search keeps one validated matrix
+snapshot in process memory and checks a transactional generation counter to reload
+after changes. Metadata and vectors remain queryable exactly from SQLite.
+Top-K uses `numpy.argpartition`. The separate preparation command creates FTS5
+under the index writer lock; it is a derived index maintained by SQLite triggers.
+Dense production search neither creates it nor requires an SQLite build with FTS5.
+
+The resident cache uses a generation counter advanced in the same SQLite transaction
+as every new write. Legacy v1 stores without that metadata use a file signature only
+until the first write creates the counter. Reports warm the model/cache before timing,
+record embedding and search separately, and include cache loads/hits and vector bytes.
+Rankings are collapsed to the labeled file/page/chunk granularity before scoring, so
+two adjacent chunks from the same relevant PDF page are not counted as two results.
+Fragment Recall@K is also recorded before that collapse to reflect the exact context
+production would deliver.
+Exact NumPy remains the default until measured quality and latency justify a production
+change. FAISS or an ANN engine is not required for the current corpus size.
+
+To isolate the storage/search improvement on the current index without loading the
+embedding model or calling Ollama:
+
+```text
+python -m tools.benchmark_vector_store --output reports/vector-benchmark.json
+```
+
+This compares the previous reconstruct-and-full-sort mechanics with cold and warm
+resident exact Top-K. It deliberately says nothing about answer quality.
+Add `--lexical-copy` to measure FTS build/search and 500-row update/delete behavior
+on an automatically discarded SQLite backup. The real index remains unchanged.

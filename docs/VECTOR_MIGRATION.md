@@ -74,3 +74,41 @@ results can change order: exact ranking and tie handling differ from the retired
 approximate HNSW index. This is a local laboratory store, not a distributed or
 approximate-nearest-neighbor service. Measure memory and latency before scaling
 to much larger collections.
+
+## Optional lexical evaluation index
+
+SQLite vector format v1 remains the production format. Opening the store, polling
+status and dense queries do not create FTS tables or change `user_version`.
+The offline lexical/hybrid benchmark needs a derived FTS5 index and refuses to
+create it implicitly.
+
+With the server stopped or idle, prepare it explicitly:
+
+```text
+python -m tools.prepare_lexical_index
+```
+
+The command takes the same writer lock and first creates a consistent SQLite backup
+plus a manifest copy under `data/vector-backups/<timestamp>-<collection>-lexical/`. It
+verifies one FTS row per vector. No document, embedding or manifest record changes.
+Once prepared, vector writes also update FTS inside their SQLite transaction; remove
+the derived index first if the interpreter is replaced by one without FTS5 support.
+
+Rollback is also explicit and reversible:
+
+```text
+python -m tools.prepare_lexical_index --remove
+```
+
+This makes another backup, then drops only the FTS table/triggers and its marker.
+Dense retrieval continues to use the unchanged v1 vectors. Restoring the backup is
+therefore unnecessary for normal rollback, but it remains available for forensic
+comparison or recovery.
+
+Backups are intentionally not pruned automatically. Review old lexical-index backups
+manually after validation. Restore a SQLite backup only while the RAG server is fully
+stopped, so no process can retain a cache generation from the replaced file.
+Removing FTS releases its pages for SQLite reuse but does not shrink the database
+file; run `VACUUM` later only if reclaiming disk space is necessary. Do not run old
+and new application versions against the same live database: older writers do not
+advance the cache-generation marker used by the new process.

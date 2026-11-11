@@ -1,9 +1,9 @@
 # Implementation audit — 2026-11-11
 
-This is the review snapshot at commit `8113dd5`. The subsequent security
-remediation replaces Chroma with SQLite/NumPy and pins setuptools in all runtime
-profiles. Current storage and upgrade instructions: [vector migration](VECTOR_MIGRATION.md)
-and [security status](../SECURITY.md). Chroma observations below describe that snapshot.
+This review began at commit `8113dd5`; the findings below are reconciled with the
+subsequent SQLite/NumPy storage and dependency remediation. Current storage and
+upgrade instructions: [vector migration](VECTOR_MIGRATION.md), [evaluation](EVALUATION.md)
+and [security status](../SECURITY.md).
 
 This review covers the repository, isolated regression tests, local read-only
 index integrity and GitHub dependency status. It distinguishes implemented
@@ -20,7 +20,7 @@ flowchart LR
     Jobs --> Ingest[PDF/text/image extraction]
     Ingest --> Captions[Local Ollama vision captions]
     Ingest --> Embeddings[CPU SentenceTransformers]
-    Embeddings --> Vectors[Embedded persistent Chroma]
+    Embeddings --> Vectors[SQLite vectors + exact NumPy]
     Ingest --> Manifest[Published document manifest]
     Jobs --> Retrieval[Scoped retrieval]
     Topics --> Retrieval
@@ -46,7 +46,7 @@ access control would require enforcement across every API and download route.
 
 | Problem | Result | Regression evidence |
 |---|---|---|
-| Partial vector writes could enter focused/global evidence before manifest publication. | Both readers accept only IDs published in the manifest. | Failed-write and orphan-vector tests with real isolated Chroma. |
+| Partial vector writes could enter focused/global evidence before manifest publication. | Both readers accept only IDs published in the manifest. | Failed-write and orphan-vector tests with real isolated SQLite. |
 | Old vectors could be deleted before a failing manifest save. | Write new vectors, flush and replace the manifest, then collect obsolete vectors. Failed publication retains the old generation. | Simulated manifest failure and failed garbage collection. |
 | CLI and web writers could race on one manifest. | A collection-scoped OS file lock excludes a second writer on Windows/Linux and releases on process exit. | A separate Python process attempts the same lock. |
 | A document could change while parsing/writing its index. | Fingerprints are checked again before publication. | A loader changes its source during extraction. |
@@ -86,15 +86,15 @@ remain outside Git.
 | Chat/UI | Local Markdown sanitization, physical PDF page citations, source drawer, ES/EN, keyboard controls, responsive header. | Browser tests use known fixture answers, not a quality evaluation of real models. |
 | Monitoring | Measured resource charts, console, query/index timings and seven-day SQLite history. | Missing readings are gaps; historical sensor data cannot be reconstructed. |
 | Server lifecycle | Windows/Linux start, stop, restart, status, idle waiting, explicit private-LAN binding. | One API process; no distributed scheduler or durable execution queue. |
-| Privacy/security | Embedded Chroma, local models, source path checks, CSP, sanitized uploads/attachments, origin/token mutation checks, direct Ollama transport. | Trusted shared LAN, no accounts or per-user permissions; unresolved dependency advisories remain. |
+| Privacy/security | Embedded SQLite/NumPy, local models, source path checks, CSP, sanitized uploads/attachments, origin/token mutation checks, direct Ollama transport. | Trusted shared LAN, no accounts or per-user permissions; dependency status must still be monitored. |
 
 ## Remaining work, in priority order
 
-1. **Dependency advisories:** GitHub still lists 23 open alerts. The dependency
-   graph reports an older setuptools version even though the repository and
-   inspected environment use 84.1.0. Four Chroma advisories remain without a
-   listed fixed release. See [SECURITY.md](../SECURITY.md); do not describe the
-   project as vulnerability-free or publish a Chroma server.
+1. **Dependency hygiene:** the 23 alerts present at the original audit were resolved
+   by removing Chroma, pinning setuptools and publishing the real requirements graph;
+   GitHub then reported zero open Dependabot alerts. This is a dated observation,
+   not a guarantee that future advisories do not exist. Keep CI and the dependency
+   graph active; see [SECURITY.md](../SECURITY.md).
 2. **Multimodal cost:** production still uses the conservative image/drawing/text
    rule. The offline classifier in `visual_selection.py` has not replaced it.
    Label representative diagram, table and BIOS pages and measure figure recall
@@ -105,7 +105,9 @@ remain outside Git.
    and visual requests set explicit context windows. Long history and multilingual
    evidence can exceed available space. A tokenizer-aware planner and corpus
    quality evaluations remain needed; increasing context blindly consumes VRAM.
-   See [retrieval behavior](RETRIEVAL.md).
+   The local harness now measures dense/lexical/hybrid retrieval, but it needs a
+   human-labeled corpus before it can justify a production change. See
+   [retrieval behavior](RETRIEVAL.md) and [evaluation](EVALUATION.md).
 4. **Crash recovery:** indexes and statistics persist, but execution jobs and
    their result payloads live in memory. A browser can recover its job while that
    server process remains alive; it cannot retrieve a lost result after a server
@@ -115,9 +117,10 @@ remain outside Git.
    queue entry or deleting an empty category does not delete a PDF. Existing
    manifests also contain absolute source paths; moving an already-built index
    between roots/operating systems requires reindexing or an explicit migration.
-6. **Larger deployments:** serial ingestion competes with interactive queries;
-   global retrieval reads stored evidence for each file, and published-ID filters
-   grow with the index. No production-scale latency, concurrency or memory bound
+6. **Larger deployments:** serial ingestion competes with interactive queries.
+   Exact search now reuses a resident normalized matrix and cached lexical features,
+   but remains linear in vector count and global retrieval still represents every
+   file. No production-scale latency, concurrency or memory bound
    has been established for thousands of PDFs. Additional API workers alone are
    unsupported. See the explicitly future [scaling roadmap](SCALING.md).
 

@@ -112,6 +112,8 @@ en `data/` y conserva PDF, vectores y descripciones ya procesadas.
 Estadísticas conserva [siete días de histórico local](docs/STATISTICS.md), con vistas
 por día/semana y registros de consultas e indexado. La [auditoría visual sin modelos](docs/VISUAL_AUDIT.md)
 permite evaluar páginas y etiquetas manuales antes de cambiar la ingesta multimodal.
+Una [evaluación local experimental de recuperación](docs/EVALUATION.md) compara ranking denso exacto,
+FTS5 e híbrido mediante Recall@K, MRR, nDCG y P50/P95 sobre preguntas etiquetadas.
 
 Admite PDF, TXT, Markdown, PNG/JPEG/WebP y exportaciones MinerU compatibles. Las
 descripciones se reutilizan desde caché. La ingesta visual puede tardar segundos
@@ -133,7 +135,7 @@ tests/frontend/   Pruebas JavaScript
 dist/             Interfaz web, fuentes y librerías locales
 docs/             Guías de instalación, referencia y desarrollo
 docs/archive/     Material histórico de diseño
-benchmarks/       Diagnósticos CPU con datos sintéticos
+benchmarks/       Diagnósticos sintéticos y evaluaciones privadas
 data/             Datos locales privados, fuera de Git
 ```
 

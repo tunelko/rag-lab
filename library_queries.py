@@ -1,6 +1,7 @@
 """Local query scope, exact library inventory and balanced cross-document retrieval."""
 from dataclasses import dataclass
 from collections import Counter
+from functools import lru_cache
 import math
 from pathlib import Path
 import re
@@ -10,6 +11,7 @@ import numpy as np
 
 import rag
 from model_routing import normalize
+from retrieval_terms import GLOBAL_RANKING_STOP_WORDS
 
 
 CATALOG_WORDS = set(('y el la los las de del en un una por favor me puedes dime dame muestrame indica indicame has he hemos '
@@ -32,12 +34,23 @@ ALIASES = {word: canonical for canonical, words in {
     'memory': 'memory memoria memorias ram', 'storage': 'storage almacenamiento',
     'port': 'port ports puerto puertos', 'connector': 'connector connectors conector conectores',
 }.items() for word in words.split()}
-STOP_WORDS = set('el la los las de del a y o con para por en un una the of and or for in with a an'.split())
+STOP_WORDS = GLOBAL_RANKING_STOP_WORDS
 
 
+@lru_cache(maxsize=50000)
+def normalized(text):
+    return normalize(text)
+
+
+@lru_cache(maxsize=50000)
 def tokens(text):
-    text = normalize(re.sub(r'支持|支援|サポート|対応', ' support ', text))
-    return [ALIASES.get(word, word) for word in re.findall(r'\w+', text) if word not in STOP_WORDS]
+    text = normalized(re.sub(r'支持|支援|サポート|対応', ' support ', text))
+    return tuple(ALIASES.get(word, word) for word in re.findall(r'\w+', text) if word not in STOP_WORDS)
+
+
+@lru_cache(maxsize=50000)
+def token_counts(text):
+    return Counter(tokens(text))
 
 
 def best_evidence(texts, semantic_scores, topic, metadata=None):
@@ -48,7 +61,7 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
         raise ValueError('El documento no contiene fragmentos con texto útil para responder; revisa su extracción.')
     if not terms:
         return max(valid, key=lambda index: semantic_scores[index])
-    counts = [Counter(tokens(text)) for text in texts]
+    counts = [token_counts(text) for text in texts]
     lengths = np.asarray([sum(count.values()) for count in counts], dtype=np.float64)
     average = max(float(lengths.mean()), 1)
     lexical = np.zeros(len(texts), dtype=np.float64)
@@ -75,7 +88,7 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
     field = re.compile(r'^\s*[|#*`\s]*(?:' + '|'.join(re.escape(name) for name in names) + r')(?:\s*[*`]*\s*\||[*`\s]*$)', re.MULTILINE | re.IGNORECASE)
     cpu_support={'cpu','support'}.issubset(terms)
     cpu_values=re.compile(r'\b(?:pentium|celeron|ryzen|xeon|epyc|cyrix|core)(?:tm)?\b',re.IGNORECASE)
-    fields = [index for index, text in enumerate(texts) if 1 < len(terms) <= 4 and field.search(normalize(text))
+    fields = [index for index, text in enumerate(texts) if 1 < len(terms) <= 4 and field.search(normalized(text))
               and (all(counts[index][term] for term in terms) or cpu_support and cpu_values.search(text))]
     native_fields = [index for index in fields if metadata and metadata[index].get('item_type') in ('text', 'table')]
     native_specs=[index for index in native_fields if cpu_support and cpu_values.search(texts[index])]
@@ -83,7 +96,7 @@ def best_evidence(texts, semantic_scores, topic, metadata=None):
     # Prefer native specification/socket fields when the same manual supplies them.
     specification=re.compile(r'specifications|summary\s+of\s+features|especificaciones|caracteristicas|'
         r'socket\s*(?:[0-9]|lga|am[0-9])|lga\s*[0-9]|\bam[0-9]\b',re.IGNORECASE)
-    typed_specs=[index for index in native_specs if specification.search(normalize(texts[index]))]
+    typed_specs=[index for index in native_specs if specification.search(normalized(texts[index]))]
     native = [index for index in exact if metadata and metadata[index].get('item_type') in ('text', 'table')]
     complete = [index for index in valid if all(counts[index][term] for term in terms)]
     candidates = typed_specs or native_specs or native_fields or fields or native or exact or complete or valid
@@ -168,7 +181,8 @@ def global_retrieve(config, documents, embeddings, question, *, cancelled=lambda
         if cancelled():
             raise InterruptedError('Búsqueda global cancelada.')
         ids=rag.published_ids(manifest,item['name'])
-        rows = store.get(ids=ids,where={'file': item['name']}, include=['documents', 'metadatas', 'embeddings']) if ids else {'ids':[]}
+        rows = store.get(ids=ids, where={'file': item['name']},
+                         include=['documents', 'metadatas', 'embeddings'], cached=True) if ids else {'ids': []}
         if not rows['ids']:
             raise ValueError(f'No se han recuperado los fragmentos de {item["name"]}; revisa su índice. '
                              'La consulta global se ha detenido para no omitir ese documento.')

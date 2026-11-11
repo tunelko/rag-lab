@@ -28,9 +28,15 @@ The rank-fusion method follows [Cormack et al., SIGIR 2009](https://cormack.uwat
 No neural reranker or additional GPU model is loaded.
 
 Punctuation-only fragments such as `---` are excluded from both retrieval modes.
-Focused searches fetch more candidates when empty captions occupy the nearest
-positions. Existing vectors remain usable; no destructive reindexing is needed.
+Focused searches rank their safety window once when empty captions may occupy the
+nearest positions; the question is not embedded again while widening a window.
+The exact vector matrix is reused from a validated in-memory snapshot and reloaded
+after index changes. Existing vectors remain usable; no destructive reindexing is needed.
 Lists naming a specific model/file or referring to “esta placa” stay focused.
+
+SQLite FTS5 and dense/lexical reciprocal-rank fusion are available to the offline
+[evaluation harness](EVALUATION.md). Focused production retrieval remains exact dense
+until labeled measurements justify changing it.
 
 If an indexed document cannot be retrieved, or the configured context cannot fit
 the minimum allowance for every file, the query stops explicitly. It never silently

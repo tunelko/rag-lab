@@ -127,7 +127,7 @@ class RagSmokeTests(unittest.TestCase):
             with patch.object(rag,'load_state',return_value={'files':{'fixture':{'ids':['published']}}}), patch.object(rag,'open_store',return_value=SimpleNamespace(similarity_search_with_score=search)):
                 hits=rag.retrieve(config,'CPU admitidas',object(),1)
         self.assertEqual(hits,[evidence])
-        self.assertGreater(len(requested),1)
+        self.assertEqual(requested,[512])
         self.assertFalse(rag.usable_evidence('---\n _ *'))
         self.assertTrue(rag.usable_evidence('处理器'))
 

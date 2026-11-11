@@ -109,6 +109,8 @@ existing PDFs, vectors and captions. See [library organization](docs/LIBRARY.md)
 Statistics keeps [seven days of local history](docs/STATISTICS.md), including day/week
 charts and query/indexing records. A [CPU-only visual audit](docs/VISUAL_AUDIT.md)
 evaluates page selection and human labels before changing multimodal ingestion.
+An [experimental offline retrieval evaluation](docs/EVALUATION.md) compares exact dense, FTS5 and
+hybrid ranking with Recall@K, MRR, nDCG and P50/P95 over human-labeled questions.
 
 Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descriptions
 are cached. Visual indexing can take seconds per page. Jobs share a sequential
@@ -129,7 +131,7 @@ tests/frontend/   JavaScript tests
 dist/             Web UI, local fonts and libraries
 docs/             Installation, reference and development guides
 docs/archive/     Historical design material
-benchmarks/       Synthetic CPU diagnostics
+benchmarks/       Synthetic diagnostics and private evaluation sets
 data/             Private runtime data, ignored by Git
 ```
 

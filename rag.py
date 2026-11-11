@@ -245,14 +245,14 @@ def retrieve(config: Config, question: str, embeddings, k: int, *, files=None):
     if not ids:
         return []
     store = open_store(config, embeddings)
-    window = max(16, k * 4)
-    while True:
-        hits = store.similarity_search_with_score(question, k=window,ids=ids,
-            **({'filter': {'file': {'$in': list(files)}}} if files is not None else {}))
-        useful = [(document, distance) for document, distance in hits if usable_evidence(document.page_content)]
-        if len(useful) >= k or len(hits) < window or window >= 512:
-            return useful[:k]
-        window = min(window * 2, 512)
+    # Rank the existing safety window once. The former doubling loop embedded the
+    # same question and scanned the matrix repeatedly when empty captions ranked
+    # near the top.
+    window = max(512, k)
+    hits = store.similarity_search_with_score(question, k=window, ids=ids,
+        **({'filter': {'file': {'$in': list(files)}}} if files is not None else {}))
+    return [(document, distance) for document, distance in hits
+            if usable_evidence(document.page_content)][:k]
 
 
 def usable_evidence(text):

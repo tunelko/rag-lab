@@ -7,11 +7,15 @@ from types import SimpleNamespace
 import numpy as np
 import rag
 
-from library_queries import best_evidence, catalog_answer, global_retrieve, query_intent, topic_query
+from library_queries import STOP_WORDS, best_evidence, catalog_answer, global_retrieve, query_intent, topic_query
 from tests.unit import test_web
 
 
 class ScopeTests(unittest.TestCase):
+    def test_global_bm25_stop_words_are_a_compatibility_contract(self):
+        self.assertEqual(STOP_WORDS,set(
+            'el la los las de del a y o con para por en un una the of and or for in with a an'.split()))
+
     def test_inventory_is_distinct_from_content_questions(self):
         for text in ('y cuantos tienes indexado ?', '¿Cuántos documentos hay indexados?', 'How many indexed documents do you have?'):
             self.assertEqual(query_intent(text).mode, 'catalog_count', text)
