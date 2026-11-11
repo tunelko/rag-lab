@@ -135,6 +135,17 @@ class PublishedRecordsTests(RecordApiTests):
         self.assertIn("registros estructurados", job["answer"])
         self.assertEqual(job["sources"], [])
 
+    def test_a_vendor_that_is_not_published_is_refused_instead_of_silently_dropped(self):
+        with patch.object(rag, "generate_ollama") as generate:
+            job = self.ask("Vulnerabilidades explotadas activamente de Microsft", topic_id=TOPIC)
+        generate.assert_not_called()
+        self.assertIn("«Microsft»", job["answer"])
+        self.assertIn("microsoft", job["answer"])
+        self.assertEqual((job["sources"], job["metrics"]["record_notice"]), ([], "unresolved"))
+        # The same question with the published name runs normally.
+        job = self.ask("Vulnerabilidades explotadas activamente de Microsoft", topic_id=TOPIC, search_only=True)
+        self.assertEqual(job["metrics"]["record_total"], 2)
+
     def test_images_are_refused_and_status_describes_what_is_published(self):
         self.ask("CVE-2022-0847", expected=422, topic_id=TOPIC, images=["data:image/png;base64,AAAA"])
         records = self.client.get("/api/status").json()["records"]

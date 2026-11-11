@@ -78,6 +78,9 @@ def _conditions(filters):
         add('k.vendor_key = ?', filters['vendor'])
     if filters.get('product'):
         add('instr(k.product_key, ?) > 0', filters['product'])
+    if SORT.get(filters.get('sort')):
+        # Ordering by a value only makes sense for records that have it.
+        add(f"{SORT[filters['sort']]} IS NOT NULL")
     if filters.get('ecosystem'):
         add('EXISTS (SELECT 1 FROM current_affected a WHERE a.cve_id = ids.cve_id AND (a.ecosystem = ? OR a.ecosystem LIKE ?))',
             filters['ecosystem'], filters['ecosystem'].replace('%', '').replace('_', '') + ':%')
@@ -141,6 +144,9 @@ def _details(db, identifiers):
 
 def search(store, plan, *, default_limit=DEFAULT_LIMIT):
     """Rows for a plan. The result always states how many matched, not only how many are returned."""
+    if getattr(plan, 'unresolved', ()):
+        # Running it would drop a condition the question states and answer about something else.
+        raise ValueError(f'The plan names conditions that are not published: {list(plan.unresolved)}')
     with store.connect() as db:
         sources = provenance(db)
         if plan.mode == 'record_lookup':

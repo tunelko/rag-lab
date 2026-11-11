@@ -123,6 +123,28 @@ class AggregateTests(unittest.TestCase):
             self.assertEqual(plan(question), {"mode": "record_aggregate", "filter": filters, "aggregate": aggregate}, question)
 
 
+class UnresolvedNameTests(unittest.TestCase):
+    def test_a_named_condition_outside_the_vocabulary_is_reported_not_dropped(self):
+        cases = {
+            "Known exploited vulnerabilities in Acme products": ["Acme"],
+            "Vulnerabilidades explotadas de Microsft": ["Microsft"],
+            "¿Cuántas vulnerabilidades de Zyxel Networks hay en KEV?": ["Zyxel Networks"],
+        }
+        for question, expected in cases.items():
+            self.assertEqual(plan(question).get("unresolved"), expected, question)
+
+    def test_known_names_identifiers_and_dates_are_not_reported(self):
+        for question in ("Known exploited vulnerabilities in Microsoft Exchange Server",
+                         "Vulnerabilidades por encima del percentil 95 de EPSS",
+                         "Vulnerabilidades de tipo CWE-787 con explotación conocida",
+                         "¿Qué vulnerabilidades de Citrix se añadieron a KEV entre Enero y Junio de 2023?",
+                         "Top 5 known exploited vulnerabilities by CVSS score",
+                         "known exploited vulnerabilities in Palo Alto Networks PAN-OS",
+                         "Vulnerabilidades que afectan a Ubuntu con explotación conocida",
+                         "Distribución por CWE de las vulnerabilidades de Cisco en KEV"):
+            self.assertNotIn("unresolved", plan(question), question)
+
+
 class EcosystemTests(unittest.TestCase):
     def test_an_ecosystem_name_is_not_also_a_vendor_product(self):
         catalog = {"canonical": ["ubuntu"], "debian": ["debian"]}

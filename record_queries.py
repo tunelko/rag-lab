@@ -55,6 +55,9 @@ class RecordPlan:
     ids: tuple = ()
     filter: dict = field(default_factory=dict)
     aggregate: dict | None = None
+    # Names the question uses as a condition that the published vocabulary does not contain.
+    # A plan with any of these must not be run: the result would silently ignore them.
+    unresolved: tuple = ()
 
     def as_dict(self):
         result = {'mode': self.mode}
@@ -64,6 +67,8 @@ class RecordPlan:
             result['filter'] = dict(self.filter)
         if self.aggregate:
             result['aggregate'] = dict(self.aggregate)
+        if self.unresolved:
+            result['unresolved'] = list(self.unresolved)
         return result
 
 
@@ -274,6 +279,28 @@ def plan(question, *, today=None, vendors=()):
                           r'|\b(?:las|los|the)\s+(\d{1,3})\s+(?:primer[ao]s|first)\b', text)
         if limit:
             filters['limit'] = int(limit[1] or limit[2] or limit[3])
-    if not filters and aggregate is None:
+    unresolved = _unresolved(question, catalog)
+    if not filters and aggregate is None and not unresolved:
         return None  # nothing exact to run; a count or grouping over everything is exact
-    return RecordPlan('record_aggregate' if aggregate else 'record_filter', filter=filters, aggregate=aggregate)
+    return RecordPlan('record_aggregate' if aggregate else 'record_filter', filter=filters, aggregate=aggregate,
+                      unresolved=unresolved)
+
+
+KNOWN_NAMES = {'kev', 'epss', 'cvss', 'cwe', 'cwes', 'cve', 'cves', 'cisa', 'nvd', 'first', 'osv', 'mitre', *MONTHS}
+
+
+def _unresolved(question, catalog):
+    """Capitalised names used as a condition ("de Cisco", "in Acme Router") that nothing recognises."""
+    known = set(KNOWN_NAMES) | set(ECOSYSTEMS)
+    for vendor, products in catalog.items():
+        known.update(re.findall(WORD, vendor))
+        for product in products:
+            known.update(re.findall(WORD, normalize(product)))
+    original = unicodedata.normalize('NFKC', str(question).translate(HYPHENS))
+    found = []
+    for match in re.finditer(r'\b(?:de|del|of|in|from|by)\s+((?:[A-ZÀ-Ý][\w.+#-]*)(?:\s+[A-ZÀ-Ý0-9][\w.+#-]*){0,2})', original):
+        words = [word for word in re.findall(WORD, normalize(match[1])) if word not in known]
+        # Identifiers such as CWE-787 are conditions of their own, not names.
+        if words and not CWE.search(normalize(match[1])):
+            found.append(match[1].strip())
+    return tuple(dict.fromkeys(found))

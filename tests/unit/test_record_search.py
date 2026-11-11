@@ -141,7 +141,7 @@ class RecordSearchTests(unittest.TestCase):
         result = self.run_question("Las 2 vulnerabilidades con mayor EPSS")
         self.assertEqual([record["cve_id"] for record in result["records"]], ["CVE-2021-44228", "CVE-2021-26855"])
         # Eight identifiers are known; the rejected one does not count.
-        self.assertEqual((result["limit"], result["total"]), (2, 7))
+        self.assertEqual((result["limit"], result["total"]), (2, 6))  # only records that have a score are ranked
         self.assertEqual(self.ids("Vulnerabilidades recientes con explotación conocida")[:2], ["CVE-2024-3400", "CVE-2023-4863"])
         # Equal scores break on the identifier; rows without a score come last.
         self.assertEqual(self.ids("Top 3 known exploited vulnerabilities by CVSS score"),
@@ -168,6 +168,16 @@ class RecordSearchTests(unittest.TestCase):
         self.store.fail_sync(run, "test", "abandoned on purpose")
         self.assertEqual(self.run_question("¿Cuántas vulnerabilidades hay en KEV?")["total"], 6)
         self.assertNotIn("evil", record_search.vocabulary(self.store))
+
+    def test_ranking_leaves_out_records_without_the_ranked_value(self):
+        self.assertNotIn("CVE-2010-0001", self.ids("Las 10 vulnerabilidades con mayor EPSS"))   # in KEV, never scored
+        self.assertNotIn("CVE-2025-1111", self.ids("Top 10 vulnerabilities by CVSS score"))      # scored, no CVE record
+
+    def test_a_plan_with_unrecognised_names_is_never_run(self):
+        plan = record_queries.plan("Known exploited vulnerabilities in Acme products", today=TODAY, vendors=self.vendors)
+        self.assertEqual(plan.unresolved, ("Acme",))
+        with self.assertRaises(ValueError):
+            record_search.search(self.store, plan)
 
     def test_question_text_never_reaches_sql_as_code(self):
         plan = record_queries.RecordPlan("record_filter", filter={"vendor": "x' OR 1=1 --", "product": "%"})

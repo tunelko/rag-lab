@@ -391,15 +391,16 @@ class RagService(JobRuntime):
             return {"available": False, "sources": []}
 
     def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None, records=None):
-        """`records` is the structured plan captured at submission, or the name of a fixed notice."""
+        """`records` is the structured plan captured at submission, or a dict describing a fixed notice."""
         started = time.perf_counter()
         documents = self.list_documents()
         if document_names is not None:
             documents = [item for item in documents if item['name'] in document_names]
         scope_metrics = {'topic_id': query.topic_id, 'scope_label': scope_label, 'scope_documents': len(documents)}
-        if isinstance(records, str):
-            return {'answer': record_answers.text(records, query.language), 'sources': [],
-                    'metrics': {**scope_metrics, 'retrieval_mode': 'records'}}
+        if isinstance(records, dict):
+            return {'answer': record_answers.notice(records['notice'], query.language, terms=records.get('terms', ()),
+                                                    suggestions=records.get('suggestions', ())),
+                    'sources': [], 'metrics': {**scope_metrics, 'retrieval_mode': 'records', 'record_notice': records['notice']}}
         # A structured plan replaces document retrieval; nothing below reads the library for it.
         intent = Intent('records') if records is not None else query_intent(query.question)
         if intent.mode.startswith('catalog_'):
@@ -809,11 +810,13 @@ def create_app(service=None):
             knowledge = service.knowledge_store()
             if knowledge is not None:
                 # Captured at submission, like preferences: the date and vocabulary of this moment.
-                plan = record_queries.plan(body.question, today=datetime.now().date(), vendors=record_search.vocabulary(knowledge))
+                vocabulary = record_search.vocabulary(knowledge)
+                plan = record_queries.plan(body.question, today=datetime.now().date(), vendors=vocabulary)
                 if plan is not None and (record_scope or plan.mode == 'record_lookup'):
-                    records = plan
+                    # A named vendor or product that is not published must not be silently dropped.
+                    records = record_answers.unresolved_notice(plan, vocabulary) if plan.unresolved else plan
             if record_scope and records is None:
-                records = 'unavailable' if knowledge is None else 'guidance'
+                records = {'notice': 'unavailable' if knowledge is None else 'guidance'}
         if records is not None and body.images:
             raise HTTPException(422, 'Las consultas sobre registros de vulnerabilidades no admiten imágenes adjuntas.')
         try:
@@ -837,7 +840,7 @@ def create_app(service=None):
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
         provider_key = None
-        generates = not body.search_only and not isinstance(records, str) and (
+        generates = not body.search_only and not isinstance(records, dict) and (
             records is not None or not query_intent(body.question).mode.startswith('catalog_'))
         if generates and settings.response_provider != 'ollama':
             if not settings.external_model.strip() and not (body.images and settings.external_vision_model):

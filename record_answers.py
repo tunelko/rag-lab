@@ -50,8 +50,38 @@ TEXT = {
 }
 
 
+TEXT['es'].update(
+    unresolved=('No reconozco {terms} como fabricante ni producto del catálogo publicado, así que no he ejecutado la consulta: '
+                'el resultado habría ignorado esa condición y parecería referirse a ello.'),
+    suggestions=' Nombres parecidos que sí están: {names}.')
+TEXT['en'].update(
+    unresolved=('I do not recognise {terms} as a vendor or product in the published catalogue, so I did not run the query: '
+                'the result would have ignored that condition while appearing to be about it.'),
+    suggestions=' Similar names that are present: {names}.')
+
+
 def text(key, language='es'):
     return TEXT['en' if language == 'en' else 'es'][key]
+
+
+def notice(kind, language='es', *, terms=(), suggestions=()):
+    """A fixed answer that needs no model: guidance, missing data or an unrecognised name."""
+    message = text(kind, language)
+    if kind == 'unresolved':
+        message = message.format(terms=', '.join(f'«{term}»' for term in terms))
+        if suggestions:
+            message += text('suggestions', language).format(names=', '.join(suggestions))
+    return message
+
+
+def unresolved_notice(plan, vendors):
+    """Notice for a plan whose named conditions are not in the vocabulary, with close vendor names."""
+    from difflib import get_close_matches
+    from record_queries import normalize
+    names = []
+    for term in plan.unresolved:
+        names += get_close_matches(normalize(term), list(vendors), n=3, cutoff=0.6)
+    return {'notice': 'unresolved', 'terms': list(plan.unresolved), 'suggestions': list(dict.fromkeys(names))}
 
 
 def _provenance(sources, language):
