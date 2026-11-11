@@ -1,10 +1,10 @@
-"""Compare structured answers with hand-written reference SQL on the published snapshots.
+"""Compare record answers with hand-written reference SQL on the published snapshots.
 
-Each case has a question and a reference query written independently of the planner and
+Each case has a question and a reference query written independently of the engine and
 the executor. The tool plans and runs the question, runs the reference, and reports any
 difference. It only reads the knowledge store; it never calls a model or the network.
 
-    python -m tools.evaluate_records --dataset data/evaluation/records-results-v1.jsonl
+    python -m tools.evaluate_records --profile ciberseguridad --dataset data/evaluation/records-results-v1.jsonl
 
 Case format (one JSON object per line):
     {"id": "...", "question": "...", "kind": "set" | "ordered" | "count" | "groups",
@@ -25,41 +25,43 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from knowledge_store import KnowledgeStore  # noqa: E402
-import record_queries  # noqa: E402
+import record_engine  # noqa: E402
+import record_profiles  # noqa: E402
 import record_search  # noqa: E402
 
 
-def evaluate(store, cases, *, limit=record_search.MAX_LIMIT):
-    vendors = record_search.vocabulary(store)
+def evaluate(store, cases, record_set, *, limit=record_search.MAX_LIMIT):
+    vocabulary = record_search.vocabulary(store, record_set)
     outcomes = []
     with store.connect() as db:
         for case in cases:
-            plan = record_queries.plan(case['question'], today=case.get('today') or date.today(), vendors=vendors)
-            outcome = {'id': case['id'], 'question': case['question'], 'kind': case['kind'], 'plan': plan.as_dict() if plan else None}
+            plan = record_engine.plan(case['question'], record_set, today=case.get('today') or date.today(), vocabulary=vocabulary)
+            planned = isinstance(plan, record_engine.Plan)
+            outcome = {'id': case['id'], 'question': case['question'], 'kind': case['kind'],
+                       'plan': plan.as_dict() if planned else None}
             rows = db.execute(case['reference_sql']).fetchall()
-            if plan is None:
-                outcome.update(ok=False, problem='no plan')
-            elif plan.unresolved:
-                outcome.update(ok=False, problem='names not in the published vocabulary', size=len(rows))
+            outcome['size'] = len(rows)
+            if not planned:
+                outcome.update(ok=False, problem='no plan' if plan is None else f'rejected ({plan.reason}): {list(plan.items)}')
             else:
-                result = record_search.search(store, plan, default_limit=limit)
+                result = record_search.search(store, plan, record_set, default_limit=limit)
                 if case['kind'] == 'count':
                     expected, got = rows[0][0], result['total']
                 elif case['kind'] == 'groups':
                     expected = sorted((str(row[0]), row[1]) for row in rows)
                     got = sorted((str(group['key']), group['count']) for group in result.get('groups', []))
                 elif case['kind'] == 'ordered':
-                    expected, got = [row[0] for row in rows], [record['cve_id'] for record in result.get('records', [])]
+                    expected, got = [row[0] for row in rows], [record['id'] for record in result.get('records', [])]
                 else:
                     # The answer may be capped: the total must equal the reference size, and every
                     # identifier shown must belong to the reference set.
                     reference = {row[0] for row in rows}
-                    shown = {record['cve_id'] for record in result.get('records', [])}
+                    shown = {record['id'] for record in result.get('records', [])}
                     expected = {'size': len(reference), 'unexpected': []}
                     got = {'size': result.get('total'), 'unexpected': sorted(shown - reference)[:12]}
                     if len(shown) < min(len(reference), result.get('limit', len(shown))):
                         got['shown'] = len(shown)
-                outcome.update(ok=expected == got, size=len(rows))
+                outcome['ok'] = expected == got
                 if expected != got:
                     outcome['expected'], outcome['got'] = _short(expected), _short(got)
             outcomes.append(outcome)
@@ -73,16 +75,21 @@ def _short(value, limit=12):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     parser.add_argument('--dataset', type=Path, required=True)
+    parser.add_argument('--profile', required=True)
+    parser.add_argument('--record-set', help='defaults to the first record set of the profile')
     parser.add_argument('--data-dir', type=Path, default=ROOT / 'data' / 'knowledge')
     parser.add_argument('--output', type=Path)
     args = parser.parse_args(argv)
+    profile = record_profiles.load(args.profile)
+    record_set = next(item for item in profile['record_sets'] if args.record_set in (None, item['id']))
     raw = args.dataset.read_bytes()
     cases = [json.loads(line) for line in raw.decode('utf-8').splitlines() if line.strip()]
     store = KnowledgeStore(args.data_dir / 'knowledge.sqlite3')
-    outcomes = evaluate(store, cases)
+    outcomes = evaluate(store, cases, record_set)
     with store.connect() as db:
         sources = record_search.provenance(db)
     report = {'dataset': args.dataset.name, 'dataset_sha256': hashlib.sha256(raw).hexdigest(),
+              'profile': profile['id'], 'record_set': record_set['id'],
               'snapshots': {source['source_id']: source['snapshot_id'] for source in sources},
               'cases': len(outcomes), 'passed': sum(outcome['ok'] for outcome in outcomes),
               'empty_references': [outcome['id'] for outcome in outcomes if outcome.get('size') == 0],

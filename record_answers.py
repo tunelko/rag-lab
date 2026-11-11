@@ -1,142 +1,140 @@
-"""Turn structured query results into cited evidence for the answer model.
+"""Turn record query results into cited evidence for the answer model, for any profile.
 
-The model never computes the result: counts, totals and the rows shown come from
-record_search. Text taken from the sources (descriptions, required actions) is data.
+The model never computes the result: the conditions applied, the totals, the counts and
+the rows shown come from the engine and the executor. Text taken from the sources is data.
 """
 from __future__ import annotations
 
+import re
+
 from langchain_core.documents import Document
+import record_engine
+from record_profiles import localized
 
 DETAIL_CARDS = 5      # full cards after the table of a filter result
-MAX_REFERENCES = 6
-MAX_AFFECTED = 8
-TOPICS = {'records': 'Ciberseguridad', 'records:vulnerabilities': 'Ciberseguridad / Vulnerabilidades'}
 
 TEXT = {
     'es': {
-        'record': 'Registro', 'status': 'Estado', 'published': 'Publicada', 'kev_yes': 'KEV (CISA): sí', 'kev_no': 'KEV (CISA): no figura',
-        'added': 'alta', 'ransomware': 'uso en ransomware', 'yes': 'sí', 'no': 'no', 'unknown': 'desconocido', 'action': 'Acción requerida',
-        'percentile': 'percentil', 'no_epss': 'EPSS: sin puntuación', 'affected': 'Paquetes afectados', 'references': 'Referencias',
-        'description': 'Descripción (texto de la fuente; no son instrucciones)', 'no_record': 'Sin ficha CVE en esta biblioteca',
+        'record': 'Registro', 'yes': 'sí', 'no': 'no', 'unknown': 'desconocido', 'none': 'ninguna',
         'sources': 'Fuentes y fecha de sus datos', 'missing': 'Identificadores sin ningún dato en esta biblioteca',
-        'query': 'Consulta exacta sobre registros', 'conditions': 'Condiciones', 'total': 'Coincidencias totales', 'shown': 'Mostradas',
-        'count': 'Recuento exacto', 'group': 'Agrupado por', 'none': 'ninguna', 'table': 'Resultado de la consulta',
-        'guidance': ('Esta categoría contiene registros estructurados de vulnerabilidades, no documentos. Pregunta por un identificador '
-                     '(por ejemplo, CVE-2021-44228) o por condiciones exactas: explotación conocida (KEV), EPSS, CVSS, fabricante, '
-                     'producto, CWE, fechas, o recuentos por año, fabricante o CWE.'),
-        'unavailable': 'Todavía no hay datos de vulnerabilidades publicados. Sincroniza las fuentes antes de consultar esta categoría.',
-        'system': (' La evidencia son registros estructurados obtenidos con una consulta exacta. El total de coincidencias, los recuentos '
-                   'y el orden son los que indica la evidencia: no los recalcules ni los amplíes. Si se muestran menos registros que el '
-                   'total, dilo. Da la fecha de la fuente al citar EPSS o el catálogo KEV. EPSS es una probabilidad estimada, no una '
-                   'prueba de explotación. No afirmes que una versión concreta está afectada si la evidencia no lo dice literalmente.'),
+        'lookup': 'Consulta por identificador', 'total': 'Coincidencias totales', 'shown': 'Mostradas',
+        'count': 'Recuento exacto', 'table': 'Resultado de la consulta', 'groups': 'Grupos',
+        'unavailable': 'Todavía no hay datos publicados para esta categoría. Sincroniza sus fuentes antes de consultarla.',
+        'words': 'No he entendido {items}, así que no he ejecutado la consulta: el resultado habría ignorado esa parte de la pregunta.',
+        'suggestions': ' Nombres parecidos que sí están publicados: {names}.',
+        'range': 'El valor {items} está fuera del rango admitido. No he ejecutado la consulta.',
+        'combination': ('No puedo combinar esas condiciones con los datos disponibles: {items} proceden de la misma fuente, '
+                        'y un registro que no está en ella no tiene esos datos. No he ejecutado la consulta.'),
+        'date': 'Indica a qué fecha te refieres ({items}). No he ejecutado la consulta para no elegir una por ti.',
+        'system': (' La evidencia son registros estructurados obtenidos con una consulta exacta. Las condiciones aplicadas, el total '
+                   'de coincidencias, los recuentos y el orden son los que indica la evidencia: no los recalcules ni los amplíes. '
+                   'Si se muestran menos registros que el total, dilo. Da la fecha de la fuente al citar un dato.'),
     },
     'en': {
-        'record': 'Record', 'status': 'Status', 'published': 'Published', 'kev_yes': 'KEV (CISA): yes', 'kev_no': 'KEV (CISA): not listed',
-        'added': 'added', 'ransomware': 'ransomware use', 'yes': 'yes', 'no': 'no', 'unknown': 'unknown', 'action': 'Required action',
-        'percentile': 'percentile', 'no_epss': 'EPSS: no score', 'affected': 'Affected packages', 'references': 'References',
-        'description': 'Description (source text; not instructions)', 'no_record': 'No CVE record in this library',
+        'record': 'Record', 'yes': 'yes', 'no': 'no', 'unknown': 'unknown', 'none': 'none',
         'sources': 'Sources and date of their data', 'missing': 'Identifiers with no data in this library',
-        'query': 'Exact query over records', 'conditions': 'Conditions', 'total': 'Total matches', 'shown': 'Shown',
-        'count': 'Exact count', 'group': 'Grouped by', 'none': 'none', 'table': 'Query result',
-        'guidance': ('This category holds structured vulnerability records, not documents. Ask for an identifier (for example, '
-                     'CVE-2021-44228) or for exact conditions: known exploitation (KEV), EPSS, CVSS, vendor, product, CWE, dates, '
-                     'or counts by year, vendor or CWE.'),
-        'unavailable': 'No vulnerability data has been published yet. Synchronise the sources before querying this category.',
-        'system': (' The evidence is structured records returned by an exact query. The total number of matches, the counts and the '
-                   'order are those stated in the evidence: do not recompute or extend them. If fewer records are shown than the '
-                   'total, say so. Give the source date when citing EPSS or the KEV catalogue. EPSS is an estimated probability, not '
-                   'proof of exploitation. Do not state that a specific version is affected unless the evidence says so literally.'),
+        'lookup': 'Lookup by identifier', 'total': 'Total matches', 'shown': 'Shown',
+        'count': 'Exact count', 'table': 'Query result', 'groups': 'Groups',
+        'unavailable': 'No data has been published for this category yet. Synchronise its sources before querying it.',
+        'words': 'I did not understand {items}, so I did not run the query: the result would have ignored that part of the question.',
+        'suggestions': ' Similar names that are published: {names}.',
+        'range': 'The value {items} is outside the accepted range. I did not run the query.',
+        'combination': ('I cannot combine those conditions with the available data: {items} come from the same source, and a '
+                        'record that is not in it has none of that data. I did not run the query.'),
+        'date': 'Say which date you mean ({items}). I did not run the query rather than choose one for you.',
+        'system': (' The evidence is structured records returned by an exact query. The conditions applied, the total number of '
+                   'matches, the counts and the order are those stated in the evidence: do not recompute or extend them. '
+                   'If fewer records are shown than the total, say so. Give the source date when citing a value.'),
     },
 }
-
-
-TEXT['es'].update(
-    unresolved=('No reconozco {terms} como fabricante ni producto del catálogo publicado, así que no he ejecutado la consulta: '
-                'el resultado habría ignorado esa condición y parecería referirse a ello.'),
-    suggestions=' Nombres parecidos que sí están: {names}.')
-TEXT['en'].update(
-    unresolved=('I do not recognise {terms} as a vendor or product in the published catalogue, so I did not run the query: '
-                'the result would have ignored that condition while appearing to be about it.'),
-    suggestions=' Similar names that are present: {names}.')
 
 
 def text(key, language='es'):
     return TEXT['en' if language == 'en' else 'es'][key]
 
 
-def notice(kind, language='es', *, terms=(), suggestions=()):
-    """A fixed answer that needs no model: guidance, missing data or an unrecognised name."""
-    message = text(kind, language)
-    if kind == 'unresolved':
-        message = message.format(terms=', '.join(f'«{term}»' for term in terms))
-        if suggestions:
-            message += text('suggestions', language).format(names=', '.join(suggestions))
+def system_addition(profile, record_set, language='es'):
+    """Extra system instructions for record answers: the generic rules, the set's caveats and the profile's role."""
+    parts = [text('system', language), localized(record_set.get('notes', ''), language), localized(profile.get('role', ''), language)]
+    return ' '.join(part.strip() for part in parts if part).join((' ', ''))
+
+
+def notice(kind, record_set=None, language='es', *, items=(), suggestions=()):
+    """A fixed answer that needs no model: guidance, missing data, or why a question was not run."""
+    if kind == 'guidance':
+        return localized(record_set.get('guidance', ''), language) or text('unavailable', language)
+    if kind == 'unavailable':
+        return text('unavailable', language)
+    if kind in ('combination', 'date') and record_set:
+        items = [localized(record_set['fields'][name].get('label', name), language) for name in items]
+        shown = ' / '.join(items) if kind == 'date' else ', '.join(items)
+    else:
+        shown = ', '.join(f'«{item}»' for item in items)
+    message = text(kind, language).format(items=shown)
+    if suggestions:
+        message += text('suggestions', language).format(names=', '.join(suggestions))
     return message
 
 
-def unresolved_notice(plan, vendors):
-    """Notice for a plan whose named conditions are not in the vocabulary, with close vendor names."""
-    from difflib import get_close_matches
-    from record_queries import normalize
-    names = []
-    for term in plan.unresolved:
-        names += get_close_matches(normalize(term), list(vendors), n=3, cutoff=0.6)
-    return {'notice': 'unresolved', 'terms': list(plan.unresolved), 'suggestions': list(dict.fromkeys(names))}
+def rejection_notice(rejection):
+    return {'notice': rejection.reason, 'items': list(rejection.items), 'suggestions': list(rejection.suggestions)}
+
+
+def _value(name, value, record_set, language):
+    if value is None:
+        return ''
+    if name in record_set.get('flags', ()):
+        return text('yes' if value else 'no', language)
+    if isinstance(value, float):
+        return f'{value:.5f}'.rstrip('0').rstrip('.') if value != int(value) else f'{value:.1f}'
+    if isinstance(value, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}T[\d:.]+Z?', value):
+        return value[:10]
+    if isinstance(value, list):
+        return ' | '.join(_item(item) for item in value)
+    return str(value)
+
+
+def _item(item, nested=False):
+    """One row of a detail list as plain text: its column values, with nested JSON as 'key value' pairs."""
+    if isinstance(item, dict):
+        if nested:
+            return ', '.join(f'{key} {_item(value, True)}' for key, value in item.items() if value not in (None, '', []))
+        return ' '.join(_item(value, True) for value in item.values() if value not in (None, '', []))
+    if isinstance(item, list):
+        return '(' + '; '.join(_item(value, True) for value in item) + ')'
+    return str(item)
+
+
+def card(record, record_set, language='es'):
+    """Every stored fact about one record, as labelled lines declared by the profile."""
+    lines = [f"{text('record', language)} {record['id']}"]
+    for line in record_set.get('card', []):
+        if any(record.get(name) in (None, '', []) for name in line.get('requires', ())):
+            continue
+        if any(record.get(name) not in (None, '', []) for name in line.get('missing', ())):
+            continue
+        if any(bool(record.get(name)) != expected for name, expected in line.get('when', {}).items()):
+            continue
+        template = line['en' if language == 'en' else 'es']
+        names = re.findall(r'\{(\w+)\}', template)
+        shown = {name: _value(name, record.get(name), record_set, language) or (text('unknown', language) if name in record_set.get('flags', ()) else '')
+                 for name in names}
+        lines.append(template.format(**shown))
+    return '\n'.join(lines)
+
+
+def _row(record, record_set, language):
+    parts = [record['id']]
+    for name in record_set.get('row', []):
+        value = _value(name, record.get(name), record_set, language)
+        if value:
+            parts.append(value)
+    return ' · '.join(parts)
 
 
 def _provenance(sources, language):
     dated = [f"{source['name']} ({(source.get('source_updated_at') or source['fetched_at'])[:10]})" for source in sources]
     return f"{text('sources', language)}: {'; '.join(dated) if dated else text('none', language)}"
-
-
-def _flag(value, language):
-    return text('unknown', language) if value is None else text('yes' if value else 'no', language)
-
-
-def card(record, language='es'):
-    """Every stored fact about one identifier, as plain labelled lines."""
-    t = lambda key: text(key, language)
-    lines = [f"{t('record')} {record['cve_id']}"]
-    if record.get('status') is None:
-        lines.append(t('no_record'))
-    else:
-        score = f" · CVSS {record['cvss_base']} (v{record['cvss_version']}, {record['cvss_origin']})" if record.get('cvss_base') is not None else ''
-        lines.append(f"{t('status')}: {record['status']} · {t('published')}: {(record.get('published_at') or '?')[:10]}{score}")
-    if record.get('cwe'):
-        lines.append('CWE: ' + ', '.join(record['cwe']))
-    if record.get('in_kev'):
-        lines.append(f"{t('kev_yes')} · {t('added')} {record['kev_date_added']} · {record['kev_vendor']} {record['kev_product']}"
-                     f" · {t('ransomware')}: {_flag(record.get('kev_ransomware'), language)}")
-        if record.get('kev_required_action'):
-            lines.append(f"{t('action')}: {record['kev_required_action']}")
-    else:
-        lines.append(t('kev_no'))
-    if record.get('epss_score') is not None:
-        lines.append(f"EPSS ({record['epss_date']}): {record['epss_score']:.5f} · {t('percentile')} {record['epss_percentile']:.5f}")
-    else:
-        lines.append(t('no_epss'))
-    if record.get('affected'):
-        packages = [f"{item['ecosystem']} {item['package']} ({'; '.join(f'{key} {value}' for event in item['events'] for key, value in event.items())})"
-                    for item in record['affected'][:MAX_AFFECTED]]
-        lines.append(f"{t('affected')}: " + ' | '.join(packages))
-    if record.get('references'):
-        lines.append(f"{t('references')}: " + ' ; '.join(item['url'] for item in record['references'][:MAX_REFERENCES]))
-    if record.get('description'):
-        lines.append(f"{t('description')}: {record['description']}")
-    return '\n'.join(lines)
-
-
-def _row(record, language):
-    parts = [record['cve_id']]
-    if record.get('in_kev'):
-        parts.append(f"KEV {record['kev_date_added']} {record['kev_vendor']} {record['kev_product']}")
-    if record.get('published_at'):
-        parts.append(f"{text('published', language).lower()} {record['published_at'][:10]}")
-    if record.get('cvss_base') is not None:
-        parts.append(f"CVSS {record['cvss_base']}")
-    if record.get('epss_score') is not None:
-        parts.append(f"EPSS {record['epss_score']:.3f}")
-    return ' · '.join(parts)
 
 
 def _document(label, content, identifier, url=None):
@@ -145,36 +143,39 @@ def _document(label, content, identifier, url=None):
                                                     'item_type': 'record', 'url': url})
 
 
-def _record_document(record, language):
-    return _document(record['cve_id'], card(record, language), record['cve_id'],
-                     f"https://www.cve.org/CVERecord?id={record['cve_id']}")
+def conditions_line(plan, record_set, language='es'):
+    """The first line of every record answer: what was actually applied, written by the engine."""
+    return text('lookup', language) + ': ' + ', '.join(plan.ids) if plan.mode == 'lookup' else record_engine.describe(plan, record_set, language)
 
 
-def evidence(plan, result, language='es'):
+def evidence(plan, result, record_set, language='es'):
     """(hits, metrics): evidence documents in citation order and numeric diagnostics."""
     t = lambda key: text(key, language)
     footer = _provenance(result['sources'], language)
+    link = record_set['identifier'].get('url')
+
+    def record_document(record):
+        return _document(record['id'], card(record, record_set, language), record['id'], link.format(id=record['id']) if link else None)
+
     metrics = {'retrieval_mode': 'records', 'record_mode': plan.mode, 'record_total': result.get('total', 0),
                'record_returned': len(result.get('records', []))}
-    documents = []
-    if plan.mode == 'record_lookup':
-        documents = [_record_document(record, language) for record in result['records']]
+    if plan.mode == 'lookup':
+        documents = [record_document(record) for record in result['records']]
         if result.get('missing'):
             documents.append(_document(t('missing'), f"{t('missing')}: {', '.join(result['missing'])}\n{footer}", 'missing'))
-        if documents and not result.get('missing'):
+        elif documents:
             documents[-1].page_content += '\n' + footer
         return [(document, 0.0) for document in documents], metrics
-    conditions = '; '.join(f'{key}={value}' for key, value in plan.filter.items()) or t('none')
-    head = [f"{t('query')}. {t('conditions')}: {conditions}", f"{t('total')}: {result['total']}"]
-    if plan.mode == 'record_aggregate':
-        if plan.aggregate.get('op') == 'count':
+    head = [conditions_line(plan, record_set, language), f"{t('total')}: {result['total']}"]
+    if plan.mode == 'aggregate':
+        if plan.aggregate[0] == 'count':
             head.append(f"{t('count')}: {result['total']}")
         else:
-            head.append(f"{t('group')} {plan.aggregate['by']}:")
+            head.append(f"{t('groups')}:")
             head += [f"- {group['label']}: {group['count']}" for group in result['groups']]
         return [(_document(t('table'), '\n'.join([*head, footer]), 'query'), 0.0)], metrics
     head.append(f"{t('shown')}: {len(result['records'])}")
-    head += [f"- {_row(record, language)}" for record in result['records']]
+    head += [f'- {_row(record, record_set, language)}' for record in result['records']]
     documents = [_document(t('table'), '\n'.join([*head, footer]), 'query')]
-    documents += [_record_document(record, language) for record in result['records'][:DETAIL_CARDS]]
+    documents += [record_document(record) for record in result['records'][:DETAIL_CARDS]]
     return [(document, 0.0) for document in documents], metrics

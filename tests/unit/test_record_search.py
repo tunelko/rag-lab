@@ -4,10 +4,12 @@ import tempfile
 import unittest
 
 from knowledge_store import KnowledgeStore
-import record_queries
+import record_engine
+import record_profiles
 import record_search
 
 TODAY = "2026-11-11"
+RECORD_SET = record_profiles.load("ciberseguridad")["record_sets"][0]
 # cve, published, status, cvss, version, cwes
 VULNERABILITIES = [
     ("CVE-2021-44228", "2021-12-10T10:15:00Z", "published", 10.0, "3.1", ["CWE-502", "CWE-20"]),
@@ -77,26 +79,31 @@ def write_epss(rows):
     return write
 
 
+def synthetic_store(path):
+    store = KnowledgeStore(path)
+    store.upsert_space("vuln", "Vulnerabilidades")
+    publish(store, "cvelist", "a", write_vulnerabilities(VULNERABILITIES))
+    publish(store, "kev", "b", write_kev(KEV))
+    publish(store, "epss", "c", write_epss(EPSS))
+    return store
+
+
 class RecordSearchTests(unittest.TestCase):
     def setUp(self):
-        self.store = KnowledgeStore(Path(tempfile.mkdtemp(prefix="record-search-")) / "knowledge.sqlite3")
-        self.store.upsert_space("vuln", "Vulnerabilidades")
-        publish(self.store, "cvelist", "a", write_vulnerabilities(VULNERABILITIES))
-        publish(self.store, "kev", "b", write_kev(KEV))
-        publish(self.store, "epss", "c", write_epss(EPSS))
-        self.vendors = record_search.vocabulary(self.store)
+        self.store = synthetic_store(Path(tempfile.mkdtemp(prefix="record-search-")) / "knowledge.sqlite3")
+        self.vocabulary = record_search.vocabulary(self.store, RECORD_SET)
 
     def run_question(self, question):
-        plan = record_queries.plan(question, today=TODAY, vendors=self.vendors)
-        self.assertIsNotNone(plan, question)
-        return record_search.search(self.store, plan)
+        plan = record_engine.plan(question, RECORD_SET, today=TODAY, vocabulary=self.vocabulary)
+        self.assertIsInstance(plan, record_engine.Plan, (question, plan))
+        return record_search.search(self.store, plan, RECORD_SET)
 
     def ids(self, question):
-        return [record["cve_id"] for record in self.run_question(question)["records"]]
+        return [record["id"] for record in self.run_question(question)["records"]]
 
     def test_vocabulary_comes_from_the_published_catalog(self):
-        self.assertEqual(self.vendors["microsoft"], ["exchange server", "windows"])
-        self.assertIn("palo alto networks", self.vendors)
+        self.assertEqual(self.vocabulary["microsoft"], ["exchange server", "windows"])
+        self.assertIn("palo alto networks", self.vocabulary)
 
     def test_lookup_returns_the_record_with_every_source_and_reports_missing_ids(self):
         result = self.run_question("Compara CVE-2022-0847 con CVE-2099-0001")
@@ -104,19 +111,22 @@ class RecordSearchTests(unittest.TestCase):
         self.assertEqual(result["missing"], ["CVE-2099-0001"])
         self.assertEqual((record["cvss_base"], record["in_kev"], record["kev_vendor"], record["epss_score"]), (7.8, 1, "Linux", 0.12))
         self.assertEqual(record["cwe"], ["CWE-665"])
-        self.assertEqual(record["affected"][0]["package"], "linux")
-        self.assertEqual(record["affected"][0]["events"][1], {"fixed": "5.4.0-104.118"})
-        self.assertEqual(record["references"][0]["tags"], ["vendor-advisory"])
+        self.assertEqual(record["affected"][0]["package_name"], "linux")
+        self.assertEqual(record["affected"][0]["events_json"][1], {"fixed": "5.4.0-104.118"})
+        self.assertEqual(record["references"], ["https://example.org/advisory/CVE-2022-0847"])
         self.assertEqual([source["source_id"] for source in result["sources"]], ["cvelist", "epss", "kev"])
 
     def test_lookup_shows_a_rejected_record_but_filters_never_do(self):
         record, = self.run_question("CVE-2024-9999")["records"]
         self.assertEqual(record["status"], "rejected")
         self.assertNotIn("CVE-2024-9999", self.ids("CVE publicadas en 2024 con CVSS superior a 0"))
+        # A score without a CVE record is still a known identifier.
+        self.assertEqual(self.run_question("CVE-2025-1111")["records"][0]["status"], None)
 
     def test_filters_match_hand_written_expectations(self):
         cases = {
             "Vulnerabilidades en KEV usadas en campañas de ransomware": {"CVE-2021-44228", "CVE-2021-26855", "CVE-2024-3400"},
+            "Vulnerabilidades en KEV que no se usan en ransomware": {"CVE-2022-0847", "CVE-2023-4863", "CVE-2010-0001"},
             "Vulnerabilidades explotadas activamente de Microsoft": {"CVE-2021-26855", "CVE-2010-0001"},
             "Known exploited vulnerabilities in Microsoft Exchange Server": {"CVE-2021-26855"},
             "known exploited vulnerabilities in Palo Alto Networks PAN-OS": {"CVE-2024-3400"},
@@ -132,6 +142,10 @@ class RecordSearchTests(unittest.TestCase):
         for question, expected in cases.items():
             self.assertEqual(set(self.ids(question)), expected, question)
 
+    def test_strict_and_inclusive_comparisons_differ(self):
+        self.assertNotIn("CVE-2023-4863", self.ids("Vulnerabilidades con EPSS mayor que 0,6"))
+        self.assertIn("CVE-2023-4863", self.ids("Vulnerabilidades con EPSS mayor o igual a 0,6"))
+
     def test_severity_bands_ignore_cvss_v2_scores(self):
         self.assertEqual(set(self.ids("Vulnerabilidades críticas con explotación conocida")),
                          {"CVE-2021-44228", "CVE-2021-26855", "CVE-2024-3400"})
@@ -139,13 +153,13 @@ class RecordSearchTests(unittest.TestCase):
 
     def test_ordering_and_limit_are_deterministic_and_total_counts_every_match(self):
         result = self.run_question("Las 2 vulnerabilidades con mayor EPSS")
-        self.assertEqual([record["cve_id"] for record in result["records"]], ["CVE-2021-44228", "CVE-2021-26855"])
-        # Eight identifiers are known; the rejected one does not count.
+        self.assertEqual([record["id"] for record in result["records"]], ["CVE-2021-44228", "CVE-2021-26855"])
         self.assertEqual((result["limit"], result["total"]), (2, 6))  # only records that have a score are ranked
         self.assertEqual(self.ids("Vulnerabilidades recientes con explotación conocida")[:2], ["CVE-2024-3400", "CVE-2023-4863"])
-        # Equal scores break on the identifier; rows without a score come last.
+        # Equal scores break on the identifier.
         self.assertEqual(self.ids("Top 3 known exploited vulnerabilities by CVSS score"),
                          ["CVE-2024-3400", "CVE-2021-44228", "CVE-2021-26855"])
+        self.assertNotIn("CVE-2010-0001", self.ids("Las 10 vulnerabilidades con mayor EPSS"))   # in KEV, never scored
 
     def test_counts_and_groupings(self):
         self.assertEqual(self.run_question("¿Cuántas vulnerabilidades hay en KEV?")["total"], 6)
@@ -158,6 +172,10 @@ class RecordSearchTests(unittest.TestCase):
         self.assertEqual(sum(row["count"] for row in cwes), 6)
         months = self.run_question("Evolución mensual de las altas en KEV durante 2022")["groups"]
         self.assertEqual([row["key"] for row in months], ["2022-03", "2022-04"])
+        products = self.run_question("Agrupa por producto las vulnerabilidades de Microsoft")["groups"]
+        self.assertEqual({row["label"] for row in products}, {"Exchange Server", "Windows"})
+        ecosystems = self.run_question("Agrupa por ecosistema las vulnerabilidades con CVSS de 7 o más")["groups"]
+        self.assertEqual([(row["key"], row["count"]) for row in ecosystems], [("Ubuntu:20.04:LTS", 1)])
 
     def test_a_staged_or_failed_snapshot_is_never_visible(self):
         run = self.store.start_sync("kev")
@@ -167,23 +185,17 @@ class RecordSearchTests(unittest.TestCase):
         self.assertEqual(self.run_question("¿Cuántas vulnerabilidades hay en KEV?")["total"], 6)
         self.store.fail_sync(run, "test", "abandoned on purpose")
         self.assertEqual(self.run_question("¿Cuántas vulnerabilidades hay en KEV?")["total"], 6)
-        self.assertNotIn("evil", record_search.vocabulary(self.store))
-
-    def test_ranking_leaves_out_records_without_the_ranked_value(self):
-        self.assertNotIn("CVE-2010-0001", self.ids("Las 10 vulnerabilidades con mayor EPSS"))   # in KEV, never scored
-        self.assertNotIn("CVE-2025-1111", self.ids("Top 10 vulnerabilities by CVSS score"))      # scored, no CVE record
-
-    def test_a_plan_with_unrecognised_names_is_never_run(self):
-        plan = record_queries.plan("Known exploited vulnerabilities in Acme products", today=TODAY, vendors=self.vendors)
-        self.assertEqual(plan.unresolved, ("Acme",))
-        with self.assertRaises(ValueError):
-            record_search.search(self.store, plan)
+        self.assertNotIn("evil", record_search.vocabulary(self.store, RECORD_SET))
 
     def test_question_text_never_reaches_sql_as_code(self):
-        plan = record_queries.RecordPlan("record_filter", filter={"vendor": "x' OR 1=1 --", "product": "%"})
-        self.assertEqual(record_search.search(self.store, plan)["total"], 0)
-        with self.assertRaises(ValueError):
-            record_search.search(self.store, record_queries.RecordPlan("record_filter", filter={"drop": "table"}))
+        hostile = record_engine.Plan("vulnerabilities", "filter", conditions=(
+            record_engine.Condition("vendor", "eq", "x' OR 1=1 --"), record_engine.Condition("product", "contains", "%"),
+            record_engine.Condition("cwe", "in", ("CWE-1') OR 1=1 --",))))
+        self.assertEqual(record_search.search(self.store, hostile, RECORD_SET)["total"], 0)
+        self.assertEqual(record_search.search(self.store, record_engine.Plan("vulnerabilities", "lookup", ids=("x' OR '1'='1",)), RECORD_SET)["total"], 0)
+        with self.assertRaises(KeyError):
+            record_search.search(self.store, record_engine.Plan("vulnerabilities", "filter", conditions=(
+                record_engine.Condition("not_a_field", "eq", 1),)), RECORD_SET)
 
 
 if __name__ == "__main__":

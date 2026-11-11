@@ -1,13 +1,8 @@
-"""Run a RecordPlan against the published snapshots of the knowledge store.
+"""Run a record plan against the published snapshots, for any profile.
 
-Every query is parameterised SQL over the `current_*` views, so staged or failed
-snapshots are never visible. The model never writes or alters these queries: it
-only receives their rows. Thresholds and dates are inclusive on both sides.
-
-Where each condition comes from (first vertical): vendor, product and ransomware
-use come from CISA KEV, so filtering by them returns only catalogued entries;
-scores come from EPSS; publication date, CVSS and CWE from the CVE record.
-Severity bands apply to CVSS 3.x and 4.0 only.
+SQL is assembled only from names declared in a validated profile (views, columns, aliases);
+every value from a question travels as a parameter. The views are the store's `current_*`
+views, so staged or failed snapshots are never visible. Nothing here knows a domain.
 """
 from __future__ import annotations
 
@@ -15,85 +10,113 @@ import json
 
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 200
-SEVERITY = {'critical': (9.0, 10.0), 'high': (7.0, 8.9), 'medium': (4.0, 6.9), 'low': (0.1, 3.9)}
-SORT = {'epss': 'e.score', 'cvss': 'v.cvss_base', 'published': 'v.published_at', 'kev_added': 'k.date_added'}
-GROUPS = {
-    'vendor': ('k.vendor_key', 'MIN(k.vendor)', ''),
-    'cwe': ('w.cwe_id', 'w.cwe_id', ' JOIN current_vulnerability_weaknesses w ON w.cve_id = ids.cve_id'),
-    'kev_added_year': ('substr(k.date_added, 1, 4)', 'substr(k.date_added, 1, 4)', ''),
-    'kev_added_month': ('substr(k.date_added, 1, 7)', 'substr(k.date_added, 1, 7)', ''),
-    'published_year': ('substr(v.published_at, 1, 4)', 'substr(v.published_at, 1, 4)', ''),
-    'published_month': ('substr(v.published_at, 1, 7)', 'substr(v.published_at, 1, 7)', ''),
-}
-# One row per CVE even if several sources publish the same record.
-VULNERABILITIES = '(SELECT * FROM current_vulnerabilities GROUP BY cve_id)'
-JOINS = (f' LEFT JOIN {VULNERABILITIES} v ON v.cve_id = ids.cve_id'
-         ' LEFT JOIN current_kev k ON k.cve_id = ids.cve_id'
-         ' LEFT JOIN current_epss e ON e.cve_id = ids.cve_id')
-COLUMNS = ('ids.cve_id AS cve_id, v.published_at, v.modified_at, v.status, v.description, v.cvss_base, v.cvss_version,'
-           ' v.cvss_vector, v.cvss_origin, k.cve_id IS NOT NULL AS in_kev, k.date_added AS kev_date_added,'
-           ' k.vendor AS kev_vendor, k.product AS kev_product, k.ransomware_known AS kev_ransomware,'
-           ' k.required_action AS kev_required_action, k.due_date AS kev_due_date,'
-           ' e.score AS epss_score, e.percentile AS epss_percentile, e.score_date AS epss_date')
-UNIVERSE = ('(SELECT cve_id FROM current_kev UNION SELECT cve_id FROM current_vulnerabilities'
-            ' UNION SELECT cve_id FROM current_epss)')
+OPERATORS = {'eq': '=', 'gt': '>', 'ge': '>=', 'lt': '<', 'le': '<='}
 
 
-def _conditions(filters):
-    """WHERE clauses and parameters for a filter; unknown keys are an error, never ignored."""
-    known = {'kev', 'ransomware', 'epss_min', 'epss_max', 'percentile_min', 'percentile_max', 'cvss_min', 'cvss_max',
-             'severity', 'published_from', 'published_to', 'kev_added_from', 'kev_added_to', 'cwe', 'vendor', 'product',
-             'ecosystem', 'sort', 'order', 'limit'}
-    unknown = set(filters) - known
-    if unknown:
-        raise ValueError(f'Unsupported filter: {sorted(unknown)}')
-    where, values = ["(v.status IS NULL OR v.status = 'published')"], []
-
-    def add(clause, *parameters):
-        where.append(clause)
-        values.extend(parameters)
-
-    if filters.get('kev'):
-        add('k.cve_id IS NOT NULL')
-    if filters.get('ransomware'):
-        add('k.ransomware_known = 1')
-    for key, column in (('epss', 'e.score'), ('percentile', 'e.percentile'), ('cvss', 'v.cvss_base')):
-        if filters.get(f'{key}_min') is not None:
-            add(f'{column} >= ?', float(filters[f'{key}_min']))
-        if filters.get(f'{key}_max') is not None:
-            add(f'{column} <= ?', float(filters[f'{key}_max']))
-    if filters.get('severity'):
-        low, high = SEVERITY[filters['severity']]
-        add("v.cvss_base BETWEEN ? AND ? AND (v.cvss_version LIKE '3%' OR v.cvss_version LIKE '4%')", low, high)
-    for key, column in (('published', 'substr(v.published_at, 1, 10)'), ('kev_added', 'k.date_added')):
-        if filters.get(f'{key}_from'):
-            add(f'{column} >= ?', filters[f'{key}_from'])
-        if filters.get(f'{key}_to'):
-            add(f'{column} <= ?', filters[f'{key}_to'])
-    if filters.get('cwe'):
-        marks = ','.join('?' * len(filters['cwe']))
-        add(f'EXISTS (SELECT 1 FROM current_vulnerability_weaknesses w WHERE w.cve_id = ids.cve_id AND w.cwe_id IN ({marks}))',
-            *filters['cwe'])
-    if filters.get('vendor'):
-        add('k.vendor_key = ?', filters['vendor'])
-    if filters.get('product'):
-        add('instr(k.product_key, ?) > 0', filters['product'])
-    if SORT.get(filters.get('sort')):
-        # Ordering by a value only makes sense for records that have it.
-        add(f"{SORT[filters['sort']]} IS NOT NULL")
-    if filters.get('ecosystem'):
-        add('EXISTS (SELECT 1 FROM current_affected a WHERE a.cve_id = ids.cve_id AND (a.ecosystem = ? OR a.ecosystem LIKE ?))',
-            filters['ecosystem'], filters['ecosystem'].replace('%', '').replace('_', '') + ':%')
-    return ' WHERE ' + ' AND '.join(where), values
+def _joins(record_set):
+    parts = []
+    for alias, table in record_set['tables'].items():
+        source = f"(SELECT * FROM {table['view']} GROUP BY {table['key']})" if table.get('one_per_key') else table['view']
+        parts.append(f" LEFT JOIN {source} {alias} ON {alias}.{table['key']} = ids.id")
+    return ''.join(parts)
 
 
-def _order(filters):
-    column = SORT.get(filters.get('sort'))
-    if column is None:
-        return ' ORDER BY ids.cve_id DESC'
-    direction = 'ASC' if filters.get('order') == 'asc' else 'DESC'
-    # Rows without the value go last in either direction; ties break on the identifier.
-    return f' ORDER BY {column} IS NULL, {column} {direction}, ids.cve_id DESC'
+def _select(record_set):
+    columns = [f'{column} AS {name}' for name, column in record_set.get('columns', {}).items()]
+    columns += [f"{alias}.{record_set['tables'][alias]['key']} IS NOT NULL AS {name}" for name, alias in record_set.get('presence', {}).items()]
+    return 'ids.id AS id' + ''.join(', ' + column for column in columns)
+
+
+def _visible(record_set):
+    rule = record_set.get('visible_when')
+    if not rule:
+        return [], []
+    clause = f"{rule['column']} = ?"
+    return [f"({rule['column']} IS NULL OR {clause})" if rule.get('or_missing') else clause], [rule['equals']]
+
+
+def _in_view(spec, values, prefix=False):
+    view = spec['in']
+    if prefix:
+        match = ' OR '.join('(x.{0} = ? OR x.{0} LIKE ?)'.format(view['column']) for _ in values)
+        parameters = [item for value in values for item in (value, str(value).replace('%', '').replace('_', '') + ':%')]
+    else:
+        match = f"x.{view['column']} IN ({','.join('?' * len(values))})"
+        parameters = list(values)
+    return f"EXISTS (SELECT 1 FROM {view['view']} x WHERE x.{view['key']} = ids.id AND ({match}))", parameters
+
+
+def _conditions(plan, record_set):
+    """(clauses, parameters, tables that must have a row) for the plan's conditions and ordering."""
+    fields = record_set['fields']
+    clauses, values = _visible(record_set)
+    required = []
+
+    def table(column):
+        required.append(column.split('.')[0])
+
+    for item in plan.conditions:
+        spec = fields[item.field]
+        kind = spec['type']
+        if kind == 'flag' and 'present_in' in spec:
+            alias = spec['present_in']
+            clauses.append(f"{alias}.{record_set['tables'][alias]['key']} IS {'NOT ' if item.value else ''}NULL")
+            if item.value:
+                required.append(alias)
+        elif kind == 'flag':
+            clauses.append(f"{spec['column']} = 1" if item.value else f"({spec['column']} = 0 OR {spec['column']} IS NULL)")
+            if item.value:
+                table(spec['column'])
+        elif kind == 'number':
+            clauses.append(f"{spec['column']} {OPERATORS[item.op]} ?")
+            values.append(float(item.value))
+            table(spec['column'])
+        elif kind == 'date':
+            clauses.append(f"substr({spec['column']}, 1, 10) {OPERATORS[item.op]} ?")
+            values.append(str(item.value))
+            table(spec['column'])
+        elif kind == 'identifiers':
+            clause, parameters = _in_view(spec, list(item.value))
+            clauses.append(clause)
+            values += parameters
+        elif kind == 'vocabulary':
+            clauses.append(f"instr({spec['column']}, ?) > 0" if item.op == 'contains' else f"{spec['column']} = ?")
+            values.append(str(item.value))
+            table(spec['column'])
+        elif kind == 'enum' and 'in' in spec:
+            clause, parameters = _in_view(spec, [item.value], prefix=spec['in'].get('prefix', False))
+            clauses.append(clause)
+            values += parameters
+        elif kind == 'enum':
+            for constraint in spec['values'][item.value]['where']:
+                column = constraint['column']
+                table(column)
+                for op in ('ge', 'le', 'gt', 'lt', 'eq'):
+                    if op in constraint:
+                        clauses.append(f'{column} {OPERATORS[op]} ?')
+                        values.append(constraint[op])
+                if 'prefix' in constraint:
+                    clauses.append('(' + ' OR '.join(f'{column} LIKE ?' for _ in constraint['prefix']) + ')')
+                    values += [prefix.replace('%', '').replace('_', '') + '%' for prefix in constraint['prefix']]
+        else:
+            raise ValueError(f'Unsupported condition on {item.field}')
+    order = ' ORDER BY ids.id DESC'
+    if plan.order:
+        column = fields[plan.order[0]]['column']
+        clauses.append(f'{column} IS NOT NULL')     # ranking only considers records that have the value
+        table(column)
+        order = f" ORDER BY {'substr(' + column + ', 1, 10)' if fields[plan.order[0]]['type'] == 'date' else column}" \
+                f" {'ASC' if plan.order[1] == 'asc' else 'DESC'}, ids.id DESC"
+    return clauses, values, required, order
+
+
+def _universe(record_set, required):
+    """Identifiers to consider: one required table when there is one, otherwise all of them."""
+    tables = record_set['tables']
+    if required:
+        alias = required[0]
+        return f"(SELECT {tables[alias]['key']} AS id FROM {tables[alias]['view']})"
+    return '(' + ' UNION '.join(f"SELECT {table['key']} AS id FROM {table['view']}" for table in tables.values()) + ')'
 
 
 def provenance(db):
@@ -104,78 +127,92 @@ def provenance(db):
            FROM sources JOIN snapshots ON snapshots.id = sources.published_snapshot_id ORDER BY sources.id''')]
 
 
-def vocabulary(store):
-    """Vendor -> products of the published KEV snapshot, for record_queries.plan()."""
+def vocabulary(store, record_set):
+    """Published values of the vocabulary fields: parent value -> child values (for example vendor -> products)."""
+    fields = record_set['fields']
+    parent = next((spec for spec in fields.values() if spec['type'] == 'vocabulary' and not spec.get('parent')), None)
+    if parent is None:
+        return {}
+    child = next((spec for spec in fields.values() if spec['type'] == 'vocabulary' and spec.get('parent')), None)
+    alias, column = parent['column'].split('.')
+    second = child['column'].split('.')[1] if child and child['column'].split('.')[0] == alias else None
     result = {}
     with store.connect() as db:
-        for row in db.execute('SELECT DISTINCT vendor_key, product_key FROM current_kev ORDER BY 1, 2'):
-            result.setdefault(row['vendor_key'], []).append(row['product_key'])
+        query = f"SELECT DISTINCT {column}{', ' + second if second else ''} FROM {record_set['tables'][alias]['view']} ORDER BY 1"
+        for row in db.execute(query):
+            result.setdefault(row[0], [])
+            if second and row[1] is not None:
+                result[row[0]].append(row[1])
     return result
 
 
-def summary(store):
-    """What is published, for the status card: sources with the date of their data, and record counts."""
+def summary(store, record_set):
+    """What is published, for the status card: sources with the date of their data, and row counts per view."""
     with store.connect() as db:
         sources = provenance(db)
-        counts = {name: db.execute(f'SELECT COUNT(*) FROM current_{name}').fetchone()[0]
-                  for name in ('kev', 'vulnerabilities', 'epss')} if sources else {}
+        counts = {table['view'].removeprefix('current_'): db.execute(f"SELECT COUNT(*) FROM {table['view']}").fetchone()[0]
+                  for table in record_set['tables'].values()} if sources else {}
     return {'available': bool(sources), 'counts': counts,
             'sources': [{'id': source['source_id'], 'name': source['name'], 'license': source['license_name'],
                          'data_date': (source.get('source_updated_at') or source['fetched_at'])[:10],
                          'fetched_at': source['fetched_at']} for source in sources]}
 
 
-def _details(db, identifiers):
-    """Weaknesses, references and affected packages for a few records."""
-    extra = {identifier: {'cwe': [], 'references': [], 'affected': []} for identifier in identifiers}
+def _details(db, record_set, identifiers):
+    """Rows of the detail views (lists that belong to a record) for a few identifiers."""
+    extra = {identifier: {name: [] for name in record_set.get('details', {})} for identifier in identifiers}
     if not identifiers:
         return extra
     marks = ','.join('?' * len(identifiers))
-    for row in db.execute(f'SELECT DISTINCT cve_id, cwe_id FROM current_vulnerability_weaknesses WHERE cve_id IN ({marks}) ORDER BY 1, 2', identifiers):
-        extra[row['cve_id']]['cwe'].append(row['cwe_id'])
-    for row in db.execute(f'SELECT DISTINCT cve_id, url, tags_json FROM current_vulnerability_references WHERE cve_id IN ({marks}) ORDER BY 1, 2', identifiers):
-        extra[row['cve_id']]['references'].append({'url': row['url'], 'tags': json.loads(row['tags_json'] or '[]')})
-    for row in db.execute(f'''SELECT cve_id, ecosystem, package_name, range_type, events_json FROM current_affected
-                              WHERE cve_id IN ({marks}) ORDER BY 1, 2, 3''', identifiers):
-        extra[row['cve_id']]['affected'].append({'ecosystem': row['ecosystem'], 'package': row['package_name'],
-                                                 'range_type': row['range_type'], 'events': json.loads(row['events_json'] or '[]')})
+    for name, detail in record_set.get('details', {}).items():
+        columns = ', '.join(detail['columns'])
+        for row in db.execute(f"SELECT DISTINCT {detail['key']}, {columns} FROM {detail['view']} WHERE {detail['key']} IN ({marks}) ORDER BY 1, 2",
+                              identifiers):
+            items = extra[row[0]][name]
+            if len(items) < detail.get('limit', 10):
+                values = [json.loads(value or 'null') if column.endswith('_json') else value for column, value in zip(detail['columns'], row[1:])]
+                items.append(values[0] if len(values) == 1 else dict(zip(detail['columns'], values)))
     return extra
 
 
-def search(store, plan, *, default_limit=DEFAULT_LIMIT):
+def search(store, plan, record_set, *, default_limit=DEFAULT_LIMIT):
     """Rows for a plan. The result always states how many matched, not only how many are returned."""
-    if getattr(plan, 'unresolved', ()):
-        # Running it would drop a condition the question states and answer about something else.
-        raise ValueError(f'The plan names conditions that are not published: {list(plan.unresolved)}')
+    joins, select = _joins(record_set), _select(record_set)
     with store.connect() as db:
         sources = provenance(db)
-        if plan.mode == 'record_lookup':
+        if plan.mode == 'lookup':
             identifiers = list(plan.ids)
-            marks = ','.join('?' * len(identifiers))
-            rows = {row['cve_id']: dict(row) for row in db.execute(
-                f'SELECT {COLUMNS} FROM {UNIVERSE} ids{JOINS} WHERE ids.cve_id IN ({marks})', identifiers)}
-            extra = _details(db, list(rows))
+            listed = ' UNION ALL '.join('SELECT ? AS id' for _ in identifiers)
+            present = ' OR '.join(f"{alias}.{table['key']} IS NOT NULL" for alias, table in record_set['tables'].items())
+            rows = {row['id']: dict(row) for row in db.execute(f'SELECT {select} FROM ({listed}) ids{joins} WHERE {present}', identifiers)}
+            extra = _details(db, record_set, list(rows))
             records = [{**rows[identifier], **extra[identifier]} for identifier in identifiers if identifier in rows]
-            return {'mode': plan.mode, 'records': records, 'total': len(records),
+            return {'mode': 'lookup', 'records': records, 'total': len(records),
                     'missing': [identifier for identifier in identifiers if identifier not in rows], 'sources': sources}
-        where, values = _conditions(plan.filter)
-        # Catalogued entries are a small set: start from them whenever the filter requires KEV.
-        needs_kev = any(plan.filter.get(key) for key in ('kev', 'ransomware', 'vendor', 'product', 'kev_added_from', 'kev_added_to'))
-        universe = '(SELECT cve_id FROM current_kev)' if needs_kev else UNIVERSE
-        base = f' FROM {universe} ids{JOINS}'
+        clauses, values, required, order = _conditions(plan, record_set)
+        base = f' FROM {_universe(record_set, required)} ids{joins}'
+        where = (' WHERE ' + ' AND '.join(clauses)) if clauses else ''
         total = db.execute(f'SELECT COUNT(*){base}{where}', values).fetchone()[0]
-        if plan.mode == 'record_aggregate':
-            operation = plan.aggregate or {}
-            if operation.get('op') == 'count':
-                return {'mode': plan.mode, 'aggregate': operation, 'total': total, 'groups': [], 'sources': sources}
-            key, label, join = GROUPS[operation['by']]
+        if plan.aggregate:
+            if plan.aggregate[0] == 'count':
+                return {'mode': 'aggregate', 'total': total, 'groups': [], 'sources': sources}
+            name, _, unit = plan.aggregate[1].partition(':')
+            spec = record_set['fields'][name]
+            join = ''
+            if unit:
+                key = label = f"substr({spec['column']}, 1, {4 if unit == 'year' else 7})"
+            elif 'in' in spec:
+                join = f" JOIN {spec['in']['view']} g ON g.{spec['in']['key']} = ids.id"
+                key = label = f"g.{spec['in']['column']}"
+            else:
+                key, label = spec['column'], f"MIN({spec.get('label_column', spec['column'])})"
+            filtered = where + (' AND ' if where else ' WHERE ') + f'{key} IS NOT NULL'
             groups = [dict(row) for row in db.execute(
-                f'''SELECT {key} AS key, {label} AS label, COUNT(DISTINCT ids.cve_id) AS count{base}{join}{where}
-                    AND {key} IS NOT NULL GROUP BY {key} ORDER BY count DESC, key ASC''', values)]
-            return {'mode': plan.mode, 'aggregate': operation, 'total': total, 'groups': groups, 'sources': sources}
-        limit = max(1, min(int(plan.filter.get('limit') or default_limit), MAX_LIMIT))
-        rows = [dict(row) for row in db.execute(
-            f'SELECT {COLUMNS}{base}{where}{_order(plan.filter)} LIMIT ?', [*values, limit])]
-        extra = _details(db, [row['cve_id'] for row in rows])
-        return {'mode': plan.mode, 'records': [{**row, **extra[row['cve_id']]} for row in rows], 'total': total,
+                f'SELECT {key} AS key, {label} AS label, COUNT(DISTINCT ids.id) AS count{base}{join}{filtered} '
+                f'GROUP BY {key} ORDER BY count DESC, key ASC', values)]
+            return {'mode': 'aggregate', 'total': total, 'groups': groups, 'sources': sources}
+        limit = max(1, min(int(plan.limit or default_limit), MAX_LIMIT))
+        rows = [dict(row) for row in db.execute(f'SELECT {select}{base}{where}{order} LIMIT ?', [*values, limit])]
+        extra = _details(db, record_set, [row['id'] for row in rows])
+        return {'mode': 'filter', 'records': [{**row, **extra[row['id']]} for row in rows], 'total': total,
                 'limit': limit, 'sources': sources}
