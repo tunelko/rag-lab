@@ -152,6 +152,10 @@ evaluates page selection and human labels before changing multimodal ingestion.
 An [experimental offline retrieval evaluation](docs/EVALUATION.md) compares exact dense, FTS5 and
 hybrid ranking with Recall@K, MRR, nDCG and P50/P95 over human-labeled questions.
 
+The [Laboratory design](docs/LABORATORY.md) defines the next evaluation stages.
+Its shared focused-retrieval engine is prepared; the Laboratory web screen is a
+later delivery, and the active chat keeps its current behavior.
+
 Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descriptions
 are cached. Visual indexing can take seconds per page. Jobs share a sequential
 queue; questions wait during indexing. Check original sources for critical details.

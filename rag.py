@@ -260,14 +260,22 @@ def usable_evidence(text):
     return any(character.isalnum() for character in text)
 
 
-def build_messages(question: str, hits, max_chars: int, language: str = "es"):
-    context = []
-    sources = []
+def context_fragments(hits, max_chars):
+    """The exact source text that fits in the evidence budget (also used by QA)."""
     remaining = max_chars
-    for number, (document, distance) in enumerate(hits, start=1):
+    for document, distance in hits:
         if remaining <= 0:
             break
         text = document.page_content[:remaining]
+        yield Document(page_content=text, metadata=dict(document.metadata)), distance
+        remaining -= len(text)
+
+
+def build_messages(question: str, hits, max_chars: int, language: str = "es"):
+    context = []
+    sources = []
+    for number, (document, distance) in enumerate(context_fragments(hits, max_chars), start=1):
+        text = document.page_content
         metadata = document.metadata
         label = f"[{number}] {metadata['file']}"
         if metadata.get("page", 0):
@@ -275,7 +283,6 @@ def build_messages(question: str, hits, max_chars: int, language: str = "es"):
         context.append(f"{label}\n{text}")
         sources.append({"citation": number, "file": metadata["file"], "source": metadata["source"],
                         "page": metadata.get("page", 0), "cosine_distance": round(float(distance), 6)})
-        remaining -= len(text)
     system = (
         "Responde en español usando únicamente la evidencia proporcionada. "
         "Cita las fuentes con [1], [2], etc. Si la evidencia no basta, dilo claramente. "

@@ -158,6 +158,10 @@ permite evaluar páginas y etiquetas manuales antes de cambiar la ingesta multim
 Una [evaluación local experimental de recuperación](docs/EVALUATION.md) compara ranking denso exacto,
 FTS5 e híbrido mediante Recall@K, MRR, nDCG y P50/P95 sobre preguntas etiquetadas.
 
+El [diseño del Laboratorio](docs/LABORATORY.md) define las siguientes etapas de
+evaluación. Está preparada la base compartida de recuperación concreta; la
+pantalla web corresponde a otra entrega y el chat conserva su comportamiento.
+
 Admite PDF, TXT, Markdown, PNG/JPEG/WebP y exportaciones MinerU compatibles. Las
 descripciones se reutilizan desde caché. La ingesta visual puede tardar segundos
 por página. La cola es secuencial: las preguntas esperan durante la indexación.

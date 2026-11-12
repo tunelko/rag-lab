@@ -220,8 +220,15 @@ def configured_reranker():
     model_id = os.getenv('RAG_RERANKER', '').strip()
     if not model_id:
         return None
-    key = (model_id, os.getenv('RAG_RERANK_DEVICE', 'auto').strip() or 'auto',
-           os.getenv('RAG_RERANK_HALF', '1').strip() != '0')
+    return cached_reranker(model_id, os.getenv('RAG_RERANK_DEVICE', 'auto').strip() or 'auto',
+                           os.getenv('RAG_RERANK_HALF', '1').strip() != '0')
+
+
+def cached_reranker(model_id, device='auto', half=True):
+    """Resolve an explicit, captured configuration without changing environment."""
+    if not model_id:
+        return None
+    key = (model_id, device, half)
     with _reranker_lock:
         if _reranker['key'] != key:
             try:
@@ -296,12 +303,14 @@ def _catalog(config, store, published):
 
 
 def retrieve(config, question, embeddings, k, *, files=None, visual=False,
-             reranker=None, rerank_window=50):
+             reranker=None, rerank_window=50, include_ids=False):
     """Return ``(hits, trace)`` for one focused question.
 
     ``hits`` are ``(Document, cosine_distance)`` pairs as before. ``files`` is the
     scope the user chose; automatic scope only ever narrows it. ``visual`` keeps
     every channel for questions that ask about figures or diagrams.
+    ``include_ids`` adds provenance to returned metadata for evaluation only;
+    the default metadata, ordering and trace of chat calls remain unchanged.
     """
     import rag
     from langchain_core.documents import Document
@@ -340,5 +349,6 @@ def retrieve(config, question, embeddings, k, *, files=None, visual=False,
                          rerank_seconds=round(time.perf_counter() - started, 6))
         except Exception:  # A failed optional stage must not lose the answer.
             LOGGER.warning('Reranking failed; using the dense order.', exc_info=True)
-    return [(Document(page_content=hit['text'], metadata=hit['metadata']), hit['score'])
+    return [(Document(page_content=hit['text'], metadata=(
+        {**hit['metadata'], 'vector_id': hit['id']} if include_ids else hit['metadata'])), hit['score'])
             for hit in hits[:k]], trace

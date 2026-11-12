@@ -1,5 +1,9 @@
 # Retrieval and RAG evaluation
 
+The planned web Laboratory and its delivery boundaries are described in
+[Laboratory design](LABORATORY.md). Phase 0 adds a shared production-path engine
+and equivalence tests; it does not yet add a web screen or change the live chat.
+
 > **Experimental:** this harness does not alter production retrieval. Keep the
 > optional lexical index disabled on a real library until its preparation and
 > adoption checks have been validated for that release.
