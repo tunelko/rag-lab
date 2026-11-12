@@ -34,8 +34,7 @@ import retrieval_pipeline
 from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
-from library_queries import (Intent, query_intent, catalog_answer, global_retrieve, summary_scope, tokens,
-                             has_summaries, set_question, topic_query)
+from library_queries import query_intent, catalog_answer, global_retrieve, tokens
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
@@ -52,7 +51,6 @@ import provider_vision
 import provider_pricing
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
-SHEET_CHARS = 480   # room one summary sheet needs in a whole-set answer: its opening block
 MAX_FILE = 20 * 1024**2
 
 
@@ -366,32 +364,6 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query_in_batches(self, job_id, query, sheets, capacity, scope_label, preferences, provider_key):
-        """Answer a question about every item from its summary sheets, a group at a time, and join the rows."""
-        count = -(-len(sheets) // capacity)
-        size = -(-len(sheets) // count)      # groups of similar size rather than one small last group
-        header, rows, sources, metrics, seconds = [], [], [], {}, 0.0
-        for number in range(count):
-            self.check_cancel(job_id)
-            group = sheets[number * size:(number + 1) * size]
-            part = self.query(job_id, query, frozenset(item['name'] for item in group), scope_label,
-                              preferences=preferences, provider_key=provider_key)
-            offset = len(sources)
-            lines = [line for line in part['answer'].splitlines() if line.startswith('|')]
-            header = header or lines[:2]
-            # Citation numbers restart in every group: shift them so they point at the joined source list.
-            rows += [re.sub(r'\[(\d+)\]', lambda match: f'[{int(match[1]) + offset}]', line) for line in lines[2:]]
-            for source in part['sources']:
-                sources.append({**source, 'citation': source['citation'] + offset})
-            metrics = part['metrics']
-            seconds += metrics.get('generation_wall_seconds', 0)
-            self.update(job_id, answer='\n'.join([*header, *rows]), sources=sources,
-                        phase=f'Leyendo fichas · grupo {number + 1}/{count}')
-        answer = '\n'.join([*header, *rows]) if rows else part['answer']
-        return {'answer': answer, 'sources': sources,
-                'metrics': {**metrics, 'scope_documents': len(sheets), 'documents_indexed': len(sheets), 'documents_retrieved': len(sources),
-                            'answer_documents': len(rows), 'answer_batches': count, 'generation_wall_seconds': round(seconds, 6)}}
-
     def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None):
         started = time.perf_counter()
         documents = self.list_documents()
@@ -399,17 +371,6 @@ class RagService(JobRuntime):
             documents = [item for item in documents if item['name'] in document_names]
         scope_metrics = {'topic_id': query.topic_id, 'scope_label': scope_label, 'scope_documents': len(documents)}
         intent = query_intent(query.question)
-        if intent.mode == 'focused' and has_summaries(documents) and set_question(query.question):
-            # "Is there any…", "which…", "how many…": with one summary sheet per item in scope, the
-            # question is about the set and every item must be looked at, not the eight best fragments.
-            intent = Intent('global', topic_query(query.question))
-        if intent.mode == 'global' and has_summaries(documents):
-            sheets = summary_scope(documents)
-            # Each sheet needs room for its whole opening block. More sheets than fit in one answer
-            # are read in several passes and their rows joined, instead of cutting every sheet short.
-            capacity = max(1, self.config.context_chars // SHEET_CHARS)
-            if len(sheets) > capacity:
-                return self.query_in_batches(job_id, query, sheets, capacity, scope_label, preferences, provider_key)
         if intent.mode.startswith('catalog_'):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
@@ -427,9 +388,7 @@ class RagService(JobRuntime):
         timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics}
         stage_started = time.perf_counter()
         if intent.mode == 'global':
-            # A question about every item is answered from its summary sheets when the scope has them:
-            # one sheet per tender, instead of every PDF of every tender.
-            hits, scope = global_retrieve(self.config, summary_scope(documents), embeddings, query.question,
+            hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
