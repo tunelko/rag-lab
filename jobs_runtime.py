@@ -29,9 +29,6 @@ def error_info(exc):
 class JobRuntime:
     def __init__(self):
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag-job")
-        # A second lane for work that only reads the network: it never loads a model or writes
-        # the index, so a long reading does not keep questions waiting.
-        self.network = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rag-net")
         self.lock = threading.RLock()
         self.jobs = {}
         self.cancels = {}
@@ -46,7 +43,6 @@ class JobRuntime:
             for event in self.cancels.values():
                 event.set()
         self.executor.shutdown(wait=True, cancel_futures=True)
-        self.network.shutdown(wait=True, cancel_futures=True)
 
     def snapshot(self, job_id):
         with self.lock:
@@ -77,7 +73,7 @@ class JobRuntime:
             if 'status' in changes:
                 self._record_job(old)
 
-    def start(self, kind, work, *, lane="main", **metadata):
+    def start(self, kind, work, **metadata):
         with self.lock:
             if self.closed:
                 raise HTTPException(503, "El servidor se está cerrando.")
@@ -93,7 +89,7 @@ class JobRuntime:
             self.cancels[job_id] = threading.Event()
             self.enqueued_at[job_id] = time.perf_counter()
             self._record_job(self.jobs[job_id])
-            (self.network if lane == "network" else self.executor).submit(self._run, job_id, work, lane == "main")
+            self.executor.submit(self._run, job_id, work)
             return {"job_id": job_id}
 
     def cancelled(self, job_id):
@@ -124,13 +120,12 @@ class JobRuntime:
             recent = [copy.deepcopy(job) for job in jobs if job["status"] not in {"queued", "running"}][-30:]
             return {"jobs": running if active else copy.deepcopy(jobs), "recent": recent, "active_job": self.active}
 
-    def _run(self, job_id, work, main=True):
+    def _run(self, job_id, work):
         started = time.perf_counter()
         with self.lock:
             if self.jobs[job_id]["status"] == "cancelled":
                 return
-            if main:
-                self.active = job_id
+            self.active = job_id
         self.update(job_id, status="running", state="processing", phase="Preparando", started_at=now(),
                     queue_seconds=round(started - self.enqueued_at[job_id], 6))
         try:
@@ -155,8 +150,7 @@ class JobRuntime:
                 stages = {key: value for key, value in job.get('metrics', {}).items()
                           if key in {'embedding_setup_seconds', 'vector_search_seconds', 'source_preparation_seconds',
                                      'routing_seconds', 'generation_wall_seconds'}}
-                if main:
-                    self.active = None
+                self.active = None
                 # Keep active jobs and the last 200 terminal records for browser recovery.
                 terminal = [key for key, job in self.jobs.items() if job["status"] not in {"queued", "running"}]
                 for key in terminal[:-200]:
