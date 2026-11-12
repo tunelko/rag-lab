@@ -4,6 +4,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import json
+import logging
 from pathlib import Path
 import re
 import secrets
@@ -15,6 +16,8 @@ import rag
 from index_lock import index_writer
 from retrieval_evaluation import LabError, corpus_identity
 
+LOGGER = logging.getLogger('rag.laboratory')
+
 
 class LaboratoryStore:
     def __init__(self, root):
@@ -22,6 +25,7 @@ class LaboratoryStore:
         self.path = self.root / 'lab.sqlite3'
         self.datasets = self.root / 'datasets'
         self.snapshots = self.root / 'snapshots'
+        self.cleanup_marker = self.root / 'cleanup-pending'
 
     @contextmanager
     def connect(self):
@@ -94,6 +98,11 @@ class LaboratoryStore:
         with self.connect() as db:
             db.execute('UPDATE runs SET error=? WHERE id=?', (json.dumps(error), identifier))
 
+    def mark_cleanup_pending(self, identifier):
+        run = self.get(identifier)
+        if run is not None:
+            self.save_report(identifier, {**run['report'], 'cleanup_pending': True})
+
     def observe(self, job):
         if job.get('kind') != 'evaluation' or not job.get('lab_run_id'):
             return
@@ -126,19 +135,40 @@ class LaboratoryStore:
             with self.connect() as db:
                 db.execute("UPDATE runs SET status='interrupted' WHERE status IN ('queued','running')")
             self.prune_datasets()
+        remaining = False
         if self.snapshots.exists():
             root = self.snapshots.resolve()
             for path in self.snapshots.glob('run-*'):
                 if path.is_dir() and not path.is_symlink() and path.resolve().parent == root:
-                    shutil.rmtree(path)
+                    try:
+                        shutil.rmtree(path)
+                    except OSError:
+                        remaining = True
+                        LOGGER.warning('Temporary index cleanup still pending; measurements are preserved.')
+        if remaining:
+            try:
+                self.cleanup_marker.touch()
+            except OSError:
+                LOGGER.warning('Could not persist the deferred-cleanup warning.')
+        else:
+            self.cleanup_marker.unlink(missing_ok=True)
+            if self.path.exists():
+                with self.connect() as db:
+                    for row in db.execute('SELECT id,report FROM runs').fetchall():
+                        report = json.loads(row['report'])
+                        if report.get('cleanup_pending'):
+                            report['cleanup_pending'] = False
+                            db.execute('UPDATE runs SET report=? WHERE id=?', (json.dumps(report), row['id']))
 
     @contextmanager
-    def snapshot(self, config, expected, cancelled):
+    def snapshot(self, config, expected, cancelled, cleanup_pending=None):
         """Read committed WAL data via SQLite backup; never create FTS on the source."""
         from vector_store import VectorStore
         self.snapshots.mkdir(parents=True, exist_ok=True)
         copied_path = None
-        with tempfile.TemporaryDirectory(prefix='run-', dir=self.snapshots) as folder:
+        temporary = tempfile.TemporaryDirectory(prefix='run-', dir=self.snapshots, ignore_cleanup_errors=True)
+        folder = temporary.name
+        try:
             frozen = replace(config, db=Path(folder))
             try:
                 def check(*_):
@@ -162,3 +192,13 @@ class LaboratoryStore:
             finally:
                 if copied_path is not None:
                     VectorStore.clear_cache(copied_path)
+        finally:
+            temporary.cleanup()
+            if Path(folder).exists():
+                LOGGER.warning('Temporary index cleanup deferred until startup; measurements are preserved.')
+                try:
+                    self.cleanup_marker.touch()
+                    if cleanup_pending:
+                        cleanup_pending()
+                except Exception:
+                    LOGGER.exception('Could not persist the deferred-cleanup warning.')

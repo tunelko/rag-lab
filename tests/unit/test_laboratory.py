@@ -6,6 +6,7 @@ os.environ['RAG_RERANKER'] = ''
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
 import threading
@@ -123,6 +124,73 @@ class LaboratoryTests(unittest.TestCase):
             load.assert_not_called()
         self.assertIsNone(self.service.laboratory.latest())
 
+    def test_missing_required_fields_report_the_line_and_field_before_models(self):
+        self.upload()
+        with patch.object(self.service, 'get_embeddings', side_effect=AssertionError('no model')) as load:
+            for field in ('id', 'question', 'relevant'):
+                row = json.loads(self.dataset())
+                row[field + 'e'] = row.pop(field)
+                for endpoint in ('validate', 'runs'):
+                    with self.subTest(field=field, endpoint=endpoint):
+                        response = self.client.post('/api/laboratory/' + endpoint, headers=self.headers,
+                            json={'content': '\n' + json.dumps(row)})
+                        self.assertEqual(response.status_code, 422, response.text)
+                        error = response.json()
+                        self.assertEqual(error['lab_error'], {'code': 'missing_field', 'line': 2, 'field': field})
+                        self.assertIn(field, error['detail'])
+                        self.assertIn('2', error['detail'])
+            load.assert_not_called()
+        self.assertIsNone(self.service.laboratory.latest())
+
+    def test_validation_releases_the_queue_lock_and_rechecks_before_submission(self):
+        self.upload()
+        original = self.service.validate_evaluation
+        state = rag.load_state(self.service.config)
+        for condition in ('changed', 'busy'):
+            with self.subTest(condition=condition):
+                entered, release = threading.Event(), threading.Event()
+                validated, finish_validation = threading.Event(), threading.Event()
+                hold = self.service.start('prepare', lambda job: (entered.set(), release.wait(10)) and {})
+                self.assertTrue(entered.wait(2))
+                index = None
+                def validate(content):
+                    result = original(content)
+                    validated.set()
+                    finish_validation.wait(10)
+                    return result
+                try:
+                    with (patch.object(self.service, 'validate_evaluation', side_effect=validate),
+                          patch.object(self.service, 'get_embeddings', side_effect=AssertionError('no model')) as load,
+                          ThreadPoolExecutor(max_workers=2) as pool):
+                        try:
+                            request = pool.submit(self.client.post, '/api/laboratory/runs', headers=self.headers,
+                                json={'content': self.dataset()})
+                            self.assertTrue(validated.wait(2))
+                            # A streaming worker can still publish progress while validation hashes documents.
+                            progress = pool.submit(self.service.update, hold['job_id'], answer='Still streaming')
+                            progress.result(timeout=2)
+                            self.assertEqual(self.service.snapshot(hold['job_id'])['answer'], 'Still streaming')
+                            if condition == 'changed':
+                                changed = json.loads(json.dumps(state))
+                                next(iter(changed['files'].values()))['sha256'] = 'different'
+                                rag.save_state(self.service.config, changed)
+                            else:
+                                index = self.service.start('index', lambda job: {})
+                            finish_validation.set()
+                            response = request.result(timeout=3)
+                            self.assertEqual(response.status_code, 422 if condition == 'changed' else 409, response.text)
+                            self.assertEqual(response.json()['lab_error']['code'], condition)
+                            self.assertIsNone(self.service.laboratory.latest())
+                            load.assert_not_called()
+                        finally:
+                            finish_validation.set()
+                finally:
+                    release.set()
+                    self.wait(hold['job_id'])
+                    if index:
+                        self.wait(index['job_id'])
+                    rag.save_state(self.service.config, state)
+
     def test_lab_and_chat_capture_the_same_values_before_queue_settings_change(self):
         self.upload()
         self.service.config.context_chars = 700
@@ -231,6 +299,44 @@ class LaboratoryTests(unittest.TestCase):
         self.assertEqual(restored['status'], 'interrupted')
         self.assertEqual(restored['report']['summary']['completed'], 1)
         self.assertFalse(folder.exists())
+
+    def test_missing_provenance_file_is_historical_instead_of_a_server_error(self):
+        self.upload()
+        result = self.start_run(); self.wait(result['job_id'])
+        report = self.service.laboratory.get(result['run_id'])['report']
+        del report['corpus']['files']['manual.txt']
+        self.service.laboratory.save_report(result['run_id'], report)
+        response = self.client.get('/api/laboratory/runs/' + result['run_id'])
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertFalse(response.json()['current_corpus'])
+        self.assertEqual(response.json()['report']['summary']['found'], 1)
+        self.assertFalse(self.client.get('/api/laboratory').json()['latest']['current_corpus'])
+
+    def test_deferred_snapshot_cleanup_preserves_metrics_and_retries_at_startup(self):
+        self.upload()
+        # Simulate TemporaryDirectory ignoring a retained Windows handle: the owned copy remains.
+        with patch('laboratory_store.tempfile.TemporaryDirectory._rmtree'):
+            result = self.start_run(); self.wait(result['job_id'])
+        store = self.service.laboratory
+        pending = self.client.get('/api/laboratory').json()
+        self.assertEqual(pending['latest']['status'], 'done')
+        self.assertTrue(pending['cleanup_pending'])
+        self.assertTrue(pending['latest']['report']['cleanup_pending'])
+        summary = pending['latest']['report']['summary']
+        self.assertEqual(summary['found'], 1)
+        self.assertEqual(len(list(store.snapshots.iterdir())), 1)
+        store.cleanup_marker.unlink()  # Recovery also notices an orphan left before its warning was written.
+        with patch('laboratory_store.shutil.rmtree', side_effect=PermissionError('retained test handle')):
+            store.recover()
+        self.assertTrue(store.cleanup_marker.is_file())
+        self.assertEqual(store.get(result['run_id'])['report']['summary'], summary)
+        store.recover()
+        self.assertFalse(store.cleanup_marker.exists())
+        self.assertEqual(list(store.snapshots.iterdir()), [])
+        restored = self.client.get('/api/laboratory').json()
+        self.assertFalse(restored['cleanup_pending'])
+        self.assertFalse(restored['latest']['report']['cleanup_pending'])
+        self.assertEqual(restored['latest']['report']['summary'], summary)
 
     def test_csrf_guard_and_rejection_of_experiment_parameter_overrides(self):
         self.assertEqual(self.client.post('/api/laboratory/validate', json={'content': self.dataset()}).status_code, 403)

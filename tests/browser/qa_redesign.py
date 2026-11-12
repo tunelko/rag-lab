@@ -1004,12 +1004,18 @@ def run_browser(url):
         page.goto(url+'/laboratorio',wait_until='networkidle')
         expect(page.locator('#lab-title')).to_have_text('Laboratorio')
         expect(page.locator('#lab-content')).to_be_enabled()
+        expect(page.locator('#lab-cleanup-warning')).not_to_be_visible()
         page.locator('#lab-content').fill('\n{broken}')
         page.locator('#lab-validate').click()
         expect(page.locator('#lab-error')).to_contain_text('Línea 2')
         expect(page.locator('#lab-run')).to_be_disabled()
         example={'id':'lab-1','question':'When do backups run?','files':['qa-lab.txt'],
             'relevant':[{'file':'qa-lab.txt'}],'evidence':['Friday']}
+        typo={**example};typo['relevante']=typo.pop('relevant')
+        page.locator('#lab-content').fill('\n'+json.dumps(typo))
+        page.locator('#lab-validate').click()
+        expect(page.locator('#lab-error')).to_contain_text('Línea 2: Falta el campo obligatorio «relevant».')
+        expect(page.locator('#lab-run')).to_be_disabled()
         unannotated={key:value for key,value in example.items() if key!='evidence'};unannotated['id']='lab-2'
         page.locator('#lab-content').fill('\n'.join(json.dumps(item) for item in (example,unannotated)))
         page.locator('#lab-name').fill('QA mirror')

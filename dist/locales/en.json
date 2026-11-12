@@ -825,6 +825,8 @@
   "lab.error_question": "Enter a question between 1 and 6000 characters long.",
   "lab.error_focused": "This is an inventory or whole-library question. This stage only evaluates focused questions.",
   "lab.error_reference": "Check references: document and page, or vector identifier, using a single level of detail.",
+  "lab.error_missing_field": "Required field “{field}” is missing.",
+  "lab.cleanup_pending": "A temporary snapshot is pending deletion. Results are preserved; cleanup will be retried at startup.",
   "lab.error_page": "The page must be a positive integer.",
   "lab.error_evidence": "Evidence must be a nonempty list of literal strings, each up to 6000 characters long.",
   "lab.error_count": "The dataset exceeds the 100-question limit.",

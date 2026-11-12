@@ -825,6 +825,8 @@
   "lab.error_question": "Escribe una pregunta de entre 1 y 6000 caracteres.",
   "lab.error_focused": "Esta pregunta es de inventario o de conjunto. Esta fase solo evalúa preguntas concretas.",
   "lab.error_reference": "Revisa las referencias: documento y página, o identificador de fragmento, con un único nivel de detalle.",
+  "lab.error_missing_field": "Falta el campo obligatorio «{field}».",
+  "lab.cleanup_pending": "Queda una copia temporal pendiente de borrado. Los resultados se conservan; se reintentará la limpieza al arrancar.",
   "lab.error_page": "La página debe ser un número entero positivo.",
   "lab.error_evidence": "La evidencia debe ser una lista no vacía de textos literales, de hasta 6000 caracteres cada uno.",
   "lab.error_count": "El conjunto supera el límite de 100 preguntas.",

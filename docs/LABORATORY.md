@@ -37,7 +37,9 @@ The snapshot uses SQLite's backup API, including committed WAL data. The source
 and manifest are captured under the same writer lock. Snapshot size is shown
 before starting; copying can temporarily require about another index's worth of
 disk space. A changed corpus while queued invalidates the request explicitly.
-Snapshots are removed on completion, cancellation and startup recovery.
+Snapshots are normally removed on completion or cancellation. If Windows keeps
+a descriptor open, a visible cleanup warning preserves the measured result;
+startup recovery retries the deletion and clears the warning when it succeeds.
 
 The run uses the existing single job queue; it refuses to start behind an active
 or queued ingestion. Its name, phase and cancellation action remain visible from

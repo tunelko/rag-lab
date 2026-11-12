@@ -45,6 +45,7 @@ class LabError(ValueError):
             'question': 'Escribe una pregunta de entre 1 y 6000 caracteres.',
             'focused': 'Esta pregunta es de inventario o de conjunto. Esta fase solo evalúa preguntas concretas.',
             'reference': 'Revisa las referencias: documento y página, o identificador de fragmento, con un único nivel de detalle.',
+            'missing_field': 'Falta el campo obligatorio «{field}».',
             'page': 'La página debe ser un número entero positivo.',
             'evidence': 'La evidencia debe ser una lista no vacía de textos literales, de hasta 6000 caracteres cada uno.',
             'count': 'El conjunto supera el límite de 100 preguntas.',
@@ -95,6 +96,9 @@ def parse_dataset(content):
             json.dumps(row, ensure_ascii=False).encode('utf-8')
         except UnicodeEncodeError:
             raise LabError('utf8', line) from None
+        for field in ('id', 'question', 'relevant'):
+            if field not in row:
+                raise LabError('missing_field', line, field=field)
         if (not isinstance(row.get('id'), str) or not row['id'].strip()
                 or len(row['id']) > 100 or row['id'] in identifiers):
             raise LabError('id', line)

@@ -165,7 +165,8 @@ class RagService(JobRuntime):
             self.update(job_id, phase='Laboratorio · Copiando el índice publicado', stage='evaluation', progress=None)
             content = self.laboratory.dataset(request['dataset_sha256'])
             with self.laboratory.snapshot(self.config, request['corpus_fingerprint'],
-                                         lambda: self.cancelled(job_id)) as frozen:
+                                         lambda: self.cancelled(job_id),
+                                         cleanup_pending=lambda: self.laboratory.mark_cleanup_pending(identifier)) as frozen:
                 frozen = replace(frozen, context_chars=parameters.context_chars)
                 snapshot_at = utc_now()
                 def embeddings():
@@ -839,7 +840,7 @@ def create_app(service=None):
                             or service.fingerprints.digest(path) != run['report']['corpus']['files'][name]['sha256']):
                         run['current_corpus'] = False
                         break
-        except (ValueError, OSError):
+        except (ValueError, OSError, KeyError):
             run['current_corpus'] = False
         return run
 
@@ -857,6 +858,7 @@ def create_app(service=None):
         except ValueError as error:
             raise HTTPException(409, str(error)) from error
         return {'latest': public_evaluation(service.laboratory.latest()),
+                'cleanup_pending': service.laboratory.cleanup_marker.is_file(),
                 'configuration': service.effective_retrieval().public(),
                 'embedding_device': service.config.embedding_device,
                 'corpus': {key: corpus[key] for key in ('collection', 'documents', 'published_chunks', 'identity', 'fingerprint')},
@@ -876,20 +878,43 @@ def create_app(service=None):
         except ValueError as error:
             raise HTTPException(409, str(error)) from error
 
+    def evaluation_queue_error():
+        # Called only under service.lock; no document hashing or model loading.
+        if service.closed:
+            raise HTTPException(503, 'El servidor se está cerrando.')
+        active = [job for job in service.jobs.values() if job['status'] in {'queued', 'running'}]
+        if any(job['kind'] in {'index', 'evaluation'} for job in active):
+            return lab_error(lab_eval.LabError('busy'), 409)
+        if len(active) >= 100:
+            raise HTTPException(429, 'La cola del servidor está llena.')
+        return None
+
     @app.post('/api/laboratory/runs', status_code=202)
     def start_evaluation(body: EvaluationRequest):
         with service.lock:
-            if service.closed:
-                raise HTTPException(503, 'El servidor se está cerrando.')
-            active = [job for job in service.jobs.values() if job['status'] in {'queued', 'running'}]
-            if any(job['kind'] in {'index', 'evaluation'} for job in active):
-                return lab_error(lab_eval.LabError('busy'), 409)
-            if len(active) >= 100:
-                raise HTTPException(429, 'La cola del servidor está llena.')
+            blocked = evaluation_queue_error()
+            if blocked is not None:
+                return blocked
+        # Keep document hashing outside the lock needed for streaming updates.
+        try:
+            rows, corpus, ready = service.validate_evaluation(body.content)
+            if body.fingerprint and body.fingerprint != corpus['fingerprint']:
+                raise lab_eval.LabError('changed')
+        except lab_eval.LabError as error:
+            return lab_error(error)
+        except IndexBusyError:
+            return lab_error(lab_eval.LabError('busy'), 409)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+        with service.lock:
+            blocked = evaluation_queue_error()
+            if blocked is not None:
+                return blocked
             try:
-                rows, corpus, ready = service.validate_evaluation(body.content)
-                if body.fingerprint and body.fingerprint != corpus['fingerprint']:
-                    raise lab_eval.LabError('changed')
+                with index_writer(service.config):
+                    current = lab_eval.corpus_identity(service.config, rag.load_state(service.config))
+                    if current['fingerprint'] != corpus['fingerprint']:
+                        raise lab_eval.LabError('changed')
                 parameters = service.effective_retrieval()
                 request = {'configuration': parameters.public(), 'questions': len(rows),
                            'corpus_fingerprint': corpus['fingerprint'], 'files': sorted(ready)}

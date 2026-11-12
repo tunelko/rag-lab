@@ -172,6 +172,7 @@ export class Laboratory {
 
   render(rebuild = false) {
     this.controls(); this.renderBanner(); this.emptyGuard();
+    $('lab-cleanup-warning').hidden = !(this.meta?.cleanup_pending || this.run?.report?.cleanup_pending);
     $('lab-example').textContent = JSON.stringify({id: 'q1', question: label('example_question'),
       relevant: [{file: 'manual.pdf', page: 8}], evidence: ['LGA1700']});
     if (this.meta) {
