@@ -36,12 +36,6 @@ from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
 from library_queries import (Intent, query_intent, catalog_answer, global_retrieve, summary_scope, tokens,
                              has_summaries, set_question, topic_query)
-from knowledge_store import KnowledgeError, KnowledgeStore
-import record_answers
-import record_engine
-import record_profiles
-import record_search
-import sqlite3
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
@@ -335,7 +329,6 @@ class RagService(JobRuntime):
                 "chunk_size": self.config.chunk_size, "chunk_overlap": self.config.chunk_overlap,
                 "embedding_dimensions": dimensions,
                 "reranker": retrieval_pipeline.reranker_status(),
-                "records": self.records_status(),
                 "visual_count": sum(len(item.get('visuals',[])) for item in state['files'].values()),
                 "last_index_at": self.statistics_archive.last_index_time(),
                 "active_job": self.active, "ollama": self.ollama_status(),
@@ -373,41 +366,6 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def knowledge_store(self):
-        """Structured records, if a synchronization has created them. Never created by the server."""
-        path = self.config.db.parent / "knowledge" / "knowledge.sqlite3"
-        if not path.is_file():
-            return None
-        if getattr(self, "_knowledge", None) is None:
-            try:
-                self._knowledge = KnowledgeStore(path)
-            except (KnowledgeError, sqlite3.Error):
-                logging.getLogger("rag.records").exception("No se puede abrir el almacén de registros.")
-                return None
-        return self._knowledge
-
-    def record_sets(self):
-        """(profile, record set) pairs of the profiles enabled for this installation."""
-        try:
-            return [(profile, record_set) for profile in record_profiles.active() for record_set in profile.get("record_sets", [])]
-        except record_profiles.ProfileError:
-            logging.getLogger("rag.records").exception("No se puede cargar un perfil activado.")
-            return []
-
-    def records_status(self):
-        """What the active profiles have published; the first record set fills the summary keys."""
-        sets = self.record_sets()
-        result = {"available": False, "sources": [], "profiles": [
-            {"id": profile["id"], "name": profile["name"], "record_set": record_set["id"], "record_set_name": record_set["name"],
-             "topic_id": f"records:{record_set['id']}"} for profile, record_set in sets]}
-        store = self.knowledge_store() if sets else None
-        if store:
-            try:
-                result.update(record_search.summary(store, sets[0][1]))
-            except sqlite3.Error:
-                pass
-        return result
-
     def query_in_batches(self, job_id, query, sheets, capacity, scope_label, preferences, provider_key):
         """Answer a question about every item from its summary sheets, a group at a time, and join the rows."""
         count = -(-len(sheets) // capacity)
@@ -434,22 +392,13 @@ class RagService(JobRuntime):
                 'metrics': {**metrics, 'scope_documents': len(sheets), 'documents_indexed': len(sheets), 'documents_retrieved': len(sources),
                             'answer_documents': len(rows), 'answer_batches': count, 'generation_wall_seconds': round(seconds, 6)}}
 
-    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None, records=None):
-        """`records` holds the record plan captured at submission with its profile, or a fixed notice."""
+    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None):
         started = time.perf_counter()
         documents = self.list_documents()
         if document_names is not None:
             documents = [item for item in documents if item['name'] in document_names]
         scope_metrics = {'topic_id': query.topic_id, 'scope_label': scope_label, 'scope_documents': len(documents)}
-        if records is not None and 'notice' in records:
-            return {'answer': record_answers.notice(records['notice'], records.get('record_set'), query.language,
-                                                    items=records.get('items', ()), suggestions=records.get('suggestions', ())),
-                    'sources': [], 'metrics': {**scope_metrics, 'retrieval_mode': 'records', 'record_notice': records['notice']}}
-        record_plan = records['plan'] if records else None
-        # Written by the engine, never by the model: what the answer below is actually about.
-        applied = record_answers.conditions_line(record_plan, records['record_set'], query.language) if records else ''
-        # A structured plan replaces document retrieval; nothing below reads the library for it.
-        intent = Intent('records') if records is not None else query_intent(query.question)
+        intent = query_intent(query.question)
         if intent.mode == 'focused' and has_summaries(documents) and set_question(query.question):
             # "Is there any…", "which…", "how many…": with one summary sheet per item in scope, the
             # question is about the set and every item must be looked at, not the eight best fragments.
@@ -465,28 +414,19 @@ class RagService(JobRuntime):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
             return {'answer': answer, 'sources': [], 'metrics': {**metrics, **scope_metrics}}
-        if records is None and not any(item.get('indexed') for item in documents):
+        if not any(item.get('indexed') for item in documents):
             return {'answer': localized('answer.empty', query.language), 'sources': [], 'metrics': scope_metrics}
-        if records is None and not (self.config.db / f"{self.config.collection}-manifest.json").exists():
+        if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
-        self.update(job_id, phase="Consultando registros estructurados" if records is not None else "Recuperando fragmentos relevantes en CPU")
+        self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
         stage_started = time.perf_counter()
-        embeddings = None
-        if records is None:
-            try:
-                embeddings = self.get_embeddings()
-            except Exception as exc:
-                raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
+        try:
+            embeddings = self.get_embeddings()
+        except Exception as exc:
+            raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics}
         stage_started = time.perf_counter()
-        if records is not None:
-            store = self.knowledge_store()
-            if store is None:
-                return {'answer': record_answers.text('unavailable', query.language), 'sources': [],
-                        'metrics': {**scope_metrics, 'retrieval_mode': 'records'}}
-            hits, scope = record_answers.evidence(record_plan, record_search.search(store, record_plan, records['record_set']),
-                                                  records['record_set'], query.language)
-        elif intent.mode == 'global':
+        if intent.mode == 'global':
             # A question about every item is answered from its summary sheets when the scope has them:
             # one sheet per tender, instead of every PDF of every tender.
             hits, scope = global_retrieve(self.config, summary_scope(documents), embeddings, query.question,
@@ -506,8 +446,6 @@ class RagService(JobRuntime):
             return {"answer": localized('answer.empty',query.language), "sources": [], "metrics": timings}
         stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars, language=query.language)
-        if records is not None:
-            messages[0]['content'] += record_answers.system_addition(records['profile'], records['record_set'], query.language)
         if intent.mode == 'global':
             represented = len({source['file'] for source in sources})
             if represented != scope['documents_indexed']:
@@ -540,8 +478,6 @@ class RagService(JobRuntime):
                 source["chunk"] = int(document.metadata["chunk"]) + 1
             path = Path(source.pop("source")).resolve()
             source["url"] = "/api/source?file=" + quote(path.relative_to(self.documents).as_posix(), safe="") if path.is_relative_to(self.documents) else None
-            if records is not None:
-                source["url"] = document.metadata.get("url")  # the public record, not a library file
             if source["url"] and path.suffix.lower() == ".pdf":
                 source["page_label"] = pdf_page_label(path, source["page"])
                 if source["page"]:
@@ -564,7 +500,7 @@ class RagService(JobRuntime):
         timings["source_preparation_seconds"] = round(time.perf_counter() - stage_started, 6)
         self.update(job_id, sources=sources, metrics={"retrieval_seconds": retrieval_seconds, **timings})
         if query.search_only:
-            return {"answer": (applied + "\n\n" if applied else "") + localized('answer.search_only',query.language), "sources": sources,
+            return {"answer": localized('answer.search_only',query.language), "sources": sources,
                     "metrics": {"retrieval_seconds": retrieval_seconds, **timings, "routing_mode": "search_only", "routing_reason": localized('answer.search_only_reason',query.language)}}
         stage_started = time.perf_counter()
         provider = settings.response_provider
@@ -668,8 +604,6 @@ class RagService(JobRuntime):
                 f"Motivo de fin: {metrics.get('done_reason', 'desconocido')}. "
                 'Un modelo de razonamiento puede agotar el límite antes de responder. Revisa RAG_MAX_NEW_TOKENS.')
         timings["generation_wall_seconds"] = round(time.perf_counter() - stage_started, 6)
-        if applied:
-            answer = applied + "\n\n" + answer
         return {"answer": answer, "sources": sources, "metrics": {**metrics, **routing, **timings, "retrieval_seconds": retrieval_seconds,
                 "visual_mode": visual_mode, "images_used": len(messages[-1].get('images',[])), "language": query.language}}
 
@@ -865,39 +799,13 @@ def create_app(service=None):
     def query(body: Query):
         if not body.question.strip():
             raise HTTPException(422, "Escribe una pregunta.")
-        # Records of an active profile answer only inside their own category, or for a valid identifier
-        # when the whole library is selected. A document topic never reaches the record engine.
-        record_scope = str(body.topic_id or '').startswith('records')
-        wanted = str(body.topic_id or '').partition(':')[2]
-        candidates = [(profile, record_set) for profile, record_set in service.record_sets()
-                      if (record_scope and (not wanted or record_set['id'] == wanted)) or body.topic_id is None]
-        if record_scope and not candidates:
-            raise HTTPException(404, 'La categoría ya no está disponible.')
-        records = None
-        knowledge = service.knowledge_store() if candidates else None
-        for profile, record_set in candidates if knowledge is not None else []:
-            # Captured at submission, like preferences: the date and vocabulary of this moment.
-            result = record_engine.plan(body.question, record_set, today=datetime.now().date(), lookup_only=not record_scope,
-                                        vocabulary=record_search.vocabulary(knowledge, record_set) if record_scope else None)
-            if isinstance(result, record_engine.Plan):
-                records = {'profile': profile, 'record_set': record_set, 'plan': result}
-            elif isinstance(result, record_engine.Rejection):
-                # Part of the question was not understood: say so instead of answering something else.
-                records = {**record_answers.rejection_notice(result), 'record_set': record_set}
-            if records:
-                break
-        if record_scope and records is None:
-            records = {'notice': 'unavailable' if knowledge is None else 'guidance', 'record_set': candidates[0][1]}
-        if records is not None and body.images:
-            raise HTTPException(422, 'Las consultas sobre registros no admiten imágenes adjuntas.')
         try:
-            documents, scope_label = (([], ' / '.join(record_profiles.localized(item['name']) for item in candidates[0]))
-                                      if record_scope else service.topics.scope(body.topic_id, service.list_documents()))
+            documents, scope_label = service.topics.scope(body.topic_id, service.list_documents())
         except TopicError as error:
             raise HTTPException(404, str(error)) from error
         # Freeze membership when accepted: moving files while queued cannot broaden a query.
         document_names = frozenset(item['name'] for item in documents)
-        if records is None and not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
             raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
         if "k" not in body.model_fields_set:
@@ -912,8 +820,7 @@ def create_app(service=None):
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
         provider_key = None
-        generates = not body.search_only and not (records is not None and 'notice' in records) and (
-            records is not None or not query_intent(body.question).mode.startswith('catalog_'))
+        generates = not body.search_only and not query_intent(body.question).mode.startswith('catalog_')
         if generates and settings.response_provider != 'ollama':
             if not settings.external_model.strip() and not (body.images and settings.external_vision_model):
                 raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')
@@ -929,7 +836,7 @@ def create_app(service=None):
             except generation_providers.ProviderError as error:
                 raise HTTPException(422, str(error)) from error
         return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,
-                             preferences=settings, provider_key=provider_key, records=records),
+                             preferences=settings, provider_key=provider_key),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
                              image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
 

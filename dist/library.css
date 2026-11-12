@@ -26,8 +26,6 @@
 .category-menu>summary::-webkit-details-marker{display:none}
 .category-menu>summary:hover,.category-menu[open]>summary{background:var(--surface-raised);color:var(--ink)}
 .category-menu-items{position:absolute;z-index:30;right:0;top:100%;width:210px;max-width:calc(100vw - 48px);padding:5px;border:1px solid var(--border-control);border-radius:6px;background:var(--surface-raised);box-shadow:var(--shadow-dialog)}
-.category-system{display:flex;align-items:center;justify-content:center;width:28px;min-height:var(--control-h);color:var(--text-muted)}
-.category-system>.icon{width:13px;height:13px}
 .category-action.btn{display:block;width:100%;height:auto;padding:8px;border:0;background:transparent;color:var(--text);font-size:11px;text-align:left;white-space:normal}
 .category-action.btn:hover{background:var(--surface);color:var(--ink)}
 .category-action.btn:disabled{color:var(--text-disabled)}
