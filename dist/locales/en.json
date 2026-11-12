@@ -816,7 +816,7 @@
   "tenders.column_amount_hint": "Base budget of the tender, before tax",
   "tenders.status_PRE": "Prior notice",
   "tenders.status_PUB": "Open",
-  "tenders.status_PUB_closed": "Deadline passed",
+  "tenders.status_PUB_closed": "Deadline over, not awarded",
   "tenders.status_EV": "Awaiting award",
   "tenders.status_ADJ": "Awarded",
   "tenders.status_RES": "Concluded",
@@ -861,8 +861,8 @@
   "tenders.region_option": "{name} · {count}",
   "tenders.region_national": "Nationwide",
   "tenders.state_open": "Open · {count}",
-  "tenders.state_pending": "Awaiting award · {count}",
-  "tenders.state_closed": "Closed · {count}",
+  "tenders.state_pending": "Deadline over, not awarded · {count}",
+  "tenders.state_closed": "Awarded or concluded · {count}",
   "tenders.state_all": "All · {count}",
   "tenders.in_library": "{files} files in the library",
   "tenders.count": "{shown} tenders · {selected} chosen",
@@ -876,6 +876,6 @@
   "tenders.action_all_states": "Show the {count} in any state",
   "tenders.action_clear": "Clear text and region",
   "tenders.state_name_open": "open",
-  "tenders.state_name_pending": "awaiting award",
-  "tenders.state_name_closed": "closed"
+  "tenders.state_name_pending": "past its deadline and not awarded",
+  "tenders.state_name_closed": "awarded or concluded"
 }

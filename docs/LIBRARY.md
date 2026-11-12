@@ -81,7 +81,8 @@ until the user asks, and it happens in two separate steps:
    questions waiting; it can be stopped, and what it found stays listed.
 2. **Search, choose, download.** The dialog has two tabs: the tenders of the
    listing that are not downloaded yet, and the ones in the library. Text and
-   region narrow the tab; the state buttons (open, awaiting award, closed, all)
+   region narrow the tab; the state buttons (open, deadline over but not awarded,
+   awarded or concluded, all)
    show how many tenders are in each state. An empty result says which choice
    left it empty and offers the way out, such as reading a longer period. The
    chosen tenders (up to 25 at a time) are downloaded as one job:

@@ -816,7 +816,7 @@
   "tenders.column_amount_hint": "Presupuesto base de licitación, sin impuestos",
   "tenders.status_PRE": "Anuncio previo",
   "tenders.status_PUB": "En plazo",
-  "tenders.status_PUB_closed": "Plazo terminado",
+  "tenders.status_PUB_closed": "Plazo terminado, sin adjudicar",
   "tenders.status_EV": "Pendiente de adjudicación",
   "tenders.status_ADJ": "Adjudicada",
   "tenders.status_RES": "Resuelta",
@@ -861,8 +861,8 @@
   "tenders.region_option": "{name} · {count}",
   "tenders.region_national": "Ámbito nacional",
   "tenders.state_open": "Abiertas · {count}",
-  "tenders.state_pending": "Pendientes de adjudicación · {count}",
-  "tenders.state_closed": "Cerradas · {count}",
+  "tenders.state_pending": "Plazo cerrado, sin adjudicar · {count}",
+  "tenders.state_closed": "Adjudicadas o resueltas · {count}",
   "tenders.state_all": "Todas · {count}",
   "tenders.in_library": "{files} archivos en la biblioteca",
   "tenders.count": "{shown} licitaciones · {selected} elegidas",
@@ -876,6 +876,6 @@
   "tenders.action_all_states": "Ver las {count} en cualquier estado",
   "tenders.action_clear": "Quitar texto y comunidad",
   "tenders.state_name_open": "abierta",
-  "tenders.state_name_pending": "pendiente de adjudicación",
-  "tenders.state_name_closed": "cerrada"
+  "tenders.state_name_pending": "con el plazo cerrado y sin adjudicar",
+  "tenders.state_name_closed": "adjudicada o resuelta"
 }

@@ -10,8 +10,9 @@ const terminal = new Set(['done', 'error', 'cancelled']);
 const COMMUNITIES = ['Andalucía', 'Aragón', 'Canarias', 'Cantabria', 'Castilla y León', 'Castilla-La Mancha', 'Cataluña', 'Ceuta',
   'Comunidad de Madrid', 'Comunidad Foral de Navarra', 'Comunitat Valenciana', 'Extremadura', 'Galicia', 'Illes Balears', 'La Rioja',
   'Melilla', 'País Vasco', 'Principado de Asturias', 'Región de Murcia', 'toda España'];
-// Every tender is in exactly one of these: accepting bids today, waiting for the award, or neither.
-const stateOf = row => row.open ? 'open' : row.status === 'EV' ? 'pending' : 'closed';
+// Every tender is in exactly one of these: accepting bids today; deadline over but not awarded (the
+// platform says so, or still says "open" after the deadline); awarded, concluded or cancelled.
+const stateOf = row => row.open ? 'open' : ['EV', 'PUB'].includes(row.status) ? 'pending' : 'closed';
 
 export class Tenders {
   constructor(api, refreshStatus) {
@@ -153,7 +154,7 @@ export class Tenders {
     const subject = node('td', 'tender-subject'), details = node('small', '', `${row.folder} · ${row.organ}`);
     subject.append(node('strong', '', row.title), details);
     if (row.link) { const link = node('a', '', k('view')); link.href = row.link; link.target = '_blank'; link.rel = 'noopener noreferrer'; details.append(' · ', link); }
-    const state = node('td'), kind = row.open ? 'badge--ok' : row.status === 'EV' ? 'badge--warn' : 'badge--neutral';
+    const state = node('td'), kind = {open: 'badge--ok', pending: 'badge--warn', closed: 'badge--neutral'}[stateOf(row)];
     state.append(node('span', `badge ${kind}`, this.stateLabel(row)));
     if (row.in_library) {
       state.append(node('small', '', k('in_library', {files: row.files})));
