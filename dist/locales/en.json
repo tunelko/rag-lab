@@ -480,7 +480,7 @@
   "sentinel.chat_sub": "Query with document evidence",
   "sentinel.conversation": "Conversation",
   "sentinel.ask": "What would you like to know?",
-  "sentinel.ask_hint": "Ask about the selected source. Every answer shows the citations it used.",
+  "sentinel.ask_hint": "Hi, I'm Musa and I'm here to search and answer.",
   "sentinel.auto_index": "Index after upload",
   "sentinel.update_index": "Update index",
   "sentinel.library": "Library",

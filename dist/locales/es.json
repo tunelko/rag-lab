@@ -480,7 +480,7 @@
   "sentinel.chat_sub": "Consulta con evidencia documental",
   "sentinel.conversation": "Conversación",
   "sentinel.ask": "¿Qué quieres saber?",
-  "sentinel.ask_hint": "Pregunta sobre la fuente seleccionada. Cada respuesta muestra las citas utilizadas.",
+  "sentinel.ask_hint": "Hola, Soy Musa y estoy aqui para buscar y responder.",
   "sentinel.auto_index": "Indexar al terminar la subida",
   "sentinel.update_index": "Actualizar índice",
   "sentinel.library": "Biblioteca",
