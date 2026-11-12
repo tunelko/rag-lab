@@ -66,6 +66,7 @@ export async function initI18n() {
   setLanguage(choice, {persist: false});
   document.querySelector('#language-selection')?.addEventListener('change', event => setLanguage(event.target.value));
   window.addEventListener('languagechange', () => { if (preference === 'auto') setLanguage('auto', {persist: false}); });
+  window.addEventListener('rag:themechange', () => translateStatic());
 }
 
 // Translate only known server messages, never answer text, filenames or raw logs.

@@ -24,7 +24,7 @@ export class ServerConsole{
     for(const line of lines){const row=node('div','log__line console-line console-'+line.level.toLowerCase()),time=node('time','log__time',(line.time_source==='read'?'≈ ':'')+new Date(line.time).toLocaleTimeString(intlLocale()));time.dateTime=line.time;time.title=s(line.time_source==='read'?'log_read_time':'log_received_time');
       const level=line.level==='WARNING'?'WARN':line.level;row.append(node('span','log__no',line.id),time,node('span','log__src '+(line.stream==='server'?'log__src--server':''),line.stream),node('span','log__lv log__lv--'+level,level),node('span','log__message console-message',line.text));container.append(row);}
     container.setAttribute('aria-busy','false');$('console-empty').hidden=lines.length>0;$('console-count').textContent=s('console_lines',{count:lines.length});$('console-time-note').hidden=!lines.some(line=>line.time_source==='read');container.scrollTop=follow?container.scrollHeight:previous;
-    const pause=$('console-pause');pause.replaceChildren(icon(this.paused?'arrow':'clock'),node('span','sr-only',s(this.paused?'resume':'pause')));pause.setAttribute('aria-label',s(this.paused?'resume':'pause'));pause.title=s(this.paused?'resume':'pause');
+    const pause=$('console-pause');pause.replaceChildren(icon(this.paused?'play':'pause'),node('span','sr-only',s(this.paused?'resume':'pause')));pause.setAttribute('aria-label',s(this.paused?'resume':'pause'));pause.title=s(this.paused?'resume':'pause');
     for(const [id,key]of[['console-clear','clear_display'],['console-copy','copy'],['console-download','download']]){$(id).title=s(key);$(id).setAttribute('aria-label',s(key));}
     if(this.paused)$('console-status').textContent=s('console_paused');
   }

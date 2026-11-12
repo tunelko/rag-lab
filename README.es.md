@@ -205,6 +205,7 @@ quedan fuera de Git. Las descargas iniciales necesitan Internet. Más:
 Avisos de dependencias y límites del despliegue local: [estado de seguridad](SECURITY.md).
 Arquitectura comprobada, fallos corregidos y límites pendientes: [revisión técnica](docs/AUDIT.md).
 
-Interfaz en español e inglés, detección del navegador y selector de idioma
-persistente. Las nuevas respuestas usan el idioma elegido mediante Ollama local.
-Consulta [idiomas](docs/INTERNATIONALIZATION.md) y el [plan de escalabilidad](docs/SCALING.md).
+Interfaz en español e inglés, detección del navegador, selector de idioma
+persistente y conmutador de apariencia clara/oscura. Las nuevas respuestas usan el
+idioma elegido mediante Ollama local. Consulta
+[idiomas](docs/INTERNATIONALIZATION.md) y el [plan de escalabilidad](docs/SCALING.md).

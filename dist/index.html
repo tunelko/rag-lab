@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html data-theme="dark" lang="es">
  <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1" name="viewport"/>
@@ -8,6 +8,7 @@
    RAG Local
   </title>
   <link href="data:," rel="icon"/>
+  <script src="/assets/theme.js"></script>
   <link href="/assets/design/fonts.css" rel="stylesheet"/>
   <link href="/assets/rag-local-theme.css" rel="stylesheet"/>
   <link href="/assets/app.css" rel="stylesheet"/>
@@ -80,6 +81,24 @@
      <path d="M15 3H3v12">
      </path>
     </symbol>
+    <symbol id="i-pause" viewbox="0 0 24 24">
+     <rect fill="currentColor" height="16" rx="1" stroke="none" width="4" x="6" y="4">
+     </rect>
+     <rect fill="currentColor" height="16" rx="1" stroke="none" width="4" x="14" y="4">
+     </rect>
+    </symbol>
+    <symbol id="i-play" viewbox="0 0 24 24">
+     <path d="M8 5v14l11-7Z" fill="currentColor" stroke="none">
+     </path>
+    </symbol>
+    <symbol id="i-eraser" viewbox="0 0 24 24">
+     <path d="m4.5 13.5 8-8a2.1 2.1 0 0 1 3 0l3 3a2.1 2.1 0 0 1 0 3L10 20H6.5a2 2 0 0 1-1.4-.6l-.6-.6a3.7 3.7 0 0 1 0-5.3ZM10 20h10M9 9l6 6">
+     </path>
+    </symbol>
+    <symbol id="i-download" viewbox="0 0 24 24">
+     <path d="M12 3v12m-5-5 5 5 5-5M4 20h16">
+     </path>
+    </symbol>
     <symbol id="i-alert" viewbox="0 0 24 24">
      <path d="m12 3 10 18H2L12 3Zm0 6v5m0 3v.5">
      </path>
@@ -94,6 +113,16 @@
     </symbol>
     <symbol id="i-settings" viewbox="0 0 24 24">
      <path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4">
+     </path>
+    </symbol>
+    <symbol id="i-sun" viewbox="0 0 24 24">
+     <circle cx="12" cy="12" r="4">
+     </circle>
+     <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4">
+     </path>
+    </symbol>
+    <symbol id="i-moon" viewbox="0 0 24 24">
+     <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z">
      </path>
     </symbol>
     <symbol id="i-gear" viewBox="0 0 24 24">
@@ -227,6 +256,12 @@
      <button aria-label="Estado del sistema" aria-controls="system-popover" aria-expanded="false" class="sysbtn" data-i18n-aria-label="header.system" data-i18n-title="header.system" id="system-button" popovertarget="system-popover" title="Estado del sistema" type="button">
       <svg aria-hidden="true" class="icon">
        <use href="#i-activity">
+       </use>
+      </svg>
+     </button>
+     <button aria-label="Activar modo claro" aria-pressed="false" class="themebtn" data-i18n-aria-label="theme.activate_light" data-i18n-title="theme.activate_light" id="theme-toggle" title="Activar modo claro" type="button">
+      <svg aria-hidden="true" class="icon">
+       <use href="#i-sun" id="theme-icon">
        </use>
       </svg>
      </button>
@@ -2352,7 +2387,7 @@
        </span>
        <button class="btn btn--secondary" id="console-pause" type="button">
         <svg aria-hidden="true" class="icon">
-         <use href="#i-clock">
+         <use href="#i-pause">
          </use>
         </svg>
         <span data-i18n="sentinel.pause">
@@ -2361,7 +2396,7 @@
        </button>
        <button class="btn btn--secondary" id="console-clear" type="button">
         <svg aria-hidden="true" class="icon">
-         <use href="#i-x">
+         <use href="#i-eraser">
          </use>
         </svg>
         <span data-i18n="sentinel.clear_display">
@@ -2379,7 +2414,7 @@
        </button>
        <button class="btn btn--secondary" id="console-download" type="button">
         <svg aria-hidden="true" class="icon">
-         <use href="#i-arrow">
+         <use href="#i-download">
          </use>
         </svg>
         <span data-i18n="sentinel.download">

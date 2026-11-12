@@ -197,6 +197,7 @@ The project's license is pending; third-party notices remain intact.
 Dependency advisories and local deployment boundaries: [security status](SECURITY.md).
 Implemented architecture, reviewed defects and remaining limits: [implementation audit](docs/AUDIT.md).
 
-The interface supports English and Spanish, automatic browser detection and a
-persistent language selector. New answers use the selected language through local
-Ollama. See [languages](docs/INTERNATIONALIZATION.md) and the [scaling roadmap](docs/SCALING.md).
+The interface supports English and Spanish, automatic browser detection, a
+persistent language selector and a persistent light/dark appearance toggle. New
+answers use the selected language through local Ollama. See
+[languages](docs/INTERNATIONALIZATION.md) and the [scaling roadmap](docs/SCALING.md).

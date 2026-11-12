@@ -32,6 +32,7 @@ export class Chat{
     $('query-image-input').addEventListener('change',()=>this.addImages([...$('query-image-input').files]));
     window.addEventListener('rag:source',event=>{const turn=this.turns.find(turn=>`turn-${turn.id}`===event.detail.prefix);if(turn)this.selectContext(turn,event.detail.number);});
     window.addEventListener('rag:scope',()=>this.suggestions());
+    window.addEventListener('rag:languagechange',()=>this.suggestions());
   }
   save(){this.turns=this.turns.slice(-30);try{sessionStorage.setItem(STORE,JSON.stringify(this.turns));}catch{toast(s('history_full'));}}
   controls(){
@@ -47,9 +48,13 @@ export class Chat{
   suggestions(){
     const container=$('chat-suggestions');container.replaceChildren();
     const topicId=$('chat-scope').value,topics=this.status?.library?.topics||[];
-    for(const document of (this.status?.documents||[]).filter(item=>item.indexed&&(!topicId||(topicId==='unassigned'?!item.topic_id:item.topic_id===topicId||topics.some(topic=>topic.id===item.topic_id&&topic.parent_id===topicId)))).slice(0,3)){
-      const question=s('suggest_document',{name:document.name});const control=button(question,'btn btn--secondary',()=>{$('question').value=question;this.controls();$('question').focus();});container.append(control);
-    }
+    const selected=topics.find(topic=>topic.id===topicId),parent=topics.find(topic=>topic.id===selected?.parent_id),scope=[parent?.name,selected?.name].filter(Boolean).join(' / ');
+    const questions=selected
+      ?[s('suggest_scope_summary',{name:scope}),s('suggest_scope_requirements',{name:scope}),s('suggest_scope_compare',{name:scope})]
+      :[s('suggest_library_contents'),s('suggest_library_summary'),s('suggest_library_compare')];
+    const title=node('p','suggestions__title',s('examples')),list=node('div','suggestions__list');
+    for(const question of questions){const control=button('','suggestion-prompt',()=>{$('question').value=question;this.controls();$('question').focus();});control.append(icon('arrow'),node('span','',question));list.append(control);}
+    container.append(title,list);
   }
   async addImages(files){
     for(const file of files){
