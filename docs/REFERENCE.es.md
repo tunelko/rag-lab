@@ -513,6 +513,30 @@ Para recrear las mismas versiones con Python 3.13 x64:
 No se instala CUDA Toolkit global, no se actualizan controladores y no se modifica
 el Python global. Los wheels de PyTorch aportan el runtime CUDA necesario.
 
+## Laboratorio: comprobar la recuperación del chat
+
+Abre **Laboratorio** en la barra superior. Primero debe haber documentos
+indexados. Carga un JSONL UTF-8 (máximo 1 MiB y 100 preguntas) o pega su texto;
+cada línea contiene una pregunta concreta, sus documentos/páginas de referencia
+y, opcionalmente, un texto literal esperado en `evidence`.
+
+**Validar conjunto** señala los errores por línea sin cargar modelos. **Evaluar
+configuración del chat** captura K, presupuesto de evidencia y reordenador; no
+cambia esos ajustes. La prueba usa una copia coherente del índice y no genera
+respuestas ni llama a proveedores externos. El resultado principal es el número
+de preguntas cuya evidencia aparece en el contexto, con su denominador. Las
+preguntas sin evidencia anotada se muestran aparte.
+
+Cada pregunta se puede desplegar para leer el contexto exacto. Puedes cancelar
+desde esta sección, el aviso global o el diálogo **Vaciar biblioteca**. Se
+termina la pregunta actual, se elimina la copia temporal y se conserva lo medido.
+La página recupera los resultados al recargar; tras un reinicio un trabajo
+incompleto aparece como interrumpido. Las fuentes modificadas no conservan
+enlaces que puedan confundirse con el contenido medido.
+
+La primera pantalla no ofrece comparaciones, historial navegable, exportación
+ni evaluación de respuestas. [Diseño y formato JSONL](LABORATORY.md).
+
 ## Límites y próximos pasos
 
 - Las fuentes permiten contrastar la respuesta; RAG no garantiza que el LLM sea correcto.

@@ -19,6 +19,7 @@
   <link href="/assets/header.css" rel="stylesheet"/>
  <link rel="stylesheet" href="/assets/library.css"/>
  <link rel="stylesheet" href="/assets/settings.css"/>
+ <link rel="stylesheet" href="/assets/laboratory.css"/>
 </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -228,6 +229,11 @@
        <span data-i18n="sentinel.nav_statistics">
         Estadísticas
        </span>
+      </a>
+      <a class="nav-item" href="/laboratorio" id="nav-laboratory" hidden data-i18n-aria-label="lab.title" aria-label="Laboratorio">
+       <svg aria-hidden="true" class="icon"><use href="#i-activity"></use></svg>
+       <span class="lab-nav-long" data-i18n="lab.title">Laboratorio</span>
+       <span class="lab-nav-short" data-i18n="lab.short" aria-hidden="true">Lab</span>
       </a>
       <a class="nav-item" href="/consola" id="nav-console">
        <svg aria-hidden="true" class="icon">
@@ -492,6 +498,13 @@
     </div>
    </header>
    <main id="main">
+    <aside class="lab-job-banner" hidden id="lab-job-banner" role="status" aria-live="polite">
+     <span id="lab-job-label"></span>
+     <div class="lab-actions">
+      <a class="btn btn--secondary btn--sm" href="/laboratorio" data-i18n="lab.view">Ver experimento</a>
+      <button class="btn btn--secondary btn--sm" id="lab-banner-cancel" type="button" data-i18n="lab.cancel">Cancelar experimento</button>
+     </div>
+    </aside>
     <section class="page" id="query-view">
      <header class="page-head">
       <svg aria-hidden="true" class="icon">
@@ -2286,6 +2299,65 @@
       </section>
      </details>
     </section>
+    <section class="page lab-view" hidden id="laboratory-view" aria-labelledby="lab-title">
+     <header class="lab-heading">
+      <h1 id="lab-title" data-i18n="lab.title">Laboratorio</h1>
+      <p class="meta" data-i18n="lab.intro">Comprueba si la evidencia correcta llega al contexto del chat. Esta prueba no genera respuestas.</p>
+     </header>
+     <p class="lab-notice" id="lab-no-index" hidden>
+      <span data-i18n="lab.no_index">Primero sube e indexa documentos.</span>
+      <a href="/admin" data-i18n="lab.open_library">Abrir Biblioteca</a>
+     </p>
+     <div class="lab-layout">
+      <form class="card lab-input" id="lab-form">
+       <h2 class="card-title" data-i18n="lab.dataset">Conjunto de evaluación</h2>
+       <p class="help-text" data-i18n="lab.limits">JSONL UTF-8 · máximo 1 MiB y 100 preguntas. Solo preguntas concretas, sin historial ni imágenes adjuntas.</p>
+       <label class="field" for="lab-file">
+        <span data-i18n="lab.file">Cargar archivo JSONL</span>
+        <input class="input" type="file" id="lab-file" accept=".jsonl,application/x-ndjson,application/jsonl,text/plain"/>
+       </label>
+       <label class="field" for="lab-name"><span data-i18n="lab.name">Nombre del conjunto</span><input class="input" id="lab-name" maxlength="80" autocomplete="off"/></label>
+       <label class="field" for="lab-content">
+        <span data-i18n="lab.content">O pega aquí el JSONL</span>
+        <textarea class="input" id="lab-content" rows="7" spellcheck="false" maxlength="1048576" aria-describedby="lab-format"></textarea>
+       </label>
+       <details class="lab-format" id="lab-format">
+        <summary data-i18n="lab.format">Formato y ejemplo</summary>
+        <p class="help-text" data-i18n="lab.format_help">Una pregunta por línea. Copia el nombre exacto del documento de Biblioteca y usa la página física del PDF, empezando por 1. La evidencia es un texto literal de la respuesta; si no se anota, se contabiliza aparte.</p>
+        <pre><code id="lab-example"></code></pre>
+       </details>
+       <p id="lab-validation" class="help-text" role="status" aria-live="polite"></p>
+       <p id="lab-error" class="error-reason" role="alert" hidden></p>
+       <div class="lab-actions">
+        <button class="btn btn--secondary" id="lab-validate" type="button" data-i18n="lab.validate">Validar conjunto</button>
+        <button class="btn btn--primary" id="lab-run" type="submit" disabled data-i18n="lab.run">Evaluar configuración del chat</button>
+       </div>
+      </form>
+      <aside class="card lab-configuration" aria-labelledby="lab-config-title">
+       <h2 class="card-title" id="lab-config-title" data-i18n="lab.configuration">Configuración que se medirá</h2>
+       <p class="help-text" data-i18n="lab.config_help">Se captura al enviar y se mantiene durante el experimento. El Laboratorio no cambia los ajustes del chat.</p>
+       <dl id="lab-configuration"></dl>
+       <p class="help-text" id="lab-estimate"></p>
+       <p class="help-text" id="lab-gpu-note" hidden data-i18n="lab.gpu_note">El reordenador configurado puede usar GPU y compartir VRAM con Ollama. No se descargan modelos.</p>
+       <a href="/configuracion" data-i18n="lab.open_settings">Ver Configuración</a>
+      </aside>
+     </div>
+     <section class="card lab-results" id="lab-results" hidden aria-labelledby="lab-result-title">
+      <div class="lab-result-heading">
+       <div><h2 class="card-title" id="lab-result-title" data-i18n="lab.results">Evidencia en el contexto</h2><p class="meta" id="lab-run-state" role="status"></p></div>
+       <button class="btn btn--secondary btn--sm" id="lab-cancel" type="button" hidden data-i18n="lab.cancel">Cancelar experimento</button>
+      </div>
+      <p class="lab-score" id="lab-score"></p>
+      <p class="help-text" id="lab-denominator"></p>
+      <p class="help-text" data-i18n="lab.score_help">Mide presencia literal en el texto que cabe en el contexto. No evalúa la respuesta del modelo, su comprensión visual ni la exactitud del OCR.</p>
+      <progress id="lab-progress" max="100" value="0" data-i18n-aria-label="lab.progress" aria-label="Progreso de evaluación"></progress>
+      <p class="lab-notice" id="lab-stale" hidden data-i18n="lab.stale">Resultado de una versión anterior de la biblioteca. El contexto medido se conserva; los enlaces a los documentos actuales están desactivados.</p>
+      <p class="error-reason" id="lab-run-error" role="alert" hidden></p>
+      <p class="help-text" id="lab-rerank-warning" hidden></p>
+      <div id="lab-question-results"></div>
+      <details class="lab-provenance"><summary data-i18n="lab.provenance">Procedencia y parámetros de la ejecución</summary><dl id="lab-provenance"></dl></details>
+     </section>
+    </section>
     <section class="page" hidden="" id="console-view">
      <header class="page-head">
       <svg aria-hidden="true" class="icon">
@@ -2517,6 +2589,13 @@
     </label>
     <p class="error-reason" hidden="" id="empty-library-error" role="alert">
     </p>
+    <div class="lab-notice" id="empty-lab-warning" hidden>
+     <p data-i18n="lab.empty_busy">Hay un experimento activo. Cancélalo y espera a que termine la pregunta actual antes de vaciar la biblioteca.</p>
+     <div class="lab-actions">
+      <button class="btn btn--secondary btn--sm" id="empty-lab-cancel" type="button" data-i18n="lab.cancel">Cancelar experimento</button>
+      <button class="btn btn--ghost btn--sm" id="empty-lab-view" type="button" data-i18n="lab.view">Ver experimento</button>
+     </div>
+    </div>
     <div class="dialog-actions">
      <button class="btn btn--secondary" id="empty-library-cancel" type="button">
       <span data-i18n="sentinel.empty_cancel">

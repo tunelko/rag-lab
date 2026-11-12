@@ -39,3 +39,11 @@ and redirect refusal. No production documents or inference models are required.
 Browser recovery checks distinguish acknowledged uploads from filename/size
 collisions, ignore other tabs' queries, and recover this tab's completed jobs.
 See the [implementation audit](../docs/AUDIT.md) for the limits these tests do not prove.
+
+Laboratory tests use genuine SQLite snapshots and fake local embeddings. They
+verify effective chat-parameter capture before queueing, validation before model
+loading, committed WAL copying, unchanged active vector/manifest bytes, partial
+results after cancellation/reload, startup cleanup, and the Empty Library guard.
+Browser acceptance exercises the mirror in ES/EN and light/dark mobile layouts.
+Its evidence percentages are fixture checks, not accuracy benchmarks of a user's
+corpus or answer model.

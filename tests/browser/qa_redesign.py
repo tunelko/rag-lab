@@ -124,7 +124,12 @@ def fixture_server(port):
     import retrieval_pipeline
     real_retrieve = retrieval_pipeline.retrieve
     def fixture_retrieve(config, question, embeddings, k, *, files=None, visual=False,
-                         reranker=None, rerank_window=50):
+                         reranker=None, rerank_window=50, include_ids=False):
+        if include_ids:
+            if '__QA_LAB_SLOW__' in question:
+                time.sleep(.35)
+            return real_retrieve(config, question, embeddings, k, files=files, visual=visual,
+                                 reranker=reranker, rerank_window=rerank_window, include_ids=True)
         # Thousands of identical synthetic text vectors can swamp HNSW's candidates.
         # Scope routing UI tests to their real indexed fixtures, not ANN recall quality.
         fixture_file = ('qa-figure.png' if question.startswith("qa-figure\n") else
@@ -982,6 +987,87 @@ def run_browser(url):
         recovery.close()
         check('Chat recovery ignores foreign jobs, reads owned completed jobs and releases unacknowledged turns without resubmission')
 
+        # Laboratory uses a genuine isolated snapshot and fake CPU vectors. The
+        # injected delay only makes cancellation observable; metrics are real.
+        original_language=page.locator('#language-selection').input_value()
+        original_theme=page.evaluate('document.documentElement.dataset.theme')
+        page.locator('#language-selection').select_option('es')
+        lab_headers={'X-RAG-Token':page.request.get(url+'/api/session').json()['token']}
+        lab_text='Backups run every Friday. <img src=x onerror="window.__qaLabXss=1">'
+        uploaded=page.request.post(url+'/api/admin/upload',headers=lab_headers,multipart={
+            'files':{'name':'qa-lab.txt','mimeType':'text/plain','buffer':lab_text.encode()},'auto_index':'true'}).json()
+        for _ in range(200):
+            uploaded_job=page.request.get(url+'/api/jobs/'+uploaded['job_id']).json()
+            if uploaded_job['status'] not in {'queued','running'}:break
+            time.sleep(.05)
+        assert uploaded_job['status']=='done',uploaded_job
+        page.goto(url+'/laboratorio',wait_until='networkidle')
+        expect(page.locator('#lab-title')).to_have_text('Laboratorio')
+        expect(page.locator('#lab-content')).to_be_enabled()
+        page.locator('#lab-content').fill('\n{broken}')
+        page.locator('#lab-validate').click()
+        expect(page.locator('#lab-error')).to_contain_text('Línea 2')
+        expect(page.locator('#lab-run')).to_be_disabled()
+        example={'id':'lab-1','question':'When do backups run?','files':['qa-lab.txt'],
+            'relevant':[{'file':'qa-lab.txt'}],'evidence':['Friday']}
+        unannotated={key:value for key,value in example.items() if key!='evidence'};unannotated['id']='lab-2'
+        page.locator('#lab-content').fill('\n'.join(json.dumps(item) for item in (example,unannotated)))
+        page.locator('#lab-name').fill('QA mirror')
+        page.locator('#lab-validate').click()
+        expect(page.locator('#lab-validation')).to_contain_text('2 preguntas')
+        expect(page.locator('#lab-run')).to_be_enabled()
+        page.locator('#lab-run').click()
+        expect(page.locator('#lab-run-state')).to_contain_text('Completado',timeout=20000)
+        expect(page.locator('#lab-score')).to_contain_text('1 / 1')
+        expect(page.locator('#lab-denominator')).to_contain_text('Sin evidencia anotada: 1')
+        expect(page.locator('.lab-result')).to_have_count(2)
+        page.locator('.lab-result summary').first.click()
+        expect(page.locator('.lab-result pre').first).to_have_text(lab_text)
+        assert page.locator('.lab-result img').count()==0
+        assert not page.evaluate('window.__qaLabXss')
+        latest=page.request.get(url+'/api/laboratory').json()['latest']
+        page.reload(wait_until='networkidle')
+        expect(page.locator('#lab-score')).to_contain_text('1 / 1')
+        assert page.request.get(url+'/api/laboratory').json()['latest']['id']==latest['id']
+        expect(page.locator('#lab-content')).to_be_enabled()
+        slow=[{**example,'id':'slow-'+str(i),'question':'__QA_LAB_SLOW__ When do backups run?'} for i in range(30)]
+        page.locator('#lab-content').fill('\n'.join(json.dumps(item) for item in slow))
+        page.locator('#lab-validate').click();expect(page.locator('#lab-run')).to_be_enabled();page.locator('#lab-run').click()
+        page.wait_for_function("document.querySelectorAll('.lab-result').length>0")
+        page.locator('#nav-admin').click()
+        expect(page.locator('#lab-job-banner')).to_be_visible()
+        expect(page.locator('#empty-library-button')).to_be_enabled()
+        page.locator('#empty-library-button').click()
+        expect(page.locator('#empty-lab-warning')).to_be_visible()
+        page.locator('#empty-library-word').fill('VACIAR')
+        expect(page.locator('#empty-library-confirm')).to_be_disabled()
+        page.locator('#empty-lab-cancel').click()
+        expect(page.locator('#empty-lab-warning')).not_to_be_visible(timeout=15000)
+        expect(page.locator('#empty-library-confirm')).to_be_enabled()
+        page.locator('#empty-library-cancel').click()
+        page.locator('#nav-laboratory').click()
+        expect(page.locator('#lab-run-state')).to_contain_text('Cancelado')
+        partial=page.request.get(url+'/api/laboratory').json()['latest']
+        assert 0<partial['report']['summary']['completed']<30,partial['report']['summary']
+        page.reload(wait_until='networkidle')
+        expect(page.locator('#lab-run-state')).to_contain_text('Cancelado')
+        assert page.request.get(url+'/api/laboratory').json()['latest']['report']['summary']==partial['report']['summary']
+        page.locator('#language-selection').select_option('en')
+        expect(page.locator('#lab-title')).to_have_text('Laboratory')
+        expect(page.locator('#lab-run-state')).to_contain_text('Cancelled')
+        if page.evaluate('document.documentElement.dataset.theme')!='light':page.locator('#theme-toggle').click()
+        page.set_viewport_size({'width':390,'height':844})
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        page.screenshot(path=str(reports/'laboratory-light-mobile.png'),full_page=True)
+        page.locator('#theme-toggle').click()
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        page.screenshot(path=str(reports/'laboratory-dark-mobile.png'),full_page=True)
+        page.set_viewport_size({'width':1440,'height':1000})
+        if page.evaluate('document.documentElement.dataset.theme')!=original_theme:page.locator('#theme-toggle').click()
+        page.locator('#language-selection').select_option(original_language)
+        page.locator('#nav-admin').click()
+        check('Laboratory mirror: JSONL validation, literal evidence denominator, exact safe context, native queue visibility, cancellation through Empty Library, reload recovery and EN/ES light/dark mobile layouts')
+
         page.screenshot(path=str(reports / "redesign-biblioteca.png"), full_page=True)
         page.set_viewport_size({"width":390,"height":844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -1028,6 +1114,12 @@ def run_browser(url):
         assert (status["document_count"],status["chunk_count"],status["library"]["topics"])==(0,0,[]), status
         assert not errors, errors
         check("Empty library: typed confirmation, cancel without changes, backup instead of deletion and a clean empty state")
+        page.goto(url+'/laboratorio',wait_until='networkidle')
+        expect(page.locator('#lab-no-index')).to_be_visible()
+        expect(page.locator('#lab-run')).to_be_disabled()
+        expect(page.locator('#lab-stale')).to_be_visible()
+        assert page.locator('.lab-result-body a').count()==0
+        check('Laboratory empty library explains indexing and preserves historical partial results without live source links')
         browser.close()
     report={"status":"OK","checks":checks,"external_requests":external,"page_errors":errors,
             "llm":"fake test adapter; no Ollama/GPU calls","embeddings":"deterministic test vectors; no model downloads",

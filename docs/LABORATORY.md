@@ -1,13 +1,16 @@
 # Laboratory: design and delivery boundaries
 
-The Laboratory will explain whether the **evidence needed to answer a question
+The Laboratory explains whether the **evidence needed to answer a question
 actually reaches the model's context**. It is a mirror of the chat's retrieval,
 not another search engine. It does not promise that an answer will be correct.
 
-**Current delivery: phase 0, shared engine and offline contract tests.** There is
-no Laboratory web page, API, experiment queue or persistent history yet. The
-running server and the user's library have not been changed. This design was
-agreed between Codex and Claude; the next phase is reviewed separately.
+**Current delivery: phase 1, the mirror screen.** Open `/laboratorio` after
+starting a server with this version. It validates a local JSONL dataset, runs
+the effective focused-chat configuration on a temporary snapshot and shows the
+literal coverage and exact context per question. Completed measurements survive
+cancellation and page reload. Comparison controls, a history browser, exports and
+answer generation belong to later phases. Development/acceptance tests use an
+isolated corpus and fake models; they do not benchmark the user's library.
 
 ## Three rules
 
@@ -23,7 +26,7 @@ agreed between Codex and Claude; the next phase is reviewed separately.
 
 ## Four pieces
 
-| Piece | Identity and responsibility | Planned private storage |
+| Piece | Identity and responsibility | Private storage |
 | --- | --- | --- |
 | Dataset | Immutable JSONL; question, reference file/page or vector ID, optional literal answer evidence. Identified by SHA-256. | `data/lab/datasets/` |
 | Snapshot | One coherent SQLite backup plus publication manifest, under `index_writer`. Only published vector IDs are eligible. | `data/lab/snapshots/run-…/` |
@@ -40,7 +43,9 @@ The run uses the existing single job queue; it refuses to start behind an active
 or queued ingestion. Its name, phase and cancellation action remain visible from
 the rest of the application. Cancelling retains completed measurements. Emptying
 the library identifies an active experiment rather than reporting generic work.
-Those lifecycle integrations are **phase 1 work, not implemented in phase 0**.
+Interrupted work is marked interrupted on startup, retaining completed results.
+The latest result is restored automatically. Up to five recent runs and their
+datasets are retained for technical recovery; phase 1 has no history navigation.
 
 ## What a score means
 
@@ -64,8 +69,8 @@ tokens per second. No answer model or REMi evaluator is involved.
 
 | Phase | Deliverable | Decision supported | Status |
 | --- | --- | --- | --- |
-| 0 — Engine | Shared evaluator, immutable baseline fixtures, parity with focused chat retrieval and exact context clipping. Existing CLI stays compatible. | Establish a trustworthy measurement path. | Prepared; offline tests and review required before phase 1. |
-| 1 — Mirror | One screen: upload/validate JSONL, run current retrieval, inspect evidence coverage and exact context per question. Persist partial progress for reload/cancellation. | Is the relevant evidence reaching the context? | Planned. |
+| 0 — Engine | Shared evaluator, immutable baseline fixtures, parity with focused chat retrieval and exact context clipping. Existing CLI stays compatible. | Establish a trustworthy measurement path. | Implemented and independently reviewed. |
+| 1 — Mirror | One screen: upload/validate JSONL, run current retrieval, inspect evidence coverage and exact context per question. Persist partial progress for reload/cancellation. | Is the relevant evidence reaching the context? | Implemented; release follows independent acceptance. |
 | 2 — Compare | Explicit variants of K, context budget, reranking and retrieval strategy on the same dataset and snapshot. | Which configuration improves the measured cases? | Planned; after review of phase 1. |
 | 3 — History | Run browser, comparisons across dates and safe report exports. Bounded retention and deletion per run. | Has behavior improved or regressed? | Planned; after review of phase 2. |
 | 4 — Answers | Generation, prompt experiments and separately labelled answer evaluation. | Are the answers grounded and correct? | Separate future decision. |
@@ -96,16 +101,20 @@ measured as text; this does not evaluate the model's visual understanding.
 ## Input and privacy boundaries
 
 The existing JSONL schema is retained; see [evaluation](EVALUATION.md) for examples
-and equivalent-judgment groups. The web adapter will accept at most 1 MiB and 100
+and equivalent-judgment groups. The web adapter accepts at most 1 MiB and 100
 questions, with bounded fields and explicit errors by line. References must name
 published documents/pages or published vector IDs before any model is loaded.
 The browser uploads content, not an arbitrary server-side path. All content stays
 under ignored `data/`; it is never sent to the response provider by this stage.
 
-Phase 0's `evaluate_snapshot` accepts an **already frozen collection** supplied by
-its caller. It does not yet implement snapshot creation, job persistence or the
-web lifecycle. Its caller supplies the embedding factory and optional reranker;
-importing the module loads neither. It invokes no generator. The existing research
+`evaluate_snapshot` accepts an **already frozen collection** supplied by
+`LaboratoryStore.snapshot`. The API validates references before any model loading,
+captures parameters using the same `capture_effective` function as chat, and
+queues one visible job. Only documents currently ready for chat are in scope;
+stale or unpublished documents cannot silently enter the measurement. The caller
+supplies factories for embeddings and the captured local reranker; importing the
+module loads neither. A missing model causes an explicit error rather than a
+download or silent replacement. It invokes no generator. The existing research
 CLI's experimental functions live in `retrieval_experiments.py`; `tools/` remains
 a wrapper with its previous explicit download opt-in.
 
@@ -115,6 +124,41 @@ native/visual channels, automatic source scope and reranking. Other cases cover
 unpublished vectors, validation before embedding loading, missing annotations,
 cancellation with partial results, and unchanged vector/manifest bytes. They
 use fabricated CPU vectors, not a measurement of the user's corpus.
+
+Exact score ties currently use vector IDs, which include absolute-path identity.
+The same snapshot gives chat/lab parity, but reindexing identical duplicate text
+under another root can reorder ties. This is an existing production behavior,
+not a measured quality change; a stable cross-root tie-break is a separate decision.
+
+## Using the mirror
+
+1. Upload and index documents in Library. With an empty library the Laboratory
+   explains this prerequisite and disables validation/execution.
+2. Load a UTF-8 JSONL file or paste its content. The 1 MiB/100-question limits and
+   a format example are visible before loading. Name the files exactly as Library
+   shows them. The example is a template, not ground truth for your documents.
+3. Select **Validate dataset**. Errors name the line and cause; missing sources
+   and pages are rejected before loading any model.
+4. Review the captured-configuration explanation and estimated temporary disk
+   space, then select **Evaluate chat configuration**. Each question is one
+   retrieval; no answer generation or provider credentials are used.
+5. Expand a result to inspect its reference, literal anchors and exact source text
+   within the evidence budget. Questions without anchors are excluded from the
+   headline denominator. Cancel from Laboratory, the global job banner or the
+   Empty Library dialog. Cancellation completes the current question and keeps
+   measured results. Reloading does not submit another experiment.
+
+The global banner remains visible outside the Laboratory. Empty Library offers
+cancellation before allowing its existing typed confirmation. Historical results
+remain readable after emptying/reindexing; links to current files are disabled
+when the index or referenced file contents no longer match the measured corpus.
+
+The API entry points are `GET /api/laboratory`, `POST /api/laboratory/validate`,
+`POST /api/laboratory/runs`, and `GET /api/laboratory/runs/{id}`. Cancellation uses
+the existing `DELETE /api/jobs/{id}` with the same Origin/CSRF guard. No arbitrary
+server-side paths, experiment parameter overrides or automatic startup runs are
+accepted. The navigation is only shown when the running backend advertises this
+feature, so updating static files alone does not expose an unavailable API.
 
 No new paid fonts, providers, profiles or external ingestion connectors are part
 of this delivery. Audio/video, enrichment, anonymization, late chunking and

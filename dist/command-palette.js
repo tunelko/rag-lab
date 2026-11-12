@@ -20,5 +20,6 @@ export class CommandPalette{
     const documents=group(text('documents')),matches=(this.status()?.documents||[]).filter(item=>normalize(item.name).includes(normalize(query))).slice(0,10);
     for(const item of matches){const link=node('a','command-result',item.name);link.href='/api/source?file='+encodeURIComponent(item.name);link.target='_blank';link.rel='noopener';link.addEventListener('click',()=>this.dialog.close());documents.append(link);}if(!matches.length)documents.append(node('p','meta',text('no_documents')));
     const navigation=group(text('go'));for(const [route,key]of[['/','chat'],['/admin','library'],['/configuracion','settings'],['/estadisticas','statistics'],['/consola','console']]){const caption=text(key);if(!query||normalize(caption).includes(normalize(query)))navigation.append(button(caption,'command-result',()=>this.go(route)));}
+    if(this.status()?.features?.laboratory){const caption=t('lab.title');if(!query||normalize(caption).includes(normalize(query)))navigation.append(button(caption,'command-result',()=>this.go('/laboratorio')));}
   }
 }

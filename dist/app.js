@@ -7,11 +7,12 @@ import {Chat} from './chat.js';
 import {ServerConsole} from './console.js';
 import {Telemetry} from './telemetry.js';
 import {LibraryTopics} from './topics.js';
+import {Laboratory} from './laboratory.js';
 
 await initI18n();
 
 const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
-let queue, chat, serverConsole, telemetry, settingsController, shell, topics;
+let queue, chat, serverConsole, telemetry, settingsController, shell, topics, laboratory;
 const s=(key,values={})=>t(`sentinel.${key}`,values);
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
@@ -24,25 +25,26 @@ async function api(path,options={},refreshed=false){
   if(response.status===403&&!refreshed&&options.method&&options.method!=='GET'&&typeof result.detail==='string'&&result.detail.includes('Recarga esta página')){
     state.token=(await api('/api/session')).token;return api(path,options,true);
   }
-  if(!response.ok){const message=typeof result.detail==='string'?serverText(result.detail):t("ui.the_operation_could_not_be_completed_4d19f8");const problem=new Error(message);problem.status=response.status;problem.info=errorData(result.error_info||{message,detail:JSON.stringify(result.detail)});throw problem;}
+  if(!response.ok){const message=typeof result.detail==='string'?serverText(result.detail):t("ui.the_operation_could_not_be_completed_4d19f8");const problem=new Error(message);problem.status=response.status;problem.data=result;problem.info=errorData(result.error_info||{message,detail:JSON.stringify(result.detail)});throw problem;}
   if(path==='/api/session'&&result.token)state.token=result.token;
   return result;
 }
 function navigate(path,replace=false){
-  const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/biblioteca':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/configuracion':['settings','settings-view','nav-settings',t("ui.settings_bb5071")],'/estadisticas':['statistics','statistics-view','nav-statistics',t("ui.statistics_bb847b")],'/consola':['console','console-view','nav-console',t("ui.console_e0236e")]};
+  const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/biblioteca':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/configuracion':['settings','settings-view','nav-settings',t("ui.settings_bb5071")],'/estadisticas':['statistics','statistics-view','nav-statistics',t("ui.statistics_bb847b")],'/consola':['console','console-view','nav-console',t("ui.console_e0236e")],'/laboratorio':['laboratory','laboratory-view','nav-laboratory',t('lab.title')]};
   const route=new URL(path,location.origin);const target=views[route.searchParams.get('vista')==='consola'?'/consola':route.pathname]||views['/'];state.view=target[0];
   if(state.view!=='query')chat?.contextPanel.close();
   if(state.view!=='statistics'&&$('resource-dialog').open)$('resource-dialog').close();
   if(location.pathname+location.search!==path)history[replace?'replaceState':'pushState']({},'',path);
-  for(const id of ['query-view','admin-view','settings-view','statistics-view','console-view'])$(id).hidden=id!==target[1];
+  for(const id of ['query-view','admin-view','settings-view','statistics-view','console-view','laboratory-view'])$(id).hidden=id!==target[1];
   document.querySelectorAll('.nav-item').forEach(link=>link.removeAttribute('aria-current'));$(target[2]).setAttribute('aria-current','page');
   document.title=target[3]+' · RAG Local';
   if(state.view==='library'&&state.lastResult)$('queue-result-button').hidden=false;
   state.statisticsFilter=state.view==='statistics'?route.searchParams.get('query'):null;shell?.setView(state.view);if(state.view==='statistics')refreshStatistics();
   serverConsole?.setActive(state.view==='console');
   telemetry?.setActive(state.view==='statistics');
+  laboratory?.setActive(state.view==='laboratory');
 }
-document.addEventListener('click',(event)=>{const link=event.target.closest('a[href]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const url=new URL(link.href,location.href);if(url.origin===location.origin&&['/','/admin','/biblioteca','/configuracion','/estadisticas','/consola'].includes(url.pathname)&&!url.hash){event.preventDefault();navigate(url.pathname+url.search);window.scrollTo({top:0,behavior:'instant'});}});
+document.addEventListener('click',(event)=>{const link=event.target.closest('a[href]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;const url=new URL(link.href,location.href);if(url.origin===location.origin&&['/','/admin','/biblioteca','/configuracion','/estadisticas','/consola','/laboratorio'].includes(url.pathname)&&!url.hash){event.preventDefault();navigate(url.pathname+url.search);window.scrollTo({top:0,behavior:'instant'});}});
 window.addEventListener('popstate',()=>navigate(location.pathname+location.search,true));
 window.addEventListener('rag:navigate',(event)=>navigate(event.detail));
 
@@ -60,6 +62,8 @@ function statusView(status){
     return {...document,status:document.indexed?'indexed':'pending'};
   });
   state.status=status;queue?.setDocuments(status.documents);settingsController?.setStatus(status);shell?.setStatus(status);topics?.setStatus(status);
+  laboratory?.setStatus(status);
+  $('nav-laboratory').hidden=!status.features?.laboratory;
   const indexed=status.documents.filter(doc=>doc.indexed).length,processing=status.documents.filter(doc=>doc.status==='processing').length,errors=status.documents.filter(doc=>doc.status==='error').length,pending=status.document_count-indexed-processing-errors;
   for(const id of ['stat-docs','statistics-docs'])$(id).textContent=number(status.document_count);
   for(const id of ['stat-chunks','statistics-chunks'])$(id).textContent=number(status.chunk_count);
@@ -73,7 +77,7 @@ function statusView(status){
   $('empty-banner').hidden=status.chunk_count>0;$('config-collection').textContent=status.collection;$('config-embeddings').textContent=$('config-embeddings').title=status.embedding_model;$('config-device').textContent=status.embedding_device.toUpperCase();const reranker=status.reranker||{};$('config-reranker').textContent=$('config-reranker').title=reranker.model?reranker.model+' · '+(reranker.unavailable?s('reranker_unavailable'):reranker.loaded?String(reranker.device).toUpperCase():s('reranker_on_demand')):s('reranker_off');$('config-chunk').textContent=s('chunk_value',{size:status.chunk_size,overlap:status.chunk_overlap});
   const indexedAt=status.last_index_at||(state.lastIndex?new Date(state.lastIndex).toISOString():null);
   $('last-index').textContent=indexedAt?relativeTime(indexedAt):'—';$('last-index').title=indexedAt?new Date(indexedAt).toLocaleString(intlLocale()):'';
-  $('index-button').disabled=!status.document_count;$('empty-library-button').disabled=!(status.document_count||status.chunk_count)||(status.jobs||[]).length>0;renderDocuments();renderProcess();chat?.setStatus(status);
+  $('index-button').disabled=!status.document_count;$('empty-library-button').disabled=!(status.document_count||status.chunk_count)||((status.jobs||[]).length>0&&!(status.jobs||[]).some(job=>job.kind==='evaluation'));renderDocuments();renderProcess();chat?.setStatus(status);
 }
 let statusRequest;
 function refreshStatus(){if(statusRequest)return statusRequest;statusRequest=api('/api/status').then(statusView).catch(error=>toast(error.message)).finally(()=>{statusRequest=null;});return statusRequest;}
@@ -234,6 +238,7 @@ async function init(){
     topics=new LibraryTopics(api,refreshStatus,()=>{state.page=1;renderDocuments();});
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush());
+    laboratory=new Laboratory(api,()=>settingsController.flush(),refreshStatus);laboratory.setActive(state.view==='laboratory');
     await loadSettings();
     await refreshStatus();chat.restore(state.status?.jobs||[]);
     setInterval(()=>{if(!document.hidden)refreshStatus();},2000);

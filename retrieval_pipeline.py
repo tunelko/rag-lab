@@ -13,6 +13,7 @@ No model is loaded and nothing is downloaded on import.
 """
 from __future__ import annotations
 
+from dataclasses import asdict, dataclass
 import logging
 import os
 from pathlib import Path
@@ -31,6 +32,32 @@ MODEL_WORDS = frozenset({
 CHIPSET = re.compile(r'(?:intel|amd)\W{0,3}([a-z]\d{3}[a-z]?)\W{1,3}chipset'
                      r'|chipset\W{1,3}(?:intel|amd)\W{0,3}([a-z]\d{3}[a-z]?)\b')
 LOGGER = logging.getLogger('rag.retrieval')
+
+
+@dataclass(frozen=True)
+class EffectiveRetrieval:
+    """Primitive, immutable values captured when chat/lab accepts a request."""
+    k: int
+    context_chars: int
+    reranker: str
+    rerank_device: str
+    rerank_half: bool
+    rerank_window: int
+
+    def public(self):
+        return asdict(self)
+
+    def scorer(self):
+        return cached_reranker(self.reranker, self.rerank_device, self.rerank_half)
+
+
+def capture_effective(config, k):
+    """The single source of effective parameters for both chat and Laboratory."""
+    return EffectiveRetrieval(k=int(k), context_chars=config.context_chars,
+        reranker=os.getenv('RAG_RERANKER', '').strip(),
+        rerank_device=os.getenv('RAG_RERANK_DEVICE', 'auto').strip() or 'auto',
+        rerank_half=os.getenv('RAG_RERANK_HALF', '1').strip() != '0',
+        rerank_window=rerank_window())
 
 
 def is_native(hit):

@@ -4,7 +4,7 @@ import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
-const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[]};
+const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
 export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
@@ -57,6 +57,7 @@ export class Shell {
       const terminal=['done','error','cancelled'].includes(job.status),failed=job.status==='error';let running=[];
       if(job.kind==='query'){if(job.metrics?.routing_mode!=='catalog'){const llm=job.model||job.metrics?.model;running=llm?[5]:[4];if(llm)states[4]='done';if(job.metrics?.routing_mode==='search_only')running=[4];}caption=terminal?h(job.status==='done'?'completed':failed?'failed':'cancelled'):h('query_elapsed',{seconds:number(job.elapsed_seconds||0,1)});}
       else if(job.kind==='prepare'){running=[2];caption=serverText(job.phase)||'—';}
+      else if(job.kind==='evaluation'){running=[4];caption=serverText(job.phase)||'—';}
       else{running=job.stage==='indexing'?[2,3]:job.stage==='upload'?[0]:[1];for(let index=0;index<running[0];index++)states[index]='done';caption=terminal?h(job.status==='done'?'completed':failed?'failed':'cancelled'):h('index_progress',{progress:job.progress==null?'—':number(job.progress)});}
       for(const index of running)states[index]=terminal?(failed?'error':job.status==='done'?'done':'idle'):'run';
       if(job.kind==='query'&&job.status==='done'&&job.metrics?.routing_mode!=='catalog'){states[4]='done';if(!job.search_only)states[5]='done';}

@@ -17,7 +17,8 @@ MAX_BYTES = 1024 * 1024
 MAX_QUESTIONS = 100
 CODE_FILES = ('rag.py', 'retrieval_pipeline.py', 'retrieval_terms.py', 'library_queries.py',
               'vector_store.py', 'model_routing.py', 'evaluation.py',
-              'retrieval_evaluation.py', 'retrieval_experiments.py')
+              'retrieval_evaluation.py', 'retrieval_experiments.py',
+              'laboratory_store.py', 'web_app.py')
 
 
 def code_identity():
@@ -31,6 +32,38 @@ class LabError(ValueError):
         self.code, self.line, self.values = code, line, values
         super().__init__(f'Line {line}: {code}' if line else code)
 
+    def public(self):
+        return {'code': self.code, 'line': self.line, **self.values}
+
+    def user_message(self):
+        messages = {
+            'size': 'El conjunto supera el límite de 1 MiB.',
+            'utf8': 'El archivo debe estar codificado en UTF-8.',
+            'json': 'El JSON de esta línea no es válido.',
+            'row': 'Cada línea debe contener un objeto JSON.',
+            'id': 'Cada pregunta necesita un identificador único, de hasta 100 caracteres.',
+            'question': 'Escribe una pregunta de entre 1 y 6000 caracteres.',
+            'focused': 'Esta pregunta es de inventario o de conjunto. Esta fase solo evalúa preguntas concretas.',
+            'reference': 'Revisa las referencias: documento y página, o identificador de fragmento, con un único nivel de detalle.',
+            'page': 'La página debe ser un número entero positivo.',
+            'evidence': 'La evidencia debe ser una lista no vacía de textos literales, de hasta 6000 caracteres cada uno.',
+            'count': 'El conjunto supera el límite de 100 preguntas.',
+            'empty': 'El conjunto no contiene preguntas.',
+            'missing_file': 'No está indexado el documento {file}.',
+            'missing_id': 'El fragmento de referencia no pertenece al índice publicado.',
+            'missing_page': 'La página {page} de {file} no contiene fragmentos indexados.',
+            'no_index': 'Sube e indexa documentos en Biblioteca antes de evaluar.',
+            'changed': 'La biblioteca ha cambiado. Vuelve a validar el conjunto antes de ejecutar.',
+            'reranker': 'El reordenador configurado no está disponible en la caché local. No se ha sustituido ni descargado.',
+            'embeddings': 'El modelo de búsqueda no está preparado en la caché local. Prepáralo desde Configuración.',
+            'busy': 'Hay una indexación o un experimento en curso o en cola. Termínalo o cancélalo antes de evaluar.',
+            'dataset_changed': 'El conjunto guardado no coincide con su huella. Vuelve a cargarlo.',
+            'parameters': 'Los parámetros de recuperación no son válidos.',
+            'disk': 'No hay espacio suficiente para crear la copia temporal del índice.',
+        }
+        message = messages.get(self.code, 'No se ha podido completar el experimento.').format(**self.values)
+        return f'Línea {self.line}: {message}' if self.line else message
+
 
 def relative_name(value, line):
     if not isinstance(value, str) or not 1 <= len(value) <= 1000:
@@ -42,7 +75,11 @@ def relative_name(value, line):
 
 
 def parse_dataset(content):
-    if len(content.encode('utf-8')) > MAX_BYTES:
+    try:
+        length = len(content.encode('utf-8'))
+    except UnicodeEncodeError:
+        raise LabError('utf8') from None
+    if length > MAX_BYTES:
         raise LabError('size')
     rows, identifiers = [], set()
     for line, raw in enumerate(content.lstrip('\ufeff').splitlines(), 1):
@@ -54,6 +91,10 @@ def parse_dataset(content):
             raise LabError('json', line) from None
         if not isinstance(row, dict):
             raise LabError('row', line)
+        try:
+            json.dumps(row, ensure_ascii=False).encode('utf-8')
+        except UnicodeEncodeError:
+            raise LabError('utf8', line) from None
         if (not isinstance(row.get('id'), str) or not row['id'].strip()
                 or len(row['id']) > 100 or row['id'] in identifiers):
             raise LabError('id', line)
@@ -176,7 +217,8 @@ def summarize(results, total):
 
 
 def evaluate_snapshot(config, content, get_embeddings, *, k=4, reranker=None,
-                      rerank_window=50, observer=None, cancelled=None):
+                      rerank_window=50, observer=None, cancelled=None,
+                      get_reranker=None, on_report=None, files=None):
     """Measure an already frozen collection; the caller owns snapshot lifecycle.
 
     Validation precedes the embedding factory. No model is downloaded, no LLM is
@@ -190,28 +232,44 @@ def evaluate_snapshot(config, content, get_embeddings, *, k=4, reranker=None,
     published = rag.published_ids(state)
     if not published:
         raise LabError('no_index')
-    validate_references(rows, rag.open_store(config, None), published)
     corpus = corpus_identity(config, state)
+    scope = frozenset(corpus['files']) if files is None else frozenset(files)
+    eligible = [identifier for record in state['files'].values() if record.get('file') in scope
+                for identifier in record.get('ids', [])]
+    validate_references(rows, rag.open_store(config, None), eligible)
     report = {'format': 'musa-focused-retrieval-v1', 'scope': 'focused-no-history',
               'dataset_sha256': hashlib.sha256(content.encode('utf-8')).hexdigest(),
               'corpus': corpus, 'code': code_identity(), 'status': 'running',
               'generation_evaluated': False, 'k': k, 'context_chars': config.context_chars,
+              'scope_files': sorted(scope),
               'reranker': getattr(reranker, 'model_id', None), 'rerank_window': rerank_window,
               'queries': [], 'summary': summarize([], len(rows))}
+    if on_report:
+        on_report(report)
     if cancelled and cancelled():
         report['status'] = 'cancelled'
+        if on_report:
+            on_report(report)
         return report
     embeddings = get_embeddings()
+    if get_reranker:
+        reranker = get_reranker()
+        report['reranker'] = getattr(reranker, 'model_id', None)
+    report['reranker_device'] = getattr(reranker, 'device', None)
     for row in rows:
         if cancelled and cancelled():
             report['status'] = 'cancelled'
             break
         result = evaluate_question(config, embeddings, row, k=k, reranker=reranker,
-                                  rerank_window=rerank_window, files=frozenset(corpus['files']))
+                                  rerank_window=rerank_window, files=scope)
         report['queries'].append(result)
         report['summary'] = summarize(report['queries'], len(rows))
         if observer:
             observer(result, report['summary'])
+        if on_report:
+            on_report(report)
     else:
         report['status'] = 'done'
+    if on_report:
+        on_report(report)
     return report

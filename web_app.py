@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
 import hashlib
 import base64
@@ -49,6 +50,8 @@ from credential_store import CredentialError, CredentialStore, CredentialStoreLo
 import generation_providers
 import provider_vision
 import provider_pricing
+from laboratory_store import LaboratoryStore
+import retrieval_evaluation as lab_eval
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -101,6 +104,13 @@ class EmptyLibraryRequest(BaseModel):
     keep_captions: bool = False
 
 
+class EvaluationRequest(BaseModel):
+    model_config = {'extra': 'forbid'}
+    content: str = Field(min_length=1, max_length=lab_eval.MAX_BYTES)
+    name: str = Field(default='Evaluación', min_length=1, max_length=80)
+    fingerprint: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+
+
 class RagService(JobRuntime):
     def __init__(self, config=None, documents=None):
         self.config = config or rag.Config()
@@ -116,10 +126,79 @@ class RagService(JobRuntime):
         self.hardware = HardwareMonitor(archive=self.statistics_archive)
         self.fingerprints = FileFingerprints()
         self.topics = TopicStore(self.config.db / f'{self.config.collection}-topics.sqlite3')
+        self.laboratory = LaboratoryStore(self.config.db.parent / 'lab')
         super().__init__()
 
     def record_job(self, job):
         self.statistics_archive.save_job(job)
+        self.laboratory.observe(job)
+
+    def effective_retrieval(self, k=None):
+        return retrieval_pipeline.capture_effective(self.config, self.settings.get().k if k is None else k)
+
+    def validate_evaluation(self, content):
+        rows = lab_eval.parse_dataset(content)
+        if not (self.config.db / f'{self.config.collection}-manifest.json').is_file():
+            raise lab_eval.LabError('no_index')
+        with index_writer(self.config):
+            state = rag.load_state(self.config)
+            published = rag.published_ids(state)
+            if not published:
+                raise lab_eval.LabError('no_index')
+            ready = frozenset(document['name'] for document in self.list_documents() if document['indexed'])
+            if not ready:
+                raise lab_eval.LabError('no_index')
+            eligible = [identifier for record in state['files'].values() if record.get('file') in ready
+                        for identifier in record.get('ids', [])]
+            lab_eval.validate_references(rows, rag.open_store(self.config, None), eligible)
+            corpus = lab_eval.corpus_identity(self.config, state)
+        return rows, corpus, ready
+
+    def evaluate(self, job_id, identifier):
+        stored = self.laboratory.get(identifier)
+        request = stored['request']
+        parameters = retrieval_pipeline.EffectiveRetrieval(**request['configuration'])
+        try:
+            ready = frozenset(document['name'] for document in self.list_documents() if document['indexed'])
+            if ready != frozenset(request['files']):
+                raise lab_eval.LabError('changed')
+            self.update(job_id, phase='Laboratorio · Copiando el índice publicado', stage='evaluation', progress=None)
+            content = self.laboratory.dataset(request['dataset_sha256'])
+            with self.laboratory.snapshot(self.config, request['corpus_fingerprint'],
+                                         lambda: self.cancelled(job_id)) as frozen:
+                frozen = replace(frozen, context_chars=parameters.context_chars)
+                snapshot_at = utc_now()
+                def embeddings():
+                    self.check_cancel(job_id)
+                    self.update(job_id, phase='Laboratorio · Preparando modelos locales', progress=None)
+                    try:
+                        return self.get_embeddings()
+                    except Exception as error:
+                        raise lab_eval.LabError('embeddings') from error
+                def scorer():
+                    self.check_cancel(job_id)
+                    value = parameters.scorer()
+                    if parameters.reranker and value is None:
+                        raise lab_eval.LabError('reranker')
+                    return value
+                def save(report):
+                    self.laboratory.save_report(identifier, {**report,
+                        'configuration': parameters.public(), 'snapshot_at': snapshot_at})
+                    done, total = report['summary']['completed'], report['summary']['total']
+                    if not self.cancelled(job_id) and done:
+                        self.update(job_id, phase=f'Laboratorio · Preguntas evaluadas · {done}/{total}',
+                            progress=round(100 * done / total), stage_progress=round(100 * done / total),
+                            completed_questions=done)
+                lab_eval.evaluate_snapshot(frozen, content, embeddings, k=parameters.k,
+                    get_reranker=scorer, rerank_window=parameters.rerank_window,
+                    cancelled=lambda: self.cancelled(job_id), on_report=save, files=ready)
+            self.check_cancel(job_id)
+            return {'lab_run_id': identifier}
+        except (lab_eval.LabError, IndexBusyError) as error:
+            if isinstance(error, IndexBusyError):
+                error = lab_eval.LabError('busy')
+            self.laboratory.fail(identifier, {'message': error.user_message(), 'lab_error': error.public()})
+            raise JobFailure('LAB_EVALUATION', error.user_message()) from error
 
     def snapshot(self, job_id):
         try:
@@ -230,6 +309,8 @@ class RagService(JobRuntime):
             if self.closed:
                 raise HTTPException(503, "El servidor se está cerrando.")
             if any(job["status"] in {"queued", "running"} for job in self.jobs.values()):
+                if any(job['kind'] == 'evaluation' and job['status'] in {'queued', 'running'} for job in self.jobs.values()):
+                    raise HTTPException(409, 'Hay un experimento del Laboratorio activo. Cancélalo en Laboratorio antes de vaciar la biblioteca.')
                 raise HTTPException(409, "Hay tareas en curso o en cola. Espera a que terminen o cancélalas antes de vaciar la biblioteca.")
             manifest = self.config.db / f"{self.config.collection}-manifest.json"
             # Counted from disk: this must also work when the manifest belongs to another configuration.
@@ -319,6 +400,7 @@ class RagService(JobRuntime):
         documents = self.list_documents()
         chunks = sum(len(file.get("ids", [])) for file in state["files"].values())
         return {"documents": documents, "document_count": len(documents), "chunk_count": chunks,
+                "features": {"laboratory": True},
                 "library": self.topics.snapshot(documents),
                 "server": {"bind_host": getattr(self,'bind_host','127.0.0.1'),
                            "access": 'loopback' if getattr(self,'bind_host','127.0.0.1').startswith('127.') else 'lan'},
@@ -364,8 +446,10 @@ class RagService(JobRuntime):
                 "visuals": sum(len(file.get("visuals", [])) for file in files.values()),
                 "diagnostics": {"fingerprints": self.fingerprints.snapshot()}}
 
-    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None):
+    def query(self, job_id, query, document_names=None, scope_label=None, *, preferences=None, provider_key=None,
+              retrieval_configuration=None):
         started = time.perf_counter()
+        parameters = retrieval_configuration or self.effective_retrieval(query.k)
         documents = self.list_documents()
         if document_names is not None:
             documents = [item for item in documents if item['name'] in document_names]
@@ -393,18 +477,17 @@ class RagService(JobRuntime):
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
         else:
             hits, retrieval = retrieval_pipeline.retrieve(
-                self.config, query.question.strip(), embeddings, query.k,
+                self.config, query.question.strip(), embeddings, parameters.k,
                 files=frozenset(item['name'] for item in documents if item.get('indexed')),
                 visual=bool(query.images) or asks_for_vision(query.question, query.history),
-                reranker=retrieval_pipeline.configured_reranker(),
-                rerank_window=retrieval_pipeline.rerank_window())
+                reranker=parameters.scorer(), rerank_window=parameters.rerank_window)
             scope = {'retrieval_mode': 'focused', **retrieval_pipeline.trace_metrics(retrieval)}
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
             return {"answer": localized('answer.empty',query.language), "sources": [], "metrics": timings}
         stage_started = time.perf_counter()
-        messages, sources = rag.build_messages(query.question.strip(), hits, self.config.context_chars, language=query.language)
+        messages, sources = rag.build_messages(query.question.strip(), hits, parameters.context_chars, language=query.language)
         if intent.mode == 'global':
             represented = len({source['file'] for source in sources})
             if represented != scope['documents_indexed']:
@@ -585,6 +668,7 @@ def create_app(service=None):
     @asynccontextmanager
     async def lifespan(app):
         service.statistics_archive.mark_interrupted()
+        service.laboratory.recover()
         if background_monitor:
             service.hardware.start()
         with ConsoleCapture(service.console):
@@ -622,6 +706,7 @@ def create_app(service=None):
     @app.get("/configuracion")
     @app.get("/estadisticas")
     @app.get("/consola")
+    @app.get("/laboratorio")
     def page():
         return FileResponse(rag.ROOT / "dist" / "index.html")
 
@@ -735,6 +820,101 @@ def create_app(service=None):
             raise HTTPException(404, "Figura no disponible.")
         return FileResponse(path, media_type="image/png")
 
+    def lab_error(error, status=422):
+        return JSONResponse({'detail': error.user_message(), 'lab_error': error.public()}, status_code=status)
+
+    def public_evaluation(run):
+        if run is None:
+            return None
+        run.pop('request', None)
+        fingerprint = run['report'].get('corpus', {}).get('fingerprint')
+        try:
+            run['current_corpus'] = (fingerprint ==
+                lab_eval.corpus_identity(service.config, rag.load_state(service.config))['fingerprint']) if fingerprint else True
+            if fingerprint and run['current_corpus']:
+                referenced = {hit['file'] for row in run['report'].get('queries', []) for hit in row['context']}
+                for name in referenced:
+                    path = (service.documents / name).resolve()
+                    if (not path.is_relative_to(service.documents) or not path.is_file()
+                            or service.fingerprints.digest(path) != run['report']['corpus']['files'][name]['sha256']):
+                        run['current_corpus'] = False
+                        break
+        except (ValueError, OSError):
+            run['current_corpus'] = False
+        return run
+
+    def snapshot_bytes():
+        source = service.config.db / f'{service.config.collection}-vectors.sqlite3'
+        try:
+            return sum(path.stat().st_size for path in (source, Path(str(source) + '-wal')) if path.is_file())
+        except OSError:
+            return 0
+
+    @app.get('/api/laboratory')
+    def laboratory():
+        try:
+            corpus = lab_eval.corpus_identity(service.config, rag.load_state(service.config))
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+        return {'latest': public_evaluation(service.laboratory.latest()),
+                'configuration': service.effective_retrieval().public(),
+                'embedding_device': service.config.embedding_device,
+                'corpus': {key: corpus[key] for key in ('collection', 'documents', 'published_chunks', 'identity', 'fingerprint')},
+                'snapshot_bytes': snapshot_bytes(),
+                'limits': {'bytes': lab_eval.MAX_BYTES, 'questions': lab_eval.MAX_QUESTIONS}}
+
+    @app.post('/api/laboratory/validate')
+    def validate_evaluation(body: EvaluationRequest):
+        try:
+            rows, corpus, _ready = service.validate_evaluation(body.content)
+            return {'queries': len(rows), 'annotated': sum('evidence' in row for row in rows),
+                    'fingerprint': corpus['fingerprint']}
+        except lab_eval.LabError as error:
+            return lab_error(error)
+        except IndexBusyError:
+            return lab_error(lab_eval.LabError('busy'), 409)
+        except ValueError as error:
+            raise HTTPException(409, str(error)) from error
+
+    @app.post('/api/laboratory/runs', status_code=202)
+    def start_evaluation(body: EvaluationRequest):
+        with service.lock:
+            if service.closed:
+                raise HTTPException(503, 'El servidor se está cerrando.')
+            active = [job for job in service.jobs.values() if job['status'] in {'queued', 'running'}]
+            if any(job['kind'] in {'index', 'evaluation'} for job in active):
+                return lab_error(lab_eval.LabError('busy'), 409)
+            if len(active) >= 100:
+                raise HTTPException(429, 'La cola del servidor está llena.')
+            try:
+                rows, corpus, ready = service.validate_evaluation(body.content)
+                if body.fingerprint and body.fingerprint != corpus['fingerprint']:
+                    raise lab_eval.LabError('changed')
+                parameters = service.effective_retrieval()
+                request = {'configuration': parameters.public(), 'questions': len(rows),
+                           'corpus_fingerprint': corpus['fingerprint'], 'files': sorted(ready)}
+                identifier = service.laboratory.create(body.name, body.content, request)
+            except lab_eval.LabError as error:
+                return lab_error(error)
+            except IndexBusyError:
+                return lab_error(lab_eval.LabError('busy'), 409)
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from error
+            try:
+                result = service.start('evaluation', lambda job: service.evaluate(job, identifier),
+                    lab_run_id=identifier, document_name='Laboratorio', question_count=len(rows))
+            except HTTPException:
+                service.laboratory.discard_unsubmitted(identifier)
+                raise
+            return {**result, 'run_id': identifier}
+
+    @app.get('/api/laboratory/runs/{identifier}')
+    def evaluation_run(identifier: str):
+        run = public_evaluation(service.laboratory.get(identifier))
+        if run is None:
+            raise HTTPException(404, 'El experimento ya no está disponible.')
+        return run
+
     @app.get("/api/status")
     def status():
         try:
@@ -794,8 +974,9 @@ def create_app(service=None):
                 raise HTTPException(409, str(error)) from error
             except generation_providers.ProviderError as error:
                 raise HTTPException(422, str(error)) from error
+        captured = service.effective_retrieval(body.k)
         return service.start("query", lambda job_id: service.query(job_id, body, document_names, scope_label,
-                             preferences=settings, provider_key=provider_key),
+                             preferences=settings, provider_key=provider_key, retrieval_configuration=captured),
                              question=body.question, search_only=body.search_only, k=body.k, language=body.language,
                              image_count=len(body.images), topic_id=body.topic_id, scope_label=scope_label)
 
