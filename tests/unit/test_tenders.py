@@ -136,15 +136,59 @@ class ListingTests(unittest.TestCase):
         self.assertEqual(catalog["newest"], NOW.isoformat())
         self.assertEqual(catalog["oldest"], hours(100).isoformat())
 
-    def test_a_cancelled_reading_keeps_what_it_found_but_not_its_marks(self):
+    def test_a_stopped_reading_keeps_its_place_and_the_next_one_goes_on(self):
         catalog, seen = {}, []
         result, calls = self.refresh(catalog, cancelled=lambda: bool(seen), progress=lambda **state: seen.append(state))
         self.assertEqual(calls, [FEED])
         self.assertFalse(result["complete"])
         self.assertIn("A/1", catalog["tenders"])
-        self.assertNotIn("newest", catalog)
-        # The next one therefore reads the whole period again.
-        self.assertEqual(self.refresh(catalog)[1], [FEED, OLDER])
+        self.assertEqual((catalog["oldest"], catalog["older"]), (hours(3).isoformat(), OLDER))
+        # The next one reads what is new at the head, then continues after the page already read.
+        result, calls = self.refresh(catalog)
+        self.assertEqual(calls, [FEED, OLDER])
+        self.assertTrue(result["complete"])
+        self.assertEqual(sorted(catalog["tenders"]), ["A/1", "D/4", "E/5"])
+
+    def test_a_longer_period_continues_after_what_is_listed_instead_of_reading_it_again(self):
+        third, fourth = "https://plataforma.example/feed_2.atom", "https://plataforma.example/feed_3.atom"
+        self.pages[OLDER] = page(entry("D/4", "Centro de operaciones SOC", hours(30), status="ADJ"),
+                                 entry("E/5", "Auditoría de ciberseguridad", hours(60)), following=third)
+        self.pages[third] = page(entry("H/8", "Hacking ético y ciberseguridad", hours(100)), following=fourth)
+        self.pages[fourth] = page(entry("I/9", "Plan de ciberseguridad", hours(300)))
+        catalog = {}
+        result, calls = self.refresh(catalog, days=2)
+        self.assertEqual(calls, [FEED, OLDER])              # two days end inside the second page
+        self.assertEqual(catalog["older"], third)
+        result, calls = self.refresh(catalog, days=10)
+        self.assertEqual(calls, [FEED, third, fourth])      # the second page is not asked for again
+        self.assertEqual(sorted(catalog["tenders"]), ["A/1", "D/4", "E/5", "H/8", "I/9"])
+        self.assertEqual(catalog["oldest"], hours(300).isoformat())
+        # A period the listing already covers needs only the head of the feed.
+        self.assertEqual(self.refresh(catalog, days=10)[1], [FEED])
+
+    def test_a_continuation_page_that_is_gone_is_read_around(self):
+        third = "https://plataforma.example/feed_2.atom"
+        self.pages[OLDER] = page(entry("D/4", "Centro de operaciones SOC", hours(30), status="ADJ"),
+                                 entry("E/5", "Auditoría de ciberseguridad", hours(60)), following=third)
+        self.pages[third] = page(entry("H/8", "Hacking ético y ciberseguridad", hours(100)))
+        catalog = {}
+        self.refresh(catalog, days=2)
+        catalog["older"] = "https://plataforma.example/ya-no-existe.atom"
+        result, calls = self.refresh(catalog, days=10)
+        self.assertEqual(calls, [FEED, "https://plataforma.example/ya-no-existe.atom", OLDER, third])
+        self.assertTrue(result["complete"])
+        self.assertIn("H/8", catalog["tenders"])
+
+    def test_a_failure_keeps_what_was_read_and_says_so(self):
+        del self.pages[OLDER]
+        catalog = {}
+        result, calls = self.refresh(catalog, registered={"A/1": hours(200).isoformat()})
+        self.assertEqual(calls, [FEED, OLDER])
+        self.assertFalse(result["complete"])
+        self.assertIn("sin respuesta", result["error"])
+        self.assertIn("A/1", catalog["tenders"])
+        self.assertEqual(list(result["changes"]), ["A/1"])
+        self.assertEqual(catalog["older"], OLDER)
 
     def test_newer_data_about_a_tender_in_the_library_is_reported(self):
         result, _ = self.refresh({}, registered={"D/4": hours(200).isoformat(), "A/1": hours(1).isoformat()})

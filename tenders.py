@@ -393,21 +393,34 @@ def refresh(config, catalog, registered, read, *, days, now, max_pages=400, dela
 
     `catalog` is changed in place. `registered` maps the tenders already in the library to the
     date of the data held about them; the newer data found for them is returned, not applied.
-    Reading stops at the period asked for, or sooner when it reaches what an earlier complete
-    reading already listed. The marks of what the listing covers move only when the reading
-    is complete, so a cancelled one is simply repeated.
+
+    The listing remembers the stretch of the feed it covers (`newest` to `oldest`) and the
+    address of the page that follows it (`older`). A reading first brings what is newer than
+    that stretch, then continues after it instead of reading it again, and stops at the period
+    asked for. The marks move page by page, so a reading that is stopped or fails keeps its
+    place and the next one goes on from there.
     """
     rules, tenders = subject_rules(config['filter']), catalog.setdefault('tenders', {})
     allowed = hosts(config)
     cutoff = now - timedelta(days=days)
     known_newest, known_oldest = stamp(catalog.get('newest')), stamp(catalog.get('oldest'))
     url, pages, scanned, found, changes = config['source']['feed'], 0, 0, 0, {}
-    head = reached = None
-    complete = False
+    head = reached = fallback = failure = None
+    joined = known_newest is None       # nothing listed before: whatever is read is one stretch
+    jumped = complete = False
     while url and pages < max_pages:
         if cancelled and cancelled():
             break
-        text = feed_text(read(url))
+        try:
+            text = feed_text(read(url))
+        except (OSError, TenderError) as error:
+            if fallback:
+                # The page kept as the continuation is gone: read on through what is already listed.
+                url, fallback = fallback, None
+                continue
+            failure = error
+            break
+        fallback = None
         pages += 1
         stamps = []
         for tender in entries(text):
@@ -427,31 +440,37 @@ def refresh(config, catalog, registered, read, *, days, now, max_pages=400, dela
             found += previous is None
             tenders[key] = {**{name: tender[name] for name in METADATA}, 'selected_by': why,
                             'documents': wanted_documents(tender, config)}
-        if stamps:
-            head = max(head, max(stamps)) if head else max(stamps)
-            reached = min(reached, min(stamps)) if reached else min(stamps)
-            # The feed runs from new to old: a page that crosses a limit has everything newer than it.
-            if min(stamps) <= cutoff:
-                complete = True
-            elif known_newest and known_oldest and min(stamps) <= known_newest and known_oldest <= cutoff:
-                complete = True
         following = re.search(r'<link href="([^"]+)" rel="next"', text)
         url = html.unescape(following[1]) if following else None
         if url and (urlsplit(url).scheme != 'https' or urlsplit(url).hostname not in allowed):
             url = None
+        if stamps:
+            # The feed runs from new to old: a page that crosses a limit has everything newer than it.
+            low, high = min(stamps), max(stamps)
+            head = max(head, high) if head else high
+            reached = min(reached, low) if reached else low
+            if not joined and low <= known_newest:
+                joined = True
+            if joined:
+                catalog['newest'] = max(head, known_newest).isoformat() if known_newest else head.isoformat()
+                if known_oldest is None or reached < known_oldest:
+                    catalog['oldest'], catalog['older'] = reached.isoformat(), url
+                catalog['read_at'] = now.isoformat()
+            if reached <= cutoff or (joined and known_oldest and known_oldest <= cutoff):
+                complete = True
+            elif joined and not jumped and known_oldest and reached > known_oldest and catalog.get('older'):
+                # From here back to the oldest entry listed, everything is known: continue after it.
+                target = catalog['older']
+                if urlsplit(target).scheme == 'https' and urlsplit(target).hostname in allowed:
+                    fallback, url, jumped, reached = url, target, True, known_oldest
         if progress:
             progress(pages=pages, scanned=scanned, listed=len(tenders), found=found, reached=reached)
         if complete or not url:
             complete = True
             break
         sleep(delay)
-    if complete and head:
-        joined = known_newest and reached and reached <= known_newest
-        catalog['newest'] = max(head, known_newest).isoformat() if known_newest else head.isoformat()
-        catalog['oldest'] = (min(known_oldest, reached) if joined and known_oldest else reached).isoformat()
-        catalog['read_at'] = now.isoformat()
     return {'pages': pages, 'scanned': scanned, 'found': found, 'listed': len(tenders), 'complete': complete,
-            'changes': changes}
+            'changes': changes, 'error': str(failure) if failure else None}
 
 
 def row(key, tender, registered, today):

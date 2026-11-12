@@ -116,7 +116,7 @@ TenderKey = Annotated[str, Field(min_length=1, max_length=200)]
 
 class TenderRefreshRequest(BaseModel):
     profile: str = Field(max_length=41)
-    days: Literal[1, 3, 7, 15] = 3
+    days: Literal[1, 3, 7, 15, 30] = 15
 
 
 class TenderDownloadRequest(BaseModel):
@@ -482,17 +482,20 @@ class RagService(JobRuntime):
         try:
             result = tenders.refresh(config, catalog, registered, read, days=days, now=now, progress=progress,
                                      cancelled=lambda: self.cancelled(job_id))
-        except (OSError, tenders.TenderError) as error:
-            raise JobFailure('TENDER_SOURCE', 'No se ha podido leer la plataforma de contratación. Inténtalo de nuevo más tarde.', str(error)) from error
         finally:
             with self.tenders_lock:
                 tenders.write_json(path, catalog)
-        self.check_cancel(job_id)
-        changes = result.pop('changes')
+        # What was read is kept whatever ended the reading: the listing has its place and the
+        # tenders in the library get the newer data found for them.
+        changes, problem = result.pop('changes'), result.pop('error')
         sheets = self.apply_tender_changes(changes)
         if sheets:
             # The renewed sheets are ordinary documents: they are indexed again through the main queue.
             self.start('index', lambda job: self.index(job, files=frozenset(sheets), preferences=preferences))
+        self.update(job_id, tender_reading={**result, 'renewed': len(sheets)})
+        if problem:
+            raise JobFailure('TENDER_SOURCE', 'No se ha podido leer la plataforma de contratación. Inténtalo de nuevo más tarde.', problem)
+        self.check_cancel(job_id)
         return {'tender_reading': {**result, 'renewed': len(sheets)}, 'message': 'Listado de pliegos actualizado'}
 
     def apply_tender_changes(self, changes):

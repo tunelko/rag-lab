@@ -74,14 +74,17 @@ the Library header shows **Find tenders / Buscar pliegos**. Nothing is fetched
 until the user asks, and it happens in two separate steps:
 
 1. **Read the platform.** The server reads the feed, newest first, back to the
-   chosen period (1, 3, 7 or 15 days) and keeps the tenders the profile is about in
+   chosen period (1, 3, 7, 15 or 30 days) and keeps the tenders the profile is about in
    a local listing, `data/pliegos/catalog-<profile>.json`. Only the listing is
    read: no document is downloaded. A later reading stops where the previous one
    ended, so it is short. The reading runs beside the job queue and does not keep
    questions waiting; it can be stopped, and what it found stays listed.
-2. **Search, choose, download.** The dialog filters the listing by text, state
-   (open, awaiting award, any), region and whether the tender is already in the
-   library. The chosen tenders (up to 25 at a time) are downloaded as one job:
+2. **Search, choose, download.** The dialog has two tabs: the tenders of the
+   listing that are not downloaded yet, and the ones in the library. Text and
+   region narrow the tab; the state buttons (open, awaiting award, closed, all)
+   show how many tenders are in each state. An empty result says which choice
+   left it empty and offers the way out, such as reading a longer period. The
+   chosen tenders (up to 25 at a time) are downloaded as one job:
    their technical and administrative PDFs go to `data/documents/`, each tender
    gets a summary sheet `<file number>__FICHA.md` with what the platform publishes
    (body, subject, state, deadline, region, budget, link), everything is filed

@@ -2539,14 +2539,17 @@
      <option data-i18n="tenders.days_1" value="1">
       Último día
      </option>
-     <option data-i18n="tenders.days_3" selected="" value="3">
+     <option data-i18n="tenders.days_3" value="3">
       Últimos 3 días
      </option>
      <option data-i18n="tenders.days_7" value="7">
       Últimos 7 días
      </option>
-     <option data-i18n="tenders.days_15" value="15">
+     <option data-i18n="tenders.days_15" selected="" value="15">
       Últimos 15 días
+     </option>
+     <option data-i18n="tenders.days_30" value="30">
+      Últimos 30 días
      </option>
     </select>
     <button class="btn btn--secondary" id="tenders-refresh" type="button">
@@ -2566,49 +2569,46 @@
     <progress class="ochre tenders-progress" hidden="" id="tenders-reading-progress" max="100" value="0">
     </progress>
    </section>
-   <div class="tenders-filters">
-    <label class="sr-only" data-i18n="tenders.search" for="tenders-search">
-     Buscar en el listado
-    </label>
-    <input autocomplete="off" class="input" data-i18n-placeholder="tenders.search_placeholder" id="tenders-search" maxlength="120" type="search"/>
-    <label class="sr-only" data-i18n="tenders.state" for="tenders-state">
-     Estado
-    </label>
-    <select class="select" id="tenders-state">
-     <option data-i18n="tenders.state_open" selected="" value="open">
-      Abiertas
-     </option>
-     <option data-i18n="tenders.state_pending" value="pending">
-      Pendientes de adjudicación
-     </option>
-     <option data-i18n="tenders.state_unresolved" value="unresolved">
-      Abiertas o pendientes
-     </option>
-     <option data-i18n="tenders.state_all" value="all">
-      Todas
-     </option>
-    </select>
-    <label class="sr-only" data-i18n="tenders.region" for="tenders-region">
-     Comunidad autónoma
-    </label>
-    <select class="select" id="tenders-region">
-    </select>
-    <label class="sr-only" data-i18n="tenders.show" for="tenders-show">
-     Mostrar
-    </label>
-    <select class="select" id="tenders-show">
-     <option data-i18n="tenders.show_all" selected="" value="all">
-      Descargadas o no
-     </option>
-     <option data-i18n="tenders.show_new" value="new">
-      Sin descargar
-     </option>
-     <option data-i18n="tenders.show_library" value="library">
-      En la biblioteca
-     </option>
-    </select>
+   <h3 class="label tenders-step" data-i18n="tenders.choose">
+    2 · Buscar y elegir
+   </h3>
+   <div class="tenders-tabs" role="tablist">
+    <button aria-controls="tenders-panel" aria-selected="true" class="tenders-tab" data-tab="search" id="tenders-tab-search" role="tab" type="button">
+    </button>
+    <button aria-controls="tenders-panel" aria-selected="false" class="tenders-tab" data-tab="library" id="tenders-tab-library" role="tab" type="button">
+    </button>
    </div>
-   <div class="table-wrap tenders-results">
+   <div class="tenders-filters">
+    <label class="tenders-field tenders-field--wide" for="tenders-search">
+     <span data-i18n="tenders.search">
+      Texto
+     </span>
+     <input autocomplete="off" class="input" data-i18n-placeholder="tenders.search_placeholder" id="tenders-search" maxlength="120" type="search"/>
+    </label>
+    <label class="tenders-field" for="tenders-region">
+     <span data-i18n="tenders.region">
+      Comunidad autónoma
+     </span>
+     <select class="select" id="tenders-region">
+     </select>
+    </label>
+    <div class="tenders-field tenders-field--full">
+     <span data-i18n="tenders.state" id="tenders-state-label">
+      Estado
+     </span>
+     <div aria-labelledby="tenders-state-label" class="tenders-states" id="tenders-states" role="group">
+      <button aria-pressed="true" class="btn btn--secondary" data-state="open" type="button">
+      </button>
+      <button aria-pressed="false" class="btn btn--secondary" data-state="pending" type="button">
+      </button>
+      <button aria-pressed="false" class="btn btn--secondary" data-state="closed" type="button">
+      </button>
+      <button aria-pressed="false" class="btn btn--secondary" data-state="all" type="button">
+      </button>
+     </div>
+    </div>
+   </div>
+   <div class="table-wrap tenders-results" id="tenders-panel" role="tabpanel">
     <table class="table tenders-table">
      <thead>
       <tr>
@@ -2638,8 +2638,12 @@
      <tbody id="tenders-rows">
      </tbody>
     </table>
-    <p class="empty-state" hidden="" id="tenders-empty">
-    </p>
+    <div class="empty-state" hidden="" id="tenders-empty">
+     <p id="tenders-empty-text">
+     </p>
+     <div class="tenders-empty-actions" id="tenders-empty-actions">
+     </div>
+    </div>
    </div>
    <p class="tenders-job" hidden="" id="tenders-job" role="status">
    </p>
