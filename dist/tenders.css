@@ -1,0 +1,31 @@
+/* Tender search: read the platform's listing, choose, then download. */
+.tenders-dialog{width:min(1180px,calc(100% - 32px));display:none;flex-direction:column;gap:14px}
+.tenders-dialog[open]{display:flex}
+.tenders-dialog .dialog-title{margin:0 0 4px}
+.tenders-dialog .meta{margin:0;font-size:11px;color:var(--text-muted)}
+.tenders-reading{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-md,6px);background:var(--surface-raised)}
+.tenders-reading__text{flex:1 1 320px;min-width:0}
+.tenders-reading__text .label{margin:0 0 4px}
+.tenders-reading__text p{margin:0;font-size:12px;line-height:18px;overflow-wrap:anywhere}
+.tenders-reading .select{width:150px;margin:0}
+.tenders-progress{flex:1 0 100%;width:100%;height:4px}
+.tenders-filters{display:flex;flex-wrap:wrap;gap:8px}
+.tenders-filters .input{flex:1 1 260px;width:auto}
+.tenders-filters .select{flex:0 1 190px;width:auto;margin:0;max-width:none}
+.tenders-results{flex:1 1 auto;min-height:180px;max-height:48dvh;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-md,6px)}
+.tenders-table thead th{position:sticky;top:0;z-index:1;background:var(--surface);text-align:left;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);padding:0 12px;border-bottom:1px solid var(--border)}
+.tenders-table th.num,.tenders-table td.num{text-align:right}
+.tenders-table td{height:auto;padding:9px 12px;vertical-align:top;white-space:nowrap}
+.tenders-table td.tender-subject{white-space:normal;min-width:260px;max-width:520px}
+.tender-subject strong{display:block;font-weight:600;line-height:17px;overflow-wrap:anywhere}
+.tender-subject small{display:block;margin-top:3px;font-size:10px;line-height:15px;color:var(--text-muted);overflow-wrap:anywhere}
+.tender-subject a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.tenders-table tr.in-library td{background:var(--surface-raised)}
+.tenders-table input[type=checkbox]{width:15px;height:15px;margin:2px 0 0;accent-color:var(--accent)}
+.tenders-table .badge{font-size:10px}
+.tenders-table td small{display:block;margin-top:3px;font-size:10px;color:var(--text-muted)}
+.tenders-results .empty-state{margin:0;padding:28px 20px;font-size:12px;line-height:20px;text-align:center;color:var(--text-muted)}
+.tenders-job{margin:0;padding:8px 12px;font-size:12px;line-height:18px;border-radius:var(--radius-md,6px);color:var(--accent-text);background:var(--accent-soft);overflow-wrap:anywhere}
+.tenders-dialog .error-reason{margin:0;font-size:12px;line-height:18px}
+.tenders-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+@media(max-width:720px){.tenders-reading .select,.tenders-filters .select{flex:1 1 140px}}

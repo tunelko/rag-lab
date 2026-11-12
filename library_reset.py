@@ -1,6 +1,8 @@
-"""Empty a library by moving it into a dated backup folder. Nothing is deleted."""
+"""Empty a library, or withdraw some documents, by moving them into a dated backup folder. Nothing is deleted."""
 from contextlib import closing
 import errno
+import json
+import logging
 import os
 from pathlib import Path
 import shutil
@@ -18,8 +20,78 @@ EN: To restore it, stop the server and move each folder back:
 '''
 
 
+WITHDRAW_NOTE = '''RAG Local - documentos retirados de la biblioteca / documents withdrawn from the library
+
+ES: Para devolverlos, copia el contenido de documents/ a data/documents/ y pulsa «Actualizar índice».
+EN: To bring them back, copy the contents of documents/ into data/documents/ and press "Update index".
+'''
+
+
 class LibraryBusyError(RuntimeError):
     pass
+
+
+def _backup_folder(backups_root):
+    stamp = time.strftime('%Y%m%d-%H%M%S')
+    target = Path(backups_root) / stamp
+    number = 1
+    while target.exists():
+        number += 1
+        target = Path(backups_root) / f'{stamp}-{number}'
+    return target
+
+
+def withdraw_documents(config, documents, names, backups_root, *, details=None, attempts=6, delay=0.25):
+    """Move the named documents to a new backup folder and take them out of the index.
+
+    The caller holds the index writer lock and guarantees that no job is running. The files
+    move first, all or none; then the manifest stops listing them; their vectors go last, so
+    a failure never leaves a published document without its file. `details` is saved next
+    to the files as a record of what was withdrawn.
+    """
+    import rag
+    documents = Path(documents).resolve()
+    wanted = list(dict.fromkeys(names))
+    state = rag.load_state(config)
+    paths = []
+    for name in wanted:
+        path = (documents / name).resolve()
+        if not path.is_relative_to(documents):
+            raise ValueError(f'Documento fuera de la biblioteca: {name}')
+        if path.is_file():
+            paths.append((name, path))
+    target = _backup_folder(backups_root)
+    (target / 'documents').mkdir(parents=True)
+    moved = []
+    try:
+        for name, path in paths:
+            destination = target / 'documents' / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            _rename(path, destination, attempts, delay)
+            moved.append((path, destination))
+    except OSError as error:
+        for path, destination in reversed(moved):
+            try:
+                os.replace(destination, path)
+            except OSError:
+                continue
+        shutil.rmtree(target, ignore_errors=True)
+        raise LibraryBusyError(f'{Path(error.filename or "").name or type(error).__name__}') from error
+    listed = set(wanted)
+    keys = [key for key, record in state['files'].items() if (record.get('file') or Path(key).name) in listed]
+    ids = [identifier for key in keys for identifier in state['files'][key].get('ids', [])]
+    if keys:
+        for key in keys:
+            del state['files'][key]
+        rag.save_state(config, state)
+        try:
+            rag.open_store(config, None).delete(ids=ids)
+        except Exception:
+            logging.getLogger('rag.index').warning('Documentos retirados; limpieza de sus vectores pendiente.', exc_info=True)
+    (target / 'LEEME-README.txt').write_text(WITHDRAW_NOTE, encoding='utf-8')
+    if details is not None:
+        (target / 'retirados.json').write_text(json.dumps(details, ensure_ascii=False, indent=1), encoding='utf-8')
+    return {'path': target, 'documents': [name for name, _ in paths], 'chunks': len(ids)}
 
 
 def _rename(source, target, attempts=6, delay=0.25):
@@ -64,12 +136,7 @@ def empty_library(config, documents, visual_root, backups_root, *, keep_captions
                 db.execute('PRAGMA wal_checkpoint(TRUNCATE)')
         except sqlite3.Error:
             pass  # the log files travel with the database below
-    stamp = time.strftime('%Y%m%d-%H%M%S')
-    target = Path(backups_root) / stamp
-    number = 1
-    while target.exists():
-        number += 1
-        target = Path(backups_root) / f'{stamp}-{number}'
+    target = _backup_folder(backups_root)
     (target / 'index').mkdir(parents=True)
     plan = [(path, target / 'index' / path.name) for path in index_files(config)]
     if not keep_captions:

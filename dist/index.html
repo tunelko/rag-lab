@@ -18,6 +18,7 @@
   <link href="/assets/header.css" rel="stylesheet"/>
  <link rel="stylesheet" href="/assets/library.css"/>
  <link rel="stylesheet" href="/assets/settings.css"/>
+ <link rel="stylesheet" href="/assets/tenders.css"/>
 </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -774,6 +775,15 @@
       <button class="btn btn--danger" id="empty-library-button" type="button">
        <span data-i18n="sentinel.empty_library">
         Vaciar biblioteca
+       </span>
+      </button>
+      <button class="btn btn--secondary" hidden="" id="tenders-button" type="button">
+       <svg aria-hidden="true" class="icon">
+        <use href="#i-search">
+        </use>
+       </svg>
+       <span data-i18n="tenders.open">
+        Buscar pliegos
        </span>
       </button>
       <button class="btn btn--secondary" id="index-button" type="button">
@@ -2495,6 +2505,164 @@
      </button>
     </div>
    </form>
+  </dialog>
+  <dialog aria-labelledby="tenders-title" class="tenders-dialog" id="tenders-dialog">
+   <header class="resource-dialog-heading">
+    <div>
+     <h2 class="dialog-title" id="tenders-title">
+      <span data-i18n="tenders.title">
+       Pliegos
+      </span>
+     </h2>
+     <p class="meta" id="tenders-source">
+     </p>
+    </div>
+    <button class="icon-button btn--icon btn btn--secondary" data-i18n-aria-label="header.close" id="tenders-close" type="button">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-x">
+      </use>
+     </svg>
+    </button>
+   </header>
+   <section class="tenders-reading" aria-labelledby="tenders-reading-title">
+    <div class="tenders-reading__text">
+     <h3 class="label" data-i18n="tenders.listing" id="tenders-reading-title">
+      Listado de la plataforma
+     </h3>
+     <p id="tenders-read-state">
+     </p>
+    </div>
+    <label class="sr-only" data-i18n="tenders.period" for="tenders-days">
+     Periodo que se lee
+    </label>
+    <select class="select" id="tenders-days">
+     <option data-i18n="tenders.days_1" value="1">
+      Último día
+     </option>
+     <option data-i18n="tenders.days_3" selected="" value="3">
+      Últimos 3 días
+     </option>
+     <option data-i18n="tenders.days_7" value="7">
+      Últimos 7 días
+     </option>
+     <option data-i18n="tenders.days_15" value="15">
+      Últimos 15 días
+     </option>
+    </select>
+    <button class="btn btn--secondary" id="tenders-refresh" type="button">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-refresh">
+      </use>
+     </svg>
+     <span data-i18n="tenders.read">
+      Leer la plataforma
+     </span>
+    </button>
+    <button class="btn btn--secondary" hidden="" id="tenders-cancel-reading" type="button">
+     <span data-i18n="tenders.cancel_reading">
+      Detener la lectura
+     </span>
+    </button>
+    <progress class="ochre tenders-progress" hidden="" id="tenders-reading-progress" max="100" value="0">
+    </progress>
+   </section>
+   <div class="tenders-filters">
+    <label class="sr-only" data-i18n="tenders.search" for="tenders-search">
+     Buscar en el listado
+    </label>
+    <input autocomplete="off" class="input" data-i18n-placeholder="tenders.search_placeholder" id="tenders-search" maxlength="120" type="search"/>
+    <label class="sr-only" data-i18n="tenders.state" for="tenders-state">
+     Estado
+    </label>
+    <select class="select" id="tenders-state">
+     <option data-i18n="tenders.state_open" selected="" value="open">
+      Abiertas
+     </option>
+     <option data-i18n="tenders.state_pending" value="pending">
+      Pendientes de adjudicación
+     </option>
+     <option data-i18n="tenders.state_unresolved" value="unresolved">
+      Abiertas o pendientes
+     </option>
+     <option data-i18n="tenders.state_all" value="all">
+      Todas
+     </option>
+    </select>
+    <label class="sr-only" data-i18n="tenders.region" for="tenders-region">
+     Comunidad autónoma
+    </label>
+    <select class="select" id="tenders-region">
+    </select>
+    <label class="sr-only" data-i18n="tenders.show" for="tenders-show">
+     Mostrar
+    </label>
+    <select class="select" id="tenders-show">
+     <option data-i18n="tenders.show_all" selected="" value="all">
+      Descargadas o no
+     </option>
+     <option data-i18n="tenders.show_new" value="new">
+      Sin descargar
+     </option>
+     <option data-i18n="tenders.show_library" value="library">
+      En la biblioteca
+     </option>
+    </select>
+   </div>
+   <div class="table-wrap tenders-results">
+    <table class="table tenders-table">
+     <thead>
+      <tr>
+       <th>
+        <input data-i18n-aria-label="tenders.select_all" id="tenders-select-all" type="checkbox"/>
+       </th>
+       <th data-i18n="tenders.column_tender">
+        Licitación
+       </th>
+       <th data-i18n="tenders.column_state">
+        Estado
+       </th>
+       <th data-i18n="tenders.column_deadline">
+        Plazo
+       </th>
+       <th data-i18n="tenders.column_region">
+        Comunidad
+       </th>
+       <th class="num" data-i18n="tenders.column_amount" data-i18n-title="tenders.column_amount_hint">
+        Presupuesto
+       </th>
+       <th data-i18n="tenders.column_documents" data-i18n-title="tenders.column_documents_hint">
+        Pliegos
+       </th>
+      </tr>
+     </thead>
+     <tbody id="tenders-rows">
+     </tbody>
+    </table>
+    <p class="empty-state" hidden="" id="tenders-empty">
+    </p>
+   </div>
+   <p class="tenders-job" hidden="" id="tenders-job" role="status">
+   </p>
+   <p class="error-reason" hidden="" id="tenders-error" role="alert">
+   </p>
+   <footer class="tenders-footer">
+    <span class="meta" id="tenders-count">
+    </span>
+    <span class="page-head__spacer">
+    </span>
+    <button class="btn btn--danger" disabled="" id="tenders-withdraw" type="button">
+     <span id="tenders-withdraw-label">
+     </span>
+    </button>
+    <button class="btn btn--primary" disabled="" id="tenders-download" type="button">
+     <svg aria-hidden="true" class="icon">
+      <use href="#i-download">
+      </use>
+     </svg>
+     <span id="tenders-download-label">
+     </span>
+    </button>
+   </footer>
   </dialog>
   <dialog aria-labelledby="resource-dialog-title" class="resource-dialog" id="resource-dialog">
    <header class="resource-dialog-heading">

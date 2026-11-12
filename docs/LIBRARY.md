@@ -62,6 +62,48 @@ instead of being silently marked complete.
 
 There is no per-document delete/trash operation in the API or UI. Removing
 an upload queue entry does not remove its original file or its published vectors.
+The only way to take individual documents out is to withdraw a tender (below),
+which moves its files to a backup folder.
+
+## Tender documents (pliegos)
+
+A profile can name a public source of tenders in `profiles/<profile>/pliegos.json`:
+a syndication feed, the hosts that serve its documents, a subject filter and the
+category its tenders are filed under. When at least one profile has such a file,
+the Library header shows **Find tenders / Buscar pliegos**. Nothing is fetched
+until the user asks, and it happens in two separate steps:
+
+1. **Read the platform.** The server reads the feed, newest first, back to the
+   chosen period (1, 3, 7 or 15 days) and keeps the tenders the profile is about in
+   a local listing, `data/pliegos/catalog-<profile>.json`. Only the listing is
+   read: no document is downloaded. A later reading stops where the previous one
+   ended, so it is short. The reading runs beside the job queue and does not keep
+   questions waiting; it can be stopped, and what it found stays listed.
+2. **Search, choose, download.** The dialog filters the listing by text, state
+   (open, awaiting award, any), region and whether the tender is already in the
+   library. The chosen tenders (up to 25 at a time) are downloaded as one job:
+   their technical and administrative PDFs go to `data/documents/`, each tender
+   gets a summary sheet `<file number>__FICHA.md` with what the platform publishes
+   (body, subject, state, deadline, region, budget, link), everything is filed
+   under the profile's category and indexed. A tender whose technical document
+   cannot be downloaded is skipped and reported.
+
+"Open" in the search means in its submission period on the server's date today.
+The sheet states the date of its data instead, because it is indexed text. When a
+reading finds a newer state for a tender that is in the library, its sheet is
+rewritten and indexed again.
+
+`data/pliegos/manifest.json` is the register of the tenders in the library.
+**Withdraw / Retirar** moves the chosen tenders' PDFs and sheets to
+`data/library-backups/<YYYYMMDD-HHMMSS>/documents/`, removes them from the
+manifest and deletes their vectors; `retirados.json` in that folder records what
+was withdrawn. To bring them back, copy the files to `data/documents/` and update
+the index. Withdrawing is refused while any job runs and from any computer other
+than the one running RAG Local.
+
+Network use is limited to this feature and to the hosts written in the profile,
+over HTTPS, without proxies, with certificate verification and the identifier
+`RAG-Local/1.0`. Redirects to any other host are refused. Indexing stays local.
 
 ## Emptying the library
 

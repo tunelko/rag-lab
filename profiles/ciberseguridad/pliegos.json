@@ -4,6 +4,10 @@
     "es": "Pliegos",
     "en": "Tender documents"
   },
+  "category": [
+    "Pliegos",
+    "Ciberseguridad"
+  ],
   "source": {
     "name": "Plataforma de Contratación del Sector Público",
     "feed": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom",

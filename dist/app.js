@@ -7,11 +7,12 @@ import {Chat} from './chat.js';
 import {ServerConsole} from './console.js';
 import {Telemetry} from './telemetry.js';
 import {LibraryTopics} from './topics.js';
+import {Tenders} from './tenders.js';
 
 await initI18n();
 
 const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
-let queue, chat, serverConsole, telemetry, settingsController, shell, topics;
+let queue, chat, serverConsole, telemetry, settingsController, shell, topics, tenders;
 const s=(key,values={})=>t(`sentinel.${key}`,values);
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
@@ -232,6 +233,7 @@ async function init(){
     serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
     telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');
     topics=new LibraryTopics(api,refreshStatus,()=>{state.page=1;renderDocuments();});
+    tenders=new Tenders(api,refreshStatus);
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush());
     await loadSettings();

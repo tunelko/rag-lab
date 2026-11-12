@@ -135,6 +135,11 @@ its subcategories, one subcategory, or uncategorized documents. Organization is 
 existing PDFs, vectors and captions. **Empty library** starts over: after a typed
 confirmation it moves documents, index and categories to a dated folder under
 `data/library-backups/` instead of deleting them. See [library organization](docs/LIBRARY.md).
+If a profile defines a tender source (`profiles/<profile>/pliegos.json`),
+**Find tenders** reads the public listing of tenders, lets you search it by
+text, state and region, and downloads and indexes only the tenders you choose,
+each with a summary sheet of its state, deadline, place and budget.
+**Withdraw** moves them to a backup folder.
 
 - **Ingest:** extract PDF text/tables and render visual or scanned pages. A local Ollama
   vision model describes the images; descriptions and text enter the local SQLite vector store.

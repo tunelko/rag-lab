@@ -2,7 +2,7 @@
 import unittest
 
 from library_queries import SUMMARY_SUFFIX, has_summaries, query_intent, set_question, summary_scope
-from tools import fetch_pliegos
+import tenders as fetch_pliegos
 
 RULES = {
     "contract_types": ["2"], "security_cpv_prefixes": ["4873", "7281"], "it_cpv_prefixes": ["72", "48"],

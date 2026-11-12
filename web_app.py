@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import secrets
 import re
+import threading
 import time
 from typing import Annotated, Literal
 from urllib.parse import quote, urlsplit
@@ -51,6 +52,7 @@ from server_control import validate_host
 from library_topics import TopicStore, TopicError
 from index_lock import IndexBusyError, index_writer
 import library_reset
+import tenders
 from ollama_http import open_ollama
 from credential_store import CredentialError, CredentialStore, CredentialStoreLocked, PROVIDERS as CREDENTIAL_PROVIDERS
 import generation_providers
@@ -109,6 +111,24 @@ class EmptyLibraryRequest(BaseModel):
     keep_captions: bool = False
 
 
+TenderKey = Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class TenderRefreshRequest(BaseModel):
+    profile: str = Field(max_length=41)
+    days: Literal[1, 3, 7, 15] = 3
+
+
+class TenderDownloadRequest(BaseModel):
+    profile: str = Field(max_length=41)
+    keys: list[TenderKey] = Field(min_length=1, max_length=25)
+
+
+class TenderWithdrawRequest(BaseModel):
+    confirm: Literal["withdraw-tenders"]
+    keys: list[TenderKey] = Field(min_length=1, max_length=200)
+
+
 class RagService(JobRuntime):
     def __init__(self, config=None, documents=None):
         self.config = config or rag.Config()
@@ -124,6 +144,11 @@ class RagService(JobRuntime):
         self.hardware = HardwareMonitor(archive=self.statistics_archive)
         self.fingerprints = FileFingerprints()
         self.topics = TopicStore(self.config.db / f'{self.config.collection}-topics.sqlite3')
+        # Tender sources: the listing read from the platform and the register of what is in the library.
+        self.tenders_folder = self.config.db.parent / 'pliegos'
+        self.tenders_lock = threading.Lock()
+        self.tender_reader = tenders.reader
+        self.tender_root = tenders.ROOT
         super().__init__()
 
     def record_job(self, job):
@@ -407,6 +432,172 @@ class RagService(JobRuntime):
             except sqlite3.Error:
                 pass
         return result
+
+    # ------------------------------------------------------------ tender sources
+
+    def tender_source(self, profile):
+        try:
+            return tenders.load_source(profile, self.tender_root)
+        except tenders.TenderError as error:
+            raise HTTPException(404, str(error)) from error
+
+    def tenders_view(self, profile=None):
+        """What the tender page shows: the sources, the listing of one of them and what is in the library."""
+        names = tenders.profiles(self.tender_root)
+        sources = [{'profile': name, 'name': tenders.load_source(name, self.tender_root).get('name', {}),
+                    'source': tenders.load_source(name, self.tender_root)['source']['name']} for name in names]
+        if not names:
+            return {'sources': [], 'tenders': []}
+        profile = profile or names[0]
+        self.tender_source(profile)
+        with self.tenders_lock:
+            catalog = tenders.load_catalog(self.tenders_folder, profile)
+            register = tenders.load_register(self.tenders_folder)
+        register['tenders'] = {key: item for key, item in register['tenders'].items() if item.get('profile') in (None, '', profile)}
+        jobs = [{'id': job['id'], 'kind': job['kind'], 'status': job['status'], 'reading': job.get('tender_reading')}
+                for job in self.list_jobs(active=True)['jobs'] if job['kind'].startswith('tenders_')]
+        return {**tenders.view(catalog, register, datetime.now().date()), 'sources': sources, 'profile': profile, 'jobs': jobs}
+
+    def tenders_refresh(self, job_id, profile, days, preferences):
+        """Read the platform's feed and bring the listing up to date. Network only: runs beside the main queue."""
+        config = tenders.load_source(profile, self.tender_root)
+        read = self.tender_reader(config)
+        path = tenders.catalog_path(self.tenders_folder, profile)
+        with self.tenders_lock:
+            catalog = tenders.load_catalog(self.tenders_folder, profile)
+            registered = {key: item.get('updated') for key, item in tenders.load_register(self.tenders_folder)['tenders'].items()}
+        now = datetime.now(timezone.utc)
+        self.update(job_id, phase='Leyendo el listado de la plataforma de contratación', stage='tenders', progress=0,
+                    tender_reading={'pages': 0, 'scanned': 0, 'listed': len(catalog['tenders']), 'found': 0})
+
+        def progress(*, reached, **reading):
+            covered = (now - reached).total_seconds() / (days * 86400) if reached else 0
+            self.update(job_id, tender_reading={**reading, 'reached': reached.isoformat() if reached else None},
+                        progress=max(0, min(99, round(100 * covered))))
+            if reading['pages'] % 5 == 0:
+                # Saved as it grows, so the page can show what has been found so far.
+                with self.tenders_lock:
+                    tenders.write_json(path, catalog)
+
+        try:
+            result = tenders.refresh(config, catalog, registered, read, days=days, now=now, progress=progress,
+                                     cancelled=lambda: self.cancelled(job_id))
+        except (OSError, tenders.TenderError) as error:
+            raise JobFailure('TENDER_SOURCE', 'No se ha podido leer la plataforma de contratación. Inténtalo de nuevo más tarde.', str(error)) from error
+        finally:
+            with self.tenders_lock:
+                tenders.write_json(path, catalog)
+        self.check_cancel(job_id)
+        changes = result.pop('changes')
+        sheets = self.apply_tender_changes(changes)
+        if sheets:
+            # The renewed sheets are ordinary documents: they are indexed again through the main queue.
+            self.start('index', lambda job: self.index(job, files=frozenset(sheets), preferences=preferences))
+        return {'tender_reading': {**result, 'renewed': len(sheets)}, 'message': 'Listado de pliegos actualizado'}
+
+    def apply_tender_changes(self, changes):
+        """Give the tenders in the library the newer data found for them; returns the sheets that changed."""
+        names = []
+        if not changes:
+            return names
+        with self.tenders_lock:
+            register = tenders.load_register(self.tenders_folder)
+            for key, metadata in changes.items():
+                tender = register['tenders'].get(key)
+                if tender is None:
+                    continue
+                tender.update(metadata)
+                if tenders.write_sheet(key, tender, self.documents):
+                    names.append(tender['sheet'])
+            tenders.write_json(tenders.register_path(self.tenders_folder), register)
+        return names
+
+    def tender_topic(self, config):
+        """The category the profile files its tenders under, created when missing."""
+        topics, parent = self.topics.snapshot([])['topics'], None
+        for name in (config.get('category') or ['Pliegos'])[:2]:
+            found = next((item['id'] for item in topics if item['parent_id'] == parent and item['name'].casefold() == name.casefold()), None)
+            parent = found or self.topics.create(name, parent)
+        return parent
+
+    def tenders_download(self, job_id, profile, keys, preferences):
+        """Download the chosen tenders into the library, write their sheets, file them and index them."""
+        config = tenders.load_source(profile, self.tender_root)
+        read = self.tender_reader(config)
+        with self.tenders_lock:
+            catalog = tenders.load_catalog(self.tenders_folder, profile)['tenders']
+        missing = [key for key in keys if key not in catalog]
+        if missing:
+            raise JobFailure('TENDER_UNKNOWN', 'Alguna licitación elegida ya no está en el listado. Actualízalo y vuelve a elegir.', ', '.join(missing))
+        names, outcomes = [], []
+        for number, key in enumerate(keys):
+            self.check_cancel(job_id)
+            self.update(job_id, phase=f'Descargando pliegos · {number + 1}/{len(keys)}', stage='download', progress=None,
+                        stage_progress=100 * number / len(keys), current_document=catalog[key].get('folder') or key,
+                        tender_outcomes=list(outcomes), cancellable=True)
+            try:
+                record, problem = tenders.download(config, key, catalog[key], self.documents, read,
+                                                   cancelled=lambda: self.cancelled(job_id))
+            except OSError as error:
+                record, problem = None, type(error).__name__
+            if record is None:
+                outcomes.append({'key': key, 'downloaded': False, 'reason': problem})
+                continue
+            with self.tenders_lock:
+                register = tenders.load_register(self.tenders_folder)
+                tenders.write_sheet(key, record, self.documents)
+                register['tenders'][key] = record
+                tenders.write_json(tenders.register_path(self.tenders_folder), register)
+            names += tenders.tender_files(record)
+            outcomes.append({'key': key, 'downloaded': True, 'files': len(tenders.tender_files(record))})
+        self.check_cancel(job_id)
+        self.update(job_id, tender_outcomes=list(outcomes))
+        if not names:
+            raise JobFailure('TENDER_DOWNLOAD', 'No se ha podido descargar ningún pliego de las licitaciones elegidas.',
+                             '; '.join(f"{item['key']}: {item['reason']}" for item in outcomes))
+        self.topics.assign(names, self.tender_topic(config))
+        try:
+            indexed = self.index(job_id, files=frozenset(names), preferences=preferences)
+        except JobFailure as failure:
+            if failure.code in {'EMBEDDINGS_NOT_READY', 'INDEX_BUSY'}:
+                raise
+            # A document without extractable text does not undo the rest: the others are indexed.
+            indexed = {'documents': self.snapshot(job_id).get('documents', []), 'summary': self.snapshot(job_id).get('summary')}
+        return {**indexed, 'tender_outcomes': outcomes, 'message': 'Pliegos descargados e indexados'}
+
+    def withdraw_tenders(self, keys):
+        """Move the chosen tenders' documents to a dated backup folder and take them out of the index."""
+        with self.lock:
+            if self.closed:
+                raise HTTPException(503, "El servidor se está cerrando.")
+            if any(job["status"] in {"queued", "running"} for job in self.jobs.values()):
+                raise HTTPException(409, "Hay tareas en curso o en cola. Espera a que terminen o cancélalas antes de retirar pliegos.")
+            with self.tenders_lock:
+                register = tenders.load_register(self.tenders_folder)
+                chosen = {key: register['tenders'][key] for key in dict.fromkeys(keys) if key in register['tenders']}
+                if not chosen:
+                    raise HTTPException(404, "Esas licitaciones ya no están en la biblioteca.")
+                names = [name for tender in chosen.values() for name in tenders.tender_files(tender)]
+                try:
+                    with index_writer(self.config):
+                        result = library_reset.withdraw_documents(self.config, self.documents, names,
+                            self.config.db.parent / "library-backups", details={'tenders': chosen})
+                except IndexBusyError as error:
+                    raise HTTPException(409, str(error)) from error
+                except library_reset.LibraryBusyError as error:
+                    raise HTTPException(409, f"No se ha retirado nada: hay un archivo en uso ({error}). Cierra los documentos abiertos y vuelve a intentarlo.") from error
+                finally:
+                    retrieval_pipeline.clear_catalogs()
+                    self.fingerprints.clear()
+                for key in chosen:
+                    del register['tenders'][key]
+                tenders.write_json(tenders.register_path(self.tenders_folder), register)
+            self.topics.assign(names, None)
+            path = result["path"]
+            logging.getLogger("rag.jobs").info("Pliegos retirados · %d licitaciones, %d documentos y %d fragmentos movidos a %s",
+                                               len(chosen), len(result["documents"]), result["chunks"], path.name)
+            return {"tenders": len(chosen), "documents": len(result["documents"]), "chunks": result["chunks"],
+                    "backup": path.relative_to(rag.ROOT).as_posix() if path.is_relative_to(rag.ROOT) else str(path)}
 
     def query_in_batches(self, job_id, query, sheets, capacity, scope_label, preferences, provider_key):
         """Answer a question about every item from its summary sheets, a group at a time, and join the rows."""
@@ -977,6 +1168,32 @@ def create_app(service=None):
     def empty_library(body: EmptyLibraryRequest, request: Request):
         require_local_credentials(request, "La biblioteca solo puede vaciarse desde el propio equipo que ejecuta RAG Local.")
         return service.empty_library(keep_captions=body.keep_captions)
+
+    @app.get('/api/tenders')
+    def tender_listing(profile: str | None = QueryParameter(default=None, max_length=41)):
+        return service.tenders_view(profile)
+
+    @app.post('/api/admin/tenders/refresh', status_code=202)
+    def refresh_tenders(body: TenderRefreshRequest):
+        service.tender_source(body.profile)
+        if any(job['kind'] == 'tenders_refresh' for job in service.list_jobs(active=True)['jobs']):
+            raise HTTPException(409, 'Ya se está leyendo el listado de la plataforma.')
+        preferences = service.settings.get()
+        return service.start('tenders_refresh', lambda job_id: service.tenders_refresh(job_id, body.profile, body.days, preferences),
+                             lane='network', profile=body.profile)
+
+    @app.post('/api/admin/tenders/download', status_code=202)
+    def download_tenders(body: TenderDownloadRequest):
+        service.tender_source(body.profile)
+        keys = list(dict.fromkeys(body.keys))
+        preferences = service.settings.get()
+        return service.start('tenders_download', lambda job_id: service.tenders_download(job_id, body.profile, keys, preferences),
+                             profile=body.profile, tender_keys=keys)
+
+    @app.post('/api/admin/tenders/withdraw')
+    def withdraw_tenders(body: TenderWithdrawRequest, request: Request):
+        require_local_credentials(request, "Los pliegos solo pueden retirarse desde el propio equipo que ejecuta RAG Local.")
+        return service.withdraw_tenders(body.keys)
 
     @app.post("/api/admin/prepare", status_code=202)
     def prepare():

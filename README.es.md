@@ -140,6 +140,11 @@ en `data/` y conserva PDF, vectores y descripciones ya procesadas.
 **Vaciar biblioteca** permite empezar de cero: tras escribir una palabra de
 confirmación, mueve documentos, índice y categorías a una carpeta con fecha en
 `data/library-backups/` en lugar de borrarlos.
+Si un perfil define una fuente de pliegos (`profiles/<perfil>/pliegos.json`),
+**Buscar pliegos** lee el listado público de licitaciones, permite buscar por
+texto, estado y comunidad, y solo descarga e indexa las licitaciones que elijas,
+cada una con una ficha de estado, plazo, lugar e importe. **Retirar** las mueve a
+una copia de seguridad.
 [Organización de la biblioteca](docs/LIBRARY.md).
 
 - **Ingesta:** extrae texto y tablas de PDF y renderiza páginas visuales o escaneadas.
