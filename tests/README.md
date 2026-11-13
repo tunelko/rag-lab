@@ -38,7 +38,6 @@ and redirect refusal. No production documents or inference models are required.
 
 Browser recovery checks distinguish acknowledged uploads from filename/size
 collisions, ignore other tabs' queries, and recover this tab's completed jobs.
-See the [implementation audit](../docs/AUDIT.md) for the limits these tests do not prove.
 
 Laboratory tests use genuine SQLite snapshots and fake local embeddings. They
 verify effective chat-parameter capture before queueing, validation before model

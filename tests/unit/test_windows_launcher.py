@@ -16,8 +16,9 @@ class WindowsLauncherTests(unittest.TestCase):
         self.assertIsNotNone(shell)
         with tempfile.TemporaryDirectory(prefix='rag-launcher-') as directory:
             root=Path(directory)
-            launcher=root/'Start-Web.ps1'
-            shutil.copyfile(Path(__file__).resolve().parents[2]/'Start-Web.ps1',launcher)
+            launcher=root/'install/windows/Start-Web.ps1'
+            launcher.parent.mkdir(parents=True)
+            shutil.copyfile(Path(__file__).resolve().parents[2]/'install/windows/Start-Web.ps1',launcher)
             # Help must work before installing the virtual environment.
             def invoke(*arguments):
                 return subprocess.run([shell,'-NoProfile','-ExecutionPolicy','Bypass','-File',str(launcher),*arguments],
@@ -25,7 +26,8 @@ class WindowsLauncherTests(unittest.TestCase):
             for option in ('-h','--help','-Help'):
                 self.assertIn('Uso:',invoke(option).stdout)
             venv.EnvBuilder(with_pip=False).create(root/'.venv')
-            (root/'server_control.py').write_text('import json, sys\nprint(json.dumps(sys.argv[1:]))\n',encoding='utf-8')
+            (root/'app').mkdir()
+            (root/'app/server_control.py').write_text('import json, sys\nprint(json.dumps(sys.argv[1:]))\n',encoding='utf-8')
             for action in ('start','stop','restart','status'):
                 for option in (action,'--'+action,'-'+action):
                     with self.subTest(option=option):

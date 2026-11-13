@@ -80,7 +80,7 @@ class RagSmokeTests(unittest.TestCase):
              "c=rag.Config(db=Path(sys.argv[1]),collection='smoke_test'); "
              "print(len(rag.open_store(c,DeterministicFakeEmbedding(size=32)).get()['ids']))",
              str(config.db)],
-            cwd=rag.ROOT, capture_output=True, text=True, timeout=60,
+            cwd=Path(rag.__file__).parent, capture_output=True, text=True, timeout=60,
         )
         self.assertEqual(reader.returncode, 0, reader.stderr)
         self.assertEqual(reader.stdout.strip(), "1")

@@ -1,44 +1,24 @@
+# Environments, caches and local configuration
 .venv/
 .cache/
+__pycache__/
+*.pyc
 .env
 .env.*
 !.env.example
-data/documents/*
-!data/documents/.gitkeep
-data/chroma/
-data/test-chroma/
-reports/
-__pycache__/
-*.pyc
-install-*.json
-data/settings.json
-data/settings.pending
-data/visual/
 
-# Documents, models, indexes and backups are private runtime data.
+# Private runtime data: documents, indexes, settings and backups
 /data/*
 !/data/documents/
 /data/documents/*
 !/data/documents/.gitkeep
-*.gguf
-*.safetensors
+/reports/
+/install-*.json
+/web/runtime-console.json
 *.log
 *.pending
+*.gguf
+*.safetensors
 
-# Source material copied locally at the project root, outside the application.
-/[0-9]*/
-/MSIMotherboard*/
-/Gigabyte*/
-/gigabyte-*/
-/manuals-plus-*/
-/mb_manual*/
-/xbox-360-motherboard-developments/
-/lista.txt
-dist/runtime-console.json
-dist/runtime-console.pending
-
-# Local design source package.
-/rag-local-rediseno/
-
-# User-supplied commercial fonts remain local and are never published.
-/dist/design/fonts/pangram/
+# User-supplied commercial fonts stay local and are never published
+/web/design/fonts/pangram/

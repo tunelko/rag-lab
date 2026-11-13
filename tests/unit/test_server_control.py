@@ -18,7 +18,7 @@ import server_control as control
 FIXTURE = '''from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 @asynccontextmanager
 async def lifespan(app):
     yield
@@ -42,6 +42,16 @@ class ServerControlTests(unittest.TestCase):
         command=spawn.call_args.args[0]
         self.assertEqual(command[command.index('--host')+1],'127.0.0.2')
 
+    def test_a_server_started_before_the_code_moved_into_its_folder_is_still_managed(self):
+        # Upgrading keeps the old server running; stop/restart must find it, not start a second one.
+        def process(pid, controller):
+            return SimpleNamespace(info={'pid': pid, 'name': 'python.exe'}, pid=pid, ppid=lambda: 0, cwd=lambda: str(self.root),
+                                   cmdline=lambda: ['python', str(controller), '_run', '--root', str(self.root), '--port', str(self.port)])
+        old, current = process(11, self.root / 'server_control.py'), process(12, control.CONTROLLER)
+        foreign = process(13, self.root.parent / 'another-checkout' / 'server_control.py')
+        with patch.object(control.psutil, 'process_iter', return_value=[old, current, foreign]):
+            self.assertEqual(control.matching_processes(self.root, self.port), [(old, True), (current, True)])
+
     def test_host_accepts_only_loopback_or_private_ipv4(self):
         self.assertEqual(control.validate_host('192.168.1.111'),'192.168.1.111')
         for address in ('0.0.0.0','8.8.8.8','example.com','169.254.1.2'):
@@ -61,7 +71,8 @@ class ServerControlTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory(prefix='rag-control-')
         self.root = Path(self.directory.name).resolve()
-        (self.root / 'web_app.py').write_text(FIXTURE, encoding='utf-8')
+        (self.root / control.CODE).mkdir()
+        (self.root / control.CODE / 'web_app.py').write_text(FIXTURE, encoding='utf-8')
         with socket.socket() as probe:
             probe.bind(('127.0.0.1', 0))
             self.port = probe.getsockname()[1]

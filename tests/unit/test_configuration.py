@@ -163,7 +163,7 @@ class ConfigurationTests(unittest.TestCase):
         python=setup.venv_python(self.root);python.parent.mkdir(parents=True);python.touch()
         with patch.object(setup,'probe',return_value=fake_probe(self.root,self.plan)),patch.object(setup.subprocess,'call',return_value=0) as execute:
             self.assertEqual(setup.start_web(self.root),0)
-        self.assertEqual(execute.call_args.args[0],[str(python),str(self.root/'server_control.py'),'start','--root',str(self.root),'--port','8765'])
+        self.assertEqual(execute.call_args.args[0],[str(python),str(self.root/'app'/'server_control.py'),'start','--root',str(self.root),'--port','8765'])
 
     def test_install_does_not_touch_running_servers(self):
         state = {**fake_probe(self.root, self.plan), 'servers': [{'port': 8765, 'active_jobs': 0}]}

@@ -4,18 +4,17 @@
 
 [![CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml)
 
-A local, multimodal document assistant for Windows and Linux. Chat with your PDF,
-text and image collection, inspect citations, and monitor processing in a web UI.
-Setup uses an OMP-style terminal wizard. The web interface supports English and Spanish.
+Ask questions about your own documents (PDF, text, images) from a web page on your
+computer. Documents are indexed on your machine and answers cite their source.
 
-## Install
-
-**Requirements**
+## Requirements
 
 - Windows x64 or Linux x86_64
 - [Python](https://www.python.org/downloads/) 3.13, 64-bit
 - [Git](https://git-scm.com/install/)
 - [Ollama](https://ollama.com/download)
+
+## Install
 
 **1. Download the project**
 
@@ -30,18 +29,16 @@ cd rag-lab
 ollama pull qwen3.5:9b-q4_K_M
 ```
 
-This model handles text and images and takes several GB. Any local Ollama model works.
-
 **3. Open the setup wizard**
 
 ```powershell
 # Windows
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Configurar.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install\windows\Configurar.ps1
 ```
 
 ```bash
 # Linux
-bash configurar.sh
+bash install/linux/configurar.sh
 ```
 
 **4. Follow the wizard**
@@ -49,156 +46,43 @@ bash configurar.sh
 1. **Language:** choose English or Español.
 2. **Welcome:** continue.
 3. **Python environment:** keep **Ollama GPU + CPU embeddings** and click **Install dependencies**.
-4. **Ollama models:** click **Refresh models**, choose the text model and, for images, enable multimodal with a vision model.
+4. **Ollama models:** click **Refresh models** and choose the text model. For images, enable multimodal and choose a vision model.
 5. **RAG retrieval:** keep the defaults.
 6. **Review and save:** tick the confirmation and click **Save configuration**.
-7. **Done:** click **Start web** and open **http://127.0.0.1:8765**.
+7. **Done:** click **Start web**.
 
-To start it again later: `.\Configurar.ps1 -Start` on Windows or `bash configurar.sh --start`
-on Linux. More detail in the [installation guide](docs/INSTALLATION.md).
+## Use
 
-To manage the server in the background, use the project directory:
+1. Open **http://127.0.0.1:8765**.
+2. In **Settings**, click **Prepare retrieval model**. This is needed once.
+3. In **Library**, click **Upload and index** and wait for **Indexed**.
+4. In **Chat**, ask your question. **Retrieved context** shows the source of the answer.
 
-```powershell
-.\Start-Web.ps1 start
-.\Start-Web.ps1 status
-.\Start-Web.ps1 restart
-.\Start-Web.ps1 stop
-```
+## Start and stop
 
-On Linux: `bash web.sh start|status|restart|stop` (choose one action).
-Both launchers also accept `--start`, `--stop`, `--restart`, `--status` and `--help`.
-Windows also accepts PowerShell switches such as `-Restart` and `-h` for help.
-The port comes from `.env`; override with `-Port 8766` on Windows or `--port 8766`
-on Linux. Logs are in `reports/rag-server-runtime*.log`. Stop/restart refuse active
-jobs; cancel or finish them first. These commands leave Ollama and documents alone.
+Run these from the project folder. The server keeps running after you close the terminal.
 
-## First query
+| Action | Windows | Linux |
+|---|---|---|
+| Start | `.\install\windows\Start-Web.ps1 start` | `bash install/linux/web.sh start` |
+| Stop | `.\install\windows\Start-Web.ps1 stop` | `bash install/linux/web.sh stop` |
+| Restart | `.\install\windows\Start-Web.ps1 restart` | `bash install/linux/web.sh restart` |
+| Status | `.\install\windows\Start-Web.ps1 status` | `bash install/linux/web.sh status` |
 
-In **Settings**, click **Prepare retrieval model** to download the CPU embeddings.
-Upload a small TXT through **Library → Upload and index**. Wait for **Indexed**, ask
-a question in **Chat**, and open **Retrieved context** to verify the original source.
-Start with a short PDF before indexing large batches.
+- **Another port:** add `-Port 8766` on Windows or `--port 8766` on Linux.
+- **Other devices on your network:** add `-Host 192.168.1.20` on Windows or `--host 192.168.1.20` on Linux, with the address of this computer. Everyone who can open the page shares the same documents; there are no accounts.
+- **Check the installation:** `.\install\windows\Configurar.ps1 -Check` or `bash install/linux/configurar.sh --check`.
 
-## Multimodal RAG
+## Your data
 
-The chat uses the full workspace width. Citations open a sliding source panel;
-Escape closes it. Configure the response provider/model, automatic/manual mode,
-fragment counts and retrieval-only mode in Settings (the top-right gear). Settings
-save automatically and apply to chat; the **+** button attaches images. The system
-status icon opens connection and hardware details. The top-right flag selector
-switches Spanish/English; fonts and translations are served locally.
+Everything stays inside the project folder and none of it is tracked by Git.
 
-The response provider can remain **Ollama local** or be changed to Scaleway,
-OVHcloud, xAI/Grok or **Groq**. External providers receive the question, conversation
-history and retrieved text chunks. **Vision model for answers** may also send images
-needed for that answer. **Local indexing** always uses Ollama for image descriptions
-and CPU for extraction/embeddings; it never calls a cloud provider. Its vision model
-is configured separately. Changing answer providers/models does not require reindexing.
-See [cloud answers and local indexing](docs/CLOUD_VISION.md).
-API keys are entered from Settings on the server host
-(through loopback or its configured bind address) and are never returned to the browser: Windows encrypts them with
-user-bound DPAPI, while Linux uses AES-GCM with an in-memory master password.
-The **External model** dropdown loads the provider catalog automatically when a
-credential is saved or a configured provider is opened. **Refresh models** reloads
-it from `/v1/models` server-side. Select a model from the list; the choice is saved
-automatically and restored after reloading the page. For Scaleway, store the **Secret
-Key** used as the Generative APIs Bearer credential; the Access Key is not used for
-inference. Its IAM bearer must have `GenerativeApisModelAccess` (least privilege),
-`GenerativeApisFullAccess` or `AllProductsFullAccess` for the intended Project or
-Organization.
+| Path | Contents |
+|---|---|
+| `data/` | Your documents, the index and the web settings |
+| `.env` | Configuration written by the wizard |
+| `reports/` | Server logs |
 
-For Groq, select **Groq** in Settings, save an API key from the
-[Groq console](https://console.groq.com/keys), then choose a model from the live
-dropdown. Audio models, classifiers and Compound systems are excluded. Streaming
-usage counters support Groq's native format. Global document tables use JSON
-object mode with the application's existing per-document validation. Groq pricing
-is not integrated; the UI shows it as unavailable instead of guessing a rate.
-
-For Scaleway, the selected model also shows live input/output rates (and cached
-input where published), fetched from the public Product Catalog API on every
-catalog refresh. Token rates are displayed in EUR per million tokens; audio uses
-its own minute unit. The panel shows the fetch time and source, excludes batch
-prices, and does not apply taxes, free tiers or account discounts. Missing rates
-remain unavailable rather than being treated as free. Other providers do not yet
-have an API pricing integration.
-
-In **Library**, organize **categories and subcategories** in the sidebar. Use
-**+** to create a category and its menu to add subcategories or rename it. Select
-documents and move them in bulk; the upload destination follows the chosen category.
-The chat's **Sources** selector searches the entire library, one category including
-its subcategories, one subcategory, or uncategorized documents. Organization is stored under `data/` and preserves
-existing PDFs, vectors and captions. **Empty library** starts over: after a typed
-confirmation it moves documents, index and categories to a dated folder under
-`data/library-backups/` instead of deleting them. See [library organization](docs/LIBRARY.md).
-
-- **Ingest:** extract PDF text/tables and render visual or scanned pages. A local Ollama
-  vision model describes the images; descriptions and text enter the local SQLite vector store.
-- **Retrieve:** search text and image descriptions using multilingual embeddings.
-- **Rank:** focused questions use a native-text channel, automatic document scope
-  and an optional local cross-encoder. See the [focused retrieval pipeline](docs/RETRIEVAL.md#focused-retrieval-pipeline).
-- **Answer:** use local Ollama or an explicitly selected external provider. The selected
-  vision model can inspect original images. Answers include citations.
-- **Inspect:** Library shows jobs, Statistics offers resource graphs and timings,
-  and Console shows server output. Chat renders Markdown and code.
-
-Statistics keeps [seven days of local history](docs/STATISTICS.md), including day/week
-charts and query/indexing records. A [CPU-only visual audit](docs/VISUAL_AUDIT.md)
-evaluates page selection and human labels before changing multimodal ingestion.
-An [experimental offline retrieval evaluation](docs/EVALUATION.md) compares exact dense, FTS5 and
-hybrid ranking with Recall@K, MRR, nDCG and P50/P95 over human-labeled questions.
-
-The [Laboratory](docs/LABORATORY.md) validates local JSONL questions and measures
-the chat's focused retrieval on a temporary index snapshot. It shows literal
-evidence coverage and exact context per question, with cancellation and reload
-recovery. It does not generate answers or change chat settings.
-
-Supports PDF, TXT, Markdown, PNG/JPEG/WebP and supported MinerU exports. Descriptions
-are cached. Visual indexing can take seconds per page. Jobs share a sequential
-queue; questions wait during indexing. Check original sources for critical details.
-
-Library counts/listings read the actual index register. General list requests,
-such as “Dame la lista de cpus admitidas”, and questions about all documents retrieve
-evidence from every indexed file with a shared context budget;
-the 2/4/6/8 fragment setting applies to focused questions. [Retrieval details](docs/RETRIEVAL.md).
-
-## Layout and environments
-
-```text
-requirements/     Runtime, CPU/CUDA, wizard and development profiles
-tests/unit/       Offline Python regression tests
-tests/browser/    Isolated browser QA and read-only smoke checks
-tests/frontend/   JavaScript tests
-dist/             Web UI, local fonts and libraries
-docs/             Installation, reference and development guides
-docs/archive/     Historical design material
-benchmarks/       Synthetic diagnostics and private evaluation sets
-data/             Private runtime data, ignored by Git
-```
-
-Use `requirements/ollama.txt` for the recommended runtime or `requirements/cuda.txt`
-for advanced HF/NF4. PyTorch has separate CPU/CUDA files; the wizard handles order.
-See [dependency profiles](requirements/README.md) and [test commands](tests/README.md).
-
-```text
-python -m unittest discover -s tests -t . -v
-node --test tests/frontend/*.test.mjs
-python -m tests.browser.qa_redesign
-```
-
-[CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml) runs CPU tests on
-Windows/Linux, with browser QA on both, using fake models and an isolated corpus.
-Ollama handles GPU generation independently of CPU embeddings.
-
-The server defaults to loopback. An explicit `-Host`/`--host` enables trusted LAN
-access; see [installation](docs/INSTALLATION.md#trusted-lan-access). Documents, models, indexes and private settings
-stay outside Git. Initial downloads need Internet. More: [installation](docs/INSTALLATION.md),
-[Spanish reference](docs/REFERENCE.es.md), [diagnostics](docs/DESARROLLO.md).
-The project's license is pending; third-party notices remain intact.
-Dependency advisories and local deployment boundaries: [security status](SECURITY.md).
-Implemented architecture, reviewed defects and remaining limits: [implementation audit](docs/AUDIT.md).
-
-The interface supports English and Spanish, automatic browser detection, a
-persistent language selector and a persistent light/dark appearance toggle. New
-answers use the selected language through local Ollama. See
-[languages](docs/INTERNATIONALIZATION.md) and the [scaling roadmap](docs/SCALING.md).
+Answers use local Ollama unless you choose a cloud provider in **Settings**; see
+[what a cloud provider receives](docs/CLOUD_VISION.md). Indexing is always local.
+Security boundaries are in [SECURITY.md](SECURITY.md).

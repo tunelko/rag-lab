@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {randomId} from '../../dist/ids.js';
+import {randomId} from '../../web/ids.js';
 
 test('private HTTP fallback generates UUID v4 when randomUUID is unavailable',()=>{
   const provider={getRandomValues(array){array.fill(255);return array;}};

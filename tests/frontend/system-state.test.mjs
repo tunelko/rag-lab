@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {vramLevel} from '../../dist/system-state.js';
+import {vramLevel} from '../../web/system-state.js';
 test('VRAM thresholds follow measured capacity and concurrent models',()=>{
   assert.equal(vramLevel(90,100),'info');
   assert.equal(vramLevel(95,100),'warn');

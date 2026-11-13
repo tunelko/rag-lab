@@ -104,7 +104,7 @@ except IndexBusyError: sys.exit(73)
 '''
         arguments=[sys.executable,'-c',code,str(self.config.db),self.config.collection]
         with index_writer(self.config):
-            result=subprocess.run(arguments,cwd=rag.ROOT,capture_output=True,text=True)
+            result=subprocess.run(arguments,cwd=Path(rag.__file__).parent,capture_output=True,text=True)
             self.assertEqual(result.returncode,73,result.stderr)
-        result=subprocess.run(arguments,cwd=rag.ROOT,capture_output=True,text=True)
+        result=subprocess.run(arguments,cwd=Path(rag.__file__).parent,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)

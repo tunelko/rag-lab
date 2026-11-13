@@ -10,12 +10,12 @@ IDs, embeddings, metadata, manifest and category assignments are preserved.
 From the project directory, after obtaining the new source:
 
 ```powershell
-.\Start-Web.ps1 stop -WhenIdle
+.\install\windows\Start-Web.ps1 stop -WhenIdle
 .\.venv\Scripts\python.exe -m tools.migrate_vectors
 .\.venv\Scripts\python.exe -m pip uninstall --yes langchain-chroma chromadb
 .\.venv\Scripts\python.exe -m pip install -r requirements/ollama.txt
 .\.venv\Scripts\python.exe -m pip check
-.\Start-Web.ps1 start
+.\install\windows\Start-Web.ps1 start
 ```
 
 For an existing CUDA/HF environment, use `requirements/cuda.txt` instead of
@@ -25,12 +25,12 @@ LAN address, pass it again on start, for example `-Host 192.168.1.111`.
 ## Linux
 
 ```bash
-bash web.sh stop --when-idle
+bash install/linux/web.sh stop --when-idle
 .venv/bin/python -m tools.migrate_vectors
 .venv/bin/python -m pip uninstall --yes langchain-chroma chromadb
 .venv/bin/python -m pip install -r requirements/ollama.txt
 .venv/bin/python -m pip check
-bash web.sh start
+bash install/linux/web.sh start
 ```
 
 Pass `--host <assigned-private-ip>` again when starting a LAN server. Ollama can

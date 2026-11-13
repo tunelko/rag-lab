@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
-import {resolveLanguage, formatMessage} from '../../dist/i18n.js';
+import {resolveLanguage, formatMessage} from '../../web/i18n.js';
 
-const catalogs = Object.fromEntries(['es', 'en'].map(code => [code, JSON.parse(readFileSync(new URL(`../../dist/locales/${code}.json`, import.meta.url), 'utf8'))]));
+const catalogs = Object.fromEntries(['es', 'en'].map(code => [code, JSON.parse(readFileSync(new URL(`../../web/locales/${code}.json`, import.meta.url), 'utf8'))]));
 const slots = text => [...text.matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort();
 
 test('browser preference order, regional languages and manual selection', () => {
@@ -36,8 +36,8 @@ test('missing translations fall back and interpolation preserves literal user va
 });
 
 test('all static UI attributes and literal translation calls reference existing keys', () => {
-  for (const file of readdirSync(new URL('../../dist/', import.meta.url)).filter(file => file.endsWith('.js') || file === 'index.html')) {
-    const source = readFileSync(new URL(`../../dist/${file}`, import.meta.url), 'utf8');
+  for (const file of readdirSync(new URL('../../web/', import.meta.url)).filter(file => file.endsWith('.js') || file === 'index.html')) {
+    const source = readFileSync(new URL(`../../web/${file}`, import.meta.url), 'utf8');
     const keys = [...source.matchAll(/\bt\(['"]([^'"]+)['"]/g), ...source.matchAll(/data-i18n(?:-[a-z-]+)?="([^"]+)"/g)];
     for (const match of keys) assert.ok(Object.hasOwn(catalogs.es, match[1]), `${file}: ${match[1]}`);
     for(const match of source.matchAll(/\b(s|text|h)\(['"]([a-z_]+)['"]\s*[,)]/g)){

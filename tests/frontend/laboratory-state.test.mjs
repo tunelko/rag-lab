@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {activeExperiment, evidenceCoverage, evidenceOutcome} from '../../dist/laboratory-state.js';
+import {activeExperiment, evidenceCoverage, evidenceOutcome} from '../../web/laboratory-state.js';
 
 test('headline excludes unannotated questions and retains the denominator on cancellation', () => {
   assert.deepEqual(evidenceCoverage({found: 1, annotated: 2, without_evidence: 3, completed: 5, total: 20}),

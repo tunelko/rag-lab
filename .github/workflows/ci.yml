@@ -57,7 +57,7 @@ jobs:
           python -m pip check
       - name: Compile every Python source
         # Scripts and tools that no test imports would otherwise ship with syntax errors.
-        run: python -m compileall -q *.py tools tests benchmarks
+        run: python -m compileall -q app install tools tests
       - name: Python regression tests (fake vectors, models and sensors)
         timeout-minutes: 10
         run: |
@@ -66,9 +66,9 @@ jobs:
       - name: Frontend tests and launcher syntax
         run: |
           node --test tests/frontend/*.test.mjs
-          for module in dist/*.js; do node --check "$module"; done
-          bash -n configurar.sh
-          bash -n web.sh
+          for module in web/*.js; do node --check "$module"; done
+          bash -n install/linux/configurar.sh
+          bash -n install/linux/web.sh
       - name: Select a browser for acceptance tests
         id: browser
         # Runner images ship Chrome and Edge. Using one of them needs no package mirror
