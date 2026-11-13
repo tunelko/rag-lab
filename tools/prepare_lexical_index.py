@@ -11,7 +11,7 @@ import sqlite3
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "app"))  # the server code; also when run as a file, not as python -m tools.<name>
 
 from index_lock import index_writer
 import rag

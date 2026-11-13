@@ -8,7 +8,7 @@ import tempfile
 import time
 from types import SimpleNamespace
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))  # the server code
 from file_fingerprints import FileFingerprints, sha256_file
 from model_routing import select_model
 
