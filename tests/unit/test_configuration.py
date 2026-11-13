@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import configure_lab as setup
+import setup_texts
 
 
 def fake_probe(root, plan):
@@ -17,6 +18,7 @@ def fake_probe(root, plan):
 
 class ConfigurationTests(unittest.TestCase):
     def setUp(self):
+        setup.set_language('es')
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         (self.root / '.env.example').write_text('RAG_EMBEDDING_MODEL=intfloat/multilingual-e5-small\n', encoding='utf-8')
@@ -174,7 +176,113 @@ class ConfigurationTests(unittest.TestCase):
         self.assertFalse((self.root / '.venv').exists())
 
 
+class LanguageTests(unittest.TestCase):
+    def tearDown(self):
+        setup.set_language('es')
+
+    def test_both_languages_have_every_text_with_the_same_placeholders(self):
+        import string
+        spanish, english = setup_texts.TEXTS['es'], setup_texts.TEXTS['en']
+        self.assertEqual(sorted(spanish), sorted(english))
+        for key in spanish:
+            names = lambda value: sorted(name for _, name, _, _ in string.Formatter().parse(value) if name)
+            self.assertEqual(names(spanish[key]), names(english[key]), key)
+            self.assertTrue(spanish[key].strip() and english[key].strip(), key)
+
+    def test_the_language_is_the_request_then_the_saved_choice_then_the_session(self):
+        resolve = setup_texts.resolve
+        self.assertEqual(resolve('en', 'es', {'LANG': 'es_ES.UTF-8'}), 'en')
+        self.assertEqual(resolve(None, 'es', {'RAG_SETUP_LANGUAGE': 'en', 'LANG': 'es_ES.UTF-8'}), 'en')
+        self.assertEqual(resolve(None, 'es', {'LANG': 'en_US.UTF-8'}), 'es')
+        self.assertEqual(resolve(None, None, {'LANG': 'es_ES.UTF-8'}), 'es')
+        self.assertEqual(resolve(None, None, {'LC_ALL': 'en_GB.UTF-8', 'LANG': 'es_ES.UTF-8'}), 'en')
+        for value, expected in (('es', 'es'), ('es_MX', 'es'), ('Spanish_Spain', 'es'), ('en-GB', 'en'), ('English_United States', 'en'),
+                                ('fr_FR', None), ('estonian', None), ('', None), (None, None)):
+            self.assertEqual(setup_texts.normalize(value), expected, value)
+        with patch('setup_texts.system_language', return_value=None):
+            self.assertEqual(resolve(None, None, {}), 'en')         # neither Spanish nor English: English
+
+    def test_the_installer_and_its_texts_import_only_the_standard_library(self):
+        # They run before any environment exists.
+        import ast
+        import sys
+        root = Path(setup.__file__).parent
+        for name in ('configure_lab.py', 'setup_texts.py'):
+            tree = ast.parse((root / name).read_text('utf-8'))
+            modules = {alias.name.split('.')[0] for node in tree.body if isinstance(node, ast.Import) for alias in node.names}
+            modules |= {node.module.split('.')[0] for node in tree.body if isinstance(node, ast.ImportFrom) and node.module}
+            self.assertEqual(modules - set(sys.stdlib_module_names) - {'setup_texts'}, set(), name)
+
+    def test_errors_and_saved_choice_follow_the_language(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertIsNone(setup.saved_language(root))
+            setup.save_language(root, 'en')
+            self.assertEqual(setup.saved_language(root), 'en')
+            self.assertEqual((root / '.cache' / 'setup-language').read_text('utf-8'), 'en\n')
+            setup.set_language('en')
+            with self.assertRaisesRegex(ValueError, 'search only'):
+                setup.validate_plan(setup.Plan(), root)
+            setup.set_language('es')
+            with self.assertRaisesRegex(ValueError, 'solo búsqueda'):
+                setup.validate_plan(setup.Plan(), root)
+            self.assertEqual(setup.set_language('xx'), 'es')        # an unknown code keeps the default
+            self.assertEqual(setup_texts.text('no_such_key', 'en'), 'no_such_key')
+
+
 class TerminalTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        setup.set_language('es')
+
+    def tearDown(self):
+        setup.set_language('es')
+
+    async def test_the_first_step_chooses_the_language_and_every_text_follows(self):
+        from textual.widgets import Button, Input, Select, Static
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / '.env.example').write_text('RAG_EMBEDDING_MODEL=intfloat/multilingual-e5-small\n', encoding='utf-8')
+            app = setup.make_app(root, fake_probe)
+            async with app.run_test(size=(130, 42)) as pilot:
+                await pilot.pause()
+                self.assertEqual(app.step, 0)
+                self.assertIn('▸ Idioma', str(app.query_one('#steps', Static).render()))
+                self.assertEqual(str(app.query_one('#next', Button).label), 'Siguiente →')
+                self.assertIn('Ctrl+Q Salir', str(app.query_one('#keys', Static).render()))
+                # Something typed before changing the language is kept.
+                app.query_one('#response-model', Input).value = 'local:latest'
+                app.query_one('#port', Input).value = '8799'
+                app.query_one('#language', Select).value = 'en'
+                await pilot.pause()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.assertEqual(setup.LANGUAGE, 'en')
+                self.assertEqual(setup.saved_language(root), 'en')
+                self.assertEqual(app.title, 'RAG Local · Setup')
+                self.assertEqual(str(app.query_one('#next', Button).label), 'Next →')
+                self.assertEqual(str(app.query_one('#install', Button).label), 'Install dependencies')
+                steps = str(app.query_one('#steps', Static).render())
+                for label in ('▸ Language', 'Welcome', 'Python environment', 'Ollama models', 'RAG retrieval', 'Review and save', 'Done'):
+                    self.assertIn(label, steps)
+                self.assertIn('System: Linux x86_64', str(app.query_one('#detection', Static).render()))
+                self.assertIn('Ctrl+Q Quit', str(app.query_one('#keys', Static).render()))
+                self.assertEqual(app.query_one('#response-model', Input).value, 'local:latest')
+                self.assertEqual(app.query_one('#port', Input).value, '8799')
+                self.assertEqual(app.step, 0)
+                # Errors are now in English too.
+                app.query_one('#port', Input).value = 'abc'
+                with self.assertRaisesRegex(ValueError, 'needs a whole number'):
+                    app.collect()
+                app.query_one('#port', Input).value = '8799'
+                # And back to Spanish.
+                app.query_one('#language', Select).value = 'es'
+                await pilot.pause()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.assertEqual(str(app.query_one('#install', Button).label), 'Instalar dependencias')
+                self.assertEqual(setup.saved_language(root), 'es')
+            self.assertFalse((root / '.env').exists())
+
     async def test_wizard_navigation_review_confirmation_and_save(self):
         from textual.widgets import Checkbox, Input, Select
         with tempfile.TemporaryDirectory() as directory:
@@ -184,7 +292,7 @@ class TerminalTests(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(130, 42)) as pilot:
                 await pilot.pause()
                 self.assertFalse((root / '.env').exists())
-                for target in (1, 2):
+                for target in (1, 2, 3):
                     await pilot.press('ctrl+right')
                     await pilot.pause()
                     self.assertEqual(app.step, target)
@@ -193,10 +301,10 @@ class TerminalTests(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.query_one('#response-model', Input).value, 'local:latest')
                 await pilot.press('ctrl+right')
                 await pilot.pause()
-                self.assertEqual(app.step, 3)
+                self.assertEqual(app.step, 4)
                 await pilot.press('ctrl+right')
                 await pilot.pause()
-                self.assertEqual(app.step, 4)
+                self.assertEqual(app.step, 5)
                 app.query_one('#apply').focus()
                 await pilot.press('enter')
                 await pilot.pause()
@@ -205,10 +313,10 @@ class TerminalTests(unittest.IsolatedAsyncioTestCase):
                 app.query_one('#apply').focus()
                 await pilot.press('enter')
                 for _ in range(40):
-                    if app.step == 5:
+                    if app.step == 6:
                         break
                     await pilot.pause(.05)
-                self.assertEqual(app.step, 5)
+                self.assertEqual(app.step, 6)
                 self.assertEqual(setup.load_plan(root).response_model, 'local:latest')
                 self.assertFalse((root / '.venv').exists())
 

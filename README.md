@@ -10,56 +10,52 @@ Setup uses an OMP-style terminal wizard. The web interface supports English and 
 
 ## Install
 
-**Upgrading an existing Chroma library?** Follow [vector migration](docs/VECTOR_MIGRATION.md)
-before updating dependencies. Fresh installations need no migration.
+**Requirements**
 
-**Requirements:** Python **3.13 x64**, Git and Ollama; Windows x64 or Linux x86_64.
-Install [Python](https://www.python.org/downloads/windows/),
-[Git](https://git-scm.com/install/) and [Ollama](https://ollama.com/download).
-For Linux Python installation, see the [complete setup guide](docs/INSTALLATION.md#linux).
+- Windows x64 or Linux x86_64
+- [Python](https://www.python.org/downloads/) 3.13, 64-bit
+- [Git](https://git-scm.com/install/)
+- [Ollama](https://ollama.com/download)
 
-**1. Download the project:**
+**1. Download the project**
 
 ```text
 git clone https://github.com/tunelko/rag-lab.git
 cd rag-lab
 ```
 
-**2. Check Ollama and download a model:**
+**2. Download a model**
 
 ```text
-ollama list
 ollama pull qwen3.5:9b-q4_K_M
 ```
 
-This example downloads several GB and supports text and vision. Select a model
-suited to your hardware. If `ollama list` cannot connect, open Ollama or run
-`ollama serve` in another terminal.
+This model handles text and images and takes several GB. Any local Ollama model works.
 
-**3. Open the wizard from the project directory:**
+**3. Open the setup wizard**
 
 ```powershell
-# Windows — PowerShell, process-only execution policy
+# Windows
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Configurar.ps1
 ```
 
 ```bash
-# Linux — Python 3.13 with venv support must be available
+# Linux
 bash configurar.sh
 ```
 
-**4. Follow these screens:**
+**4. Follow the wizard**
 
-1. **Entorno Python:** choose **Ollama GPU + embeddings CPU**, click **Instalar dependencias**, and wait for completion.
-2. **Modelos Ollama:** refresh models, select text and enable multimodal processing with a vision model. One compatible model can serve both roles.
-3. **Recuperación RAG:** start with 4 fragments and the defaults.
-4. **Revisar y guardar:** review, confirm and save.
-5. **Listo:** click **Iniciar web**, then open **http://127.0.0.1:8765**.
+1. **Language:** choose English or Español.
+2. **Welcome:** continue.
+3. **Python environment:** keep **Ollama GPU + CPU embeddings** and click **Install dependencies**.
+4. **Ollama models:** click **Refresh models**, choose the text model and, for images, enable multimodal with a vision model.
+5. **RAG retrieval:** keep the defaults.
+6. **Review and save:** tick the confirmation and click **Save configuration**.
+7. **Done:** click **Start web** and open **http://127.0.0.1:8765**.
 
-The wizard installs packages in `.venv`, uses its own environment in `.cache`,
-preserves existing data and creates configuration backups. The server runs in the
-background. To start later: `Configurar.ps1 -Start` on Windows or
-`bash configurar.sh --start` on Linux. [Detailed instructions](docs/INSTALLATION.md).
+To start it again later: `.\Configurar.ps1 -Start` on Windows or `bash configurar.sh --start`
+on Linux. More detail in the [installation guide](docs/INSTALLATION.md).
 
 To manage the server in the background, use the project directory:
 
@@ -79,10 +75,10 @@ jobs; cancel or finish them first. These commands leave Ollama and documents alo
 
 ## First query
 
-In **Configuración**, click **Preparar modelo de búsqueda** to download the CPU
-embeddings. Upload a small TXT through **Biblioteca → Subir e indexar**. Wait for
-**Indexado**, ask a question in **Chat**, and open **Contexto recuperado** to
-verify the original source. Start with a short PDF before indexing large batches.
+In **Settings**, click **Prepare retrieval model** to download the CPU embeddings.
+Upload a small TXT through **Library → Upload and index**. Wait for **Indexed**, ask
+a question in **Chat**, and open **Retrieved context** to verify the original source.
+Start with a short PDF before indexing large batches.
 
 ## Multimodal RAG
 
@@ -127,7 +123,7 @@ prices, and does not apply taxes, free tiers or account discounts. Missing rates
 remain unavailable rather than being treated as free. Other providers do not yet
 have an API pricing integration.
 
-In **Biblioteca**, organize **categories and subcategories** in the sidebar. Use
+In **Library**, organize **categories and subcategories** in the sidebar. Use
 **+** to create a category and its menu to add subcategories or rename it. Select
 documents and move them in bulk; the upload destination follows the chosen category.
 The chat's **Sources** selector searches the entire library, one category including

@@ -1,8 +1,5 @@
 # RAG Local
 
-**Si actualizas una biblioteca Chroma existente**, sigue la [migración de vectores](docs/VECTOR_MIGRATION.md)
-antes de actualizar dependencias. Las instalaciones nuevas no necesitan migración.
-
 [English](README.md) · **Español**
 
 [![CI](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/tunelko/rag-lab/actions/workflows/ci.yml)
@@ -13,53 +10,52 @@ estadísticas y consola. Incluye un asistente de terminal inspirado en OMP.
 
 ## Instalar
 
-**Requisitos:** Python **3.13 x64**, Git y Ollama; Windows x64 o Linux x86_64.
-Instala [Python](https://www.python.org/downloads/windows/),
-[Git](https://git-scm.com/install/) y [Ollama](https://ollama.com/download).
-Para Python en Linux, consulta la [guía completa](docs/INSTALACION.md).
+**Requisitos**
 
-**1. Descargar el proyecto:**
+- Windows x64 o Linux x86_64
+- [Python](https://www.python.org/downloads/) 3.13 de 64 bits
+- [Git](https://git-scm.com/install/)
+- [Ollama](https://ollama.com/download)
+
+**1. Descargar el proyecto**
 
 ```text
 git clone https://github.com/tunelko/rag-lab.git
 cd rag-lab
 ```
 
-**2. Comprobar Ollama y descargar un modelo:**
+**2. Descargar un modelo**
 
 ```text
-ollama list
 ollama pull qwen3.5:9b-q4_K_M
 ```
 
-Este ejemplo descarga varios GB y admite texto y visión. Elige un modelo adecuado
-para tu equipo. Si `ollama list` no conecta, abre Ollama o ejecuta `ollama serve`
-en otra terminal.
+Este modelo admite texto e imágenes y ocupa varios GB. Sirve cualquier modelo local de Ollama.
 
-**3. Abrir el asistente desde la carpeta del proyecto:**
+**3. Abrir el asistente de instalación**
 
 ```powershell
-# Windows — PowerShell, política aplicada solo a este proceso
+# Windows
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Configurar.ps1
 ```
 
 ```bash
-# Linux — necesita Python 3.13 con soporte venv
+# Linux
 bash configurar.sh
 ```
 
-**4. Seguir estas pantallas:**
+**4. Seguir el asistente**
 
-1. **Entorno Python:** elige **Ollama GPU + embeddings CPU**, pulsa **Instalar dependencias** y espera a que termine.
-2. **Modelos Ollama:** actualiza la lista, elige texto y activa multimodal con un modelo visual. El mismo modelo compatible puede cubrir ambos usos.
-3. **Recuperación RAG:** empieza por 4 fragmentos y los valores predeterminados.
-4. **Revisar y guardar:** revisa, marca la confirmación y guarda.
-5. **Listo:** pulsa **Iniciar web** y abre **http://127.0.0.1:8765**.
+1. **Idioma:** elige Español o English.
+2. **Bienvenida:** continúa.
+3. **Entorno Python:** deja **Ollama GPU + embeddings CPU** y pulsa **Instalar dependencias**.
+4. **Modelos Ollama:** pulsa **Actualizar modelos**, elige el modelo de texto y, para imágenes, activa multimodal con un modelo visual.
+5. **Recuperación RAG:** deja los valores predeterminados.
+6. **Revisar y guardar:** marca la confirmación y pulsa **Guardar configuración**.
+7. **Listo:** pulsa **Iniciar web** y abre **http://127.0.0.1:8765**.
 
-El asistente instala paquetes en `.venv`, mantiene su propio entorno en `.cache`,
-conserva los datos y crea copias de configuración. El servidor queda en segundo
-plano. Para volver a arrancar: `Configurar.ps1 -Start` en
-Windows o `bash configurar.sh --start` en Linux. [Guía detallada](docs/INSTALACION.md).
+Para volver a arrancar más adelante: `.\Configurar.ps1 -Start` en Windows o
+`bash configurar.sh --start` en Linux. Más detalle en la [guía de instalación](docs/INSTALACION.md).
 
 Para controlar el servidor en segundo plano, desde el directorio del proyecto:
 

@@ -11,7 +11,14 @@ fi
 case "${1:-}" in
     --check|--start) wizard_mode="$1" ;;
     "") wizard_mode=--bootstrap ;;
-    *) printf '%s\n' 'Uso: bash configurar.sh [--check|--start]' >&2; exit 2 ;;
+    *)
+        # Same order as the wizard: an explicit variable, the remembered choice, then the session's language.
+        language="${RAG_SETUP_LANGUAGE:-$(head -n 1 "$project_root/.cache/setup-language" 2>/dev/null || true)}"
+        case "${language:-${LC_ALL:-${LANG:-}}}" in
+            es*) printf '%s\n' 'Uso: bash configurar.sh [--check|--start]' >&2 ;;
+            *) printf '%s\n' 'Usage: bash configurar.sh [--check|--start]' >&2 ;;
+        esac
+        exit 2 ;;
 esac
 export PYTHONUTF8=1
 exec "$python_command" "$project_root/configure_lab.py" "$wizard_mode"

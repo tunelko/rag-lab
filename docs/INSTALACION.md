@@ -65,7 +65,18 @@ Teclado: **Tab / Shift+Tab**, flechas y Enter para los controles;
 Salir sin guardar conserva tu configuración. Las operaciones iniciadas con
 «Instalar dependencias» sí instalan paquetes aunque todavía no hayas guardado ajustes.
 
-## 3. Comprobar el equipo
+## 3. Elegir idioma y comprobar el equipo
+
+El primer paso, **Idioma**, ofrece Español o English. Todos los textos del asistente
+cambian al momento y la elección se recuerda para la próxima vez y para los mensajes
+de `-Start` y `-Check`. La primera vez se abre en el idioma de tu sesión. Para
+forzarlo, pasa `--lang es` o `--lang en` a `configure_lab.py` o define
+`RAG_SETUP_LANGUAGE`. La interfaz web tiene su propio selector.
+
+Si actualizas una instalación cuya biblioteca se creó con el antiguo almacén Chroma,
+el asistente no cambia dependencias hasta migrar cada colección e indica la orden;
+consulta la [migración de vectores](VECTOR_MIGRATION.md). Las instalaciones nuevas
+no necesitan nada de esto.
 
 La bienvenida muestra sistema, Python, entorno existente, conexión a Ollama,
 modelos locales y tareas RAG activas. «Comprobar equipo» refresca los metadatos.

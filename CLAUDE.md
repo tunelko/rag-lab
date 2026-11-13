@@ -78,7 +78,7 @@ Loopback by default; `RAG_WEB_HOST`/`--host` accepts only loopback or an assigne
 
 - `.env` (see `.env.example`) → infrastructure: `RAG_*` for port, embedding model/device, chunking, context chars, Ollama URL/model, token/context budgets. Read by `rag.Config` and `os.getenv` at call sites.
 - `data/settings.json` (`settings_store.Preferences`) → UI preferences: response/vision model, multimodal on/off, k, search-only, max images.
-- `configure_lab.py` must keep import and `--check` standard-library only (it runs before any venv exists).
+- `configure_lab.py` must keep import and `--check` standard-library only (it runs before any venv exists). Every text it shows or raises comes from `setup_texts.py` (Spanish and English, also standard-library only) through `t(key)`; add both languages when adding a message. The wizard's first step chooses the language, remembered in `.cache/setup-language`; `--lang` and `RAG_SETUP_LANGUAGE` override it.
 
 ## Conventions and constraints
 

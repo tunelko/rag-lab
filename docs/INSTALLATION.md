@@ -144,12 +144,22 @@ Use **Tab / Shift+Tab**, arrow keys and Enter to navigate controls. **Ctrl+→**
 
 | Screen | What to do |
 |---|---|
-| **Bienvenida** | Check Python, Ollama, existing environments and active jobs. |
-| **Entorno Python** | Choose **Ollama GPU + embeddings CPU**, then press **Instalar dependencias**. Wait for installation to finish in the bottom log panel. |
-| **Modelos Ollama** | Keep `http://127.0.0.1:11434`, press **Actualizar modelos**, and select your text model. Enable multimodal processing and choose a vision model if needed. The same compatible model can fill both roles. |
-| **Recuperación RAG** | Start with 4 retrieved fragments, collection `documents`, chunk size 500 and overlap 80. Leave port 8765 unless it is already in use. |
-| **Revisar y guardar** | Review the changes, tick the confirmation checkbox and press **Guardar configuración**. |
-| **Listo** | Press **Iniciar web**, or use the commands in step 6. |
+| **Language** | Choose **English** or **Español**. Every text of the wizard changes at once and the choice is remembered. |
+| **Welcome** | Check Python, Ollama, existing environments and active jobs. |
+| **Python environment** | Choose **Ollama GPU + CPU embeddings**, then press **Install dependencies**. Wait for installation to finish in the bottom log panel. |
+| **Ollama models** | Keep `http://127.0.0.1:11434`, press **Refresh models**, and select your text model. Enable multimodal processing and choose a vision model if needed. The same compatible model can fill both roles. |
+| **RAG retrieval** | Start with 4 retrieved fragments, collection `documents`, chunk size 500 and overlap 80. Leave port 8765 unless it is already in use. |
+| **Review and save** | Review the changes, tick the confirmation checkbox and press **Save configuration**. |
+| **Done** | Press **Start web**, or use the commands in step 6. |
+
+The wizard opens in the language it remembers, or in the language of your session
+the first time. To force one, pass `--lang en` or `--lang es` to `configure_lab.py`,
+or set `RAG_SETUP_LANGUAGE`. This is separate from the web interface, which has its
+own selector.
+
+Upgrading an installation whose library was created with the old Chroma store? The
+wizard refuses to change dependencies until each collection is migrated and prints
+the command; see [vector migration](VECTOR_MIGRATION.md). New installations skip this.
 
 The recommended profile installs **PyTorch CPU for embeddings**. Ollama still uses
 its own GPU runtime for generation. The advanced **PyTorch CUDA 13.0 + HF NF4**

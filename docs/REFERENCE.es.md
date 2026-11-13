@@ -110,6 +110,7 @@ el panel de ayuda.
 
 | Pantalla | Qué hacer |
 |---|---|
+| **Idioma** | Elige **Español** o **English**. Todos los textos del asistente cambian al momento y la elección se recuerda. |
 | **Bienvenida** | Comprueba Python, Ollama, entornos existentes y tareas activas. |
 | **Entorno Python** | Elige **Ollama GPU + embeddings CPU**, pulsa **Instalar dependencias** y espera a que termine el registro inferior. |
 | **Modelos Ollama** | Mantén `http://127.0.0.1:11434`, actualiza la lista y elige el modelo de texto. Activa multimodal y elige el visual para procesar imágenes; puede ser el mismo modelo compatible. |
