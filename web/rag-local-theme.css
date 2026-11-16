@@ -63,7 +63,7 @@
 
   /* Blanco, azul empolvado y lavanda; textos casi negros sobre fondos pastel. */
   --bg-app:          #ffffff;
-  --bg-header:       #eff3fc;
+  --bg-header:       #e8e0f2;
   --surface:         #ffffff;
   --surface-raised:  #f0f1f9;
   --surface-blue:    #edf1fb;
@@ -83,11 +83,6 @@
   --accent-soft:     #e9edf8;
   --on-accent:       #ffffff;
   --accent-rgb:      34 37 43;
-
-  --musa-highlight:  #eef0fc;
-  --musa-body:       #c4cdec;
-  --musa-shadow:     #a1aed2;
-  --musa-eyes:       #22252b;
 
   --success:         #3b6c53;  --success-soft: #e4eee3;  --success-border: #678a71;
   --warning:         #8b592e;  --warning-soft: #f6e8d7;  --warning-border: #a17a54;
@@ -278,15 +273,21 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 */
 .musa {
   --musa-size: 28px;
+  /* Identidad propia: verde en todos los temas y estados. */
+  --musa-highlight: #e7f4cb;
+  --musa-body: #b2d875;
+  --musa-shadow: #7ba543;
+  --musa-eyes: #23321a;
+  --musa-rgb: 178 216 117;
   position: relative; flex: 0 0 auto; width: var(--musa-size); height: var(--musa-size); border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, var(--musa-highlight, #f4ffc9) 0, var(--musa-body, var(--accent)) 46%, var(--musa-shadow, #93b81a) 100%);
+  background: radial-gradient(circle at 34% 30%, var(--musa-highlight) 0, var(--musa-body) 46%, var(--musa-shadow) 100%);
   animation: musa-float 3.2s ease-in-out infinite;
 }
 .musa__eyes { position: absolute; inset: 36% 0 auto; height: 24%; display: flex; justify-content: center; gap: 20%; }
-.musa__eyes > i { width: 15%; height: 100%; border-radius: 50%; background: var(--musa-eyes, var(--on-accent));
+.musa__eyes > i { width: 15%; height: 100%; border-radius: 50%; background: var(--musa-eyes);
   transform-origin: 50% 50%; animation: musa-blink 4.6s infinite; }
 .musa__orbit { position: absolute; inset: -28%; border-radius: 50%; display: none; animation: musa-orbit 1.4s linear infinite; }
-.musa__orbit > i { position: absolute; top: 0; left: 50%; width: 20%; height: 20%; margin-left: -10%; border-radius: 50%; background: var(--accent); }
+.musa__orbit > i { position: absolute; top: 0; left: 50%; width: 20%; height: 20%; margin-left: -10%; border-radius: 50%; background: var(--musa-body); }
 .musa__orbit > i + i { top: auto; bottom: 8%; left: 12%; width: 12%; height: 12%; opacity: .55; }
 
 .musa[data-state="idle"].is-static { animation: none; }        /* avatar de respuestas terminadas */
@@ -294,9 +295,8 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 .musa[data-state="thinking"]   .musa__eyes { animation: musa-look 2.4s ease-in-out infinite; }
 .musa[data-state="thinking"]   .musa__orbit { display: block; }
 .musa[data-state="answering"]  { animation: musa-float 3.2s ease-in-out infinite, musa-pulse 1.4s ease-out infinite; }
-.musa[data-state="offline"]    { animation: none; box-shadow: 0 0 0 2px var(--danger-border);
-  background: radial-gradient(circle at 34% 30%, #6c6d69 0, #3d3e3a 60%, #2a2b28 100%); }
-.musa[data-state="offline"] .musa__eyes > i { height: 30%; margin-top: 30%; border-radius: 2px; background: var(--bg-app); animation: none; }
+.musa[data-state="offline"]    { animation: none; box-shadow: 0 0 0 2px var(--danger-border); }
+.musa[data-state="offline"] .musa__eyes > i { height: 30%; margin-top: 30%; border-radius: 2px; animation: none; }
 
 /* Montera picona (decorativa; su rojo y la escarapela no son colores de estado) */
 .musa {
@@ -353,7 +353,7 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 @keyframes musa-look  { 0%,35% { transform: translate(0,0) } 45%,70% { transform: translate(12%,-10%) } 80%,100% { transform: translate(0,0) } }
 @keyframes musa-scan  { 0%,100% { transform: translateX(-14%) } 50% { transform: translateX(14%) } }
 @keyframes musa-orbit { to { transform: rotate(360deg) } }
-@keyframes musa-pulse { 0% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / .45) } 100% { box-shadow: 0 0 0 calc(var(--musa-size) * .19) rgb(var(--accent-rgb) / 0) } }
+@keyframes musa-pulse { 0% { box-shadow: 0 0 0 0 rgb(var(--musa-rgb) / .45) } 100% { box-shadow: 0 0 0 calc(var(--musa-size) * .19) rgb(var(--musa-rgb) / 0) } }
 @keyframes musa-dot   { 0%,70%,100% { transform: translateY(0); opacity: .35 } 35% { transform: translateY(-4px); opacity: 1 } }
 @keyframes caret      { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
 @keyframes live       { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
