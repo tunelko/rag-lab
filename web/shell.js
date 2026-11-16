@@ -2,7 +2,7 @@ import {$,number,node} from './ui.js';
 import {t,serverText,intlLocale} from './i18n.js';
 import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
-import {ingestionState} from './ingestion-state.js';
+import {ingestionState,selectIngestionJob} from './ingestion-state.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
@@ -83,8 +83,7 @@ export class Shell {
   }
   pipeline(){
     if(!this.status)return;
-    this.ingestion(this.status.ingestion||(this.status.jobs||[]).find(item=>item.kind==='index')
-      ||(this.liveJob?.kind==='index'?this.liveJob:null));
+    this.ingestion(selectIngestionJob(this.status.ingestion,this.status.jobs||[],this.liveJob));
     const job=this.liveJob||(this.status.jobs||[]).find(item=>item.status==='running'&&!this.finished.has(item.id))||(this.status.jobs||[]).find(item=>item.status==='queued'&&!this.finished.has(item.id)),states=Array(6).fill('idle');let caption=h('idle');
     if(!job){for(const number of viewStages[this.view]||[])states[number-1]='rel';}
     else if(job.status==='queued')caption=h('queue_wait');

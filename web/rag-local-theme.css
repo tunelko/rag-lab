@@ -62,9 +62,9 @@
   color-scheme: light;
 
   /* Blanco, azul empolvado y lavanda; textos casi negros sobre fondos pastel. */
-  --bg-app:          #ffffff;
+  --bg-app:          #edf1fb;
   --bg-header:       #eceef0;
-  --surface:         #ffffff;
+  --surface:         #edf1fb;
   --surface-raised:  #f0f1f9;
   --surface-blue:    #edf1fb;
   --surface-lavender:#f0ecf8;
@@ -81,13 +81,13 @@
   --accent-hover:    #121418;
   --accent-text:     #25282d;
   --accent-soft:     #e9edf8;
-  --on-accent:       #ffffff;
+  --on-accent:       #edf1fb;
   --accent-rgb:      34 37 43;
 
   --success:         #3b6c53;  --success-soft: #e4eee3;  --success-border: #678a71;
   --warning:         #8b592e;  --warning-soft: #f6e8d7;  --warning-border: #a17a54;
   --danger:          #a04751;  --danger-soft:  #f4e4e6;  --danger-border:  #a96872;
-  --on-danger:       #ffffff;
+  --on-danger:       #edf1fb;
   --shadow-dialog: 0 24px 48px rgba(18, 20, 24, .16);
 }
 

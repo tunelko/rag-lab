@@ -1,4 +1,21 @@
 // Both status displays use the same real server counters, including cached pages.
+export function selectIngestionJob(reported, jobs = [], live = null) {
+  const timestamp = (job, field = 'updated_at') => {
+    const value = Date.parse(job[field] || job.updated_at || job.created_at);
+    return Number.isFinite(value) ? value : 0;
+  };
+  const snapshots = new Map();
+  for (const job of [reported, ...jobs, live]) {
+    if (job?.kind !== 'index') continue;
+    const key = job.id ?? job, previous = snapshots.get(key);
+    if (!previous || timestamp(job) >= timestamp(previous)) snapshots.set(key, job);
+  }
+  const priority = job => job.status === 'running' ? 0 : job.status === 'queued' ? 1 : 2;
+  return [...snapshots.values()].sort((a, b) => priority(a) - priority(b)
+    || (a.status === 'queued' ? timestamp(a, 'created_at') - timestamp(b, 'created_at')
+      : timestamp(b) - timestamp(a)))[0] ?? null;
+}
+
 export function ingestionState(job) {
   if (!job || job.kind !== 'index') return null;
   const reading = job.reading_progress;

@@ -111,19 +111,19 @@
   --surface-raised: #292929;
   --border: #292929;
   --border-control: #929292;
-  --ink: #ffffff;
-  --text: #ffffff;
-  --text-muted: #ffffff;
-  --accent: #ffffff;
-  --accent-hover: #ffffff;
-  --accent-text: #ffffff;
-  --accent-rgb: 255 255 255;
-  --focus: #ffffff;
+  --ink: #edf1fb;
+  --text: #edf1fb;
+  --text-muted: #edf1fb;
+  --accent: #edf1fb;
+  --accent-hover: #edf1fb;
+  --accent-text: #edf1fb;
+  --accent-rgb: 237 241 251;
+  --focus: #edf1fb;
   --step-rel: #8f8f8f;
   --step-run-bg: #161616;
   --success: #86efac;
   --success-border: #4ade80;
-  --danger: #ffffff;
+  --danger: #edf1fb;
   --danger-border: #f87171;
   color: var(--text);
 }
@@ -131,29 +131,19 @@
 .pipeline2::-webkit-scrollbar { display: none; }
 .pipeline2.has-ingestion { overflow: hidden; }
 .pipeline2.has-ingestion > :not(.ingestion-menu) { display: none; }
-.ingestion-menu {
-  position: relative; display: flex; align-items: center; justify-content: space-between;
-  flex: 1 1 100%; min-width: 0; width: 100%; gap: 12px; padding: 0 16px;
-  border: 0; background: var(--surface); color: var(--ink); cursor: pointer;
-  text-align: left; font: inherit; font-size: 12px;
-}
-.ingestion-menu[hidden], .system-ingestion[hidden] { display: none; }
-.ingestion-menu__track { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.ingestion-menu__track i { display: block; height: 100%; width: 0; background: var(--accent); opacity: .18; transition: width .25s ease; }
-.pipeline2.has-ingestion > :not(.ingestion-menu) { display: none; }
 .ingestion-menu[hidden], .system-ingestion[hidden] { display: none; }
 .ingestion-menu {
   position: relative; display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; width: 100%; min-width: 0; height: var(--pipeline-h); padding: 0 16px;
+  flex: 1 1 100%; gap: 12px; width: 100%; min-width: 0; height: var(--pipeline-h); padding: 0 16px;
   border: 0; background: var(--bg-app); color: var(--ink); text-align: left;
   font: inherit; font-size: 12px; cursor: pointer; overflow: hidden;
 }
-.ingestion-menu__track { position: absolute; inset: 0; pointer-events: none; background: var(--surface); }
-.ingestion-menu__track i { display: block; height: 100%; background: var(--accent); opacity: .2; transition: width .3s ease; }
+.ingestion-menu__track { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: var(--surface); }
+.ingestion-menu__track i { display: block; height: 100%; width: 0; background: var(--accent); opacity: .2; transition: width .3s ease; }
 .ingestion-menu__label, .ingestion-menu__percent { position: relative; z-index: 1; font-variant-numeric: tabular-nums; }
 .ingestion-menu__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ingestion-menu__percent { flex: 0 0 auto; font-weight: 600; }
-.ingestion-menu[data-state="error"] .ingestion-menu__track i { background: var(--danger); }
+.ingestion-menu[data-state="error"] .ingestion-menu__track i { background: var(--danger-border); }
 .ingestion-menu__track.is-indeterminate i { animation: ingestion-scan 1.8s ease-in-out infinite alternate; }
 .system-ingestion { padding: 14px 16px; border-bottom: 1px solid var(--border); }
 .system-ingestion__heading { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
