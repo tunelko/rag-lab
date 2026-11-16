@@ -6,8 +6,8 @@
 
 /* ---------- 1. Tokens ---------- */
 .conversation-card {
-  --chat-col:          1120px;     /* reading width of the conversation; it starts under the header title */
-  --chat-edge:         20px;       /* left edge shared by the header, the conversation and the composer */
+  --chat-col:          100%;       /* the conversation uses the whole card, from the header title to its buttons */
+  --chat-edge:         20px;       /* side margin shared by the header, the conversation and the composer */
   --surface-sunken:    #0f1012;    /* conversation background */
   --surface-muted:     var(--surface);
   --border-soft:       #1f2125;
@@ -237,7 +237,7 @@ button.src-num { cursor: pointer; }
 .send--go .send__stop, .send--stop .send__go { display: none; }
 .send__stop { fill: currentColor; stroke: none; }
 .send:disabled { background: var(--disabled-bg); color: var(--text-disabled); cursor: not-allowed; opacity: 1; }
-.chat-jump { position: absolute; left: min(50%, calc(var(--chat-edge) + var(--chat-col) / 2)); top: -46px; z-index: 5; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; background: var(--surface); color: var(--text);
+.chat-jump { position: absolute; left: 50%; top: -46px; z-index: 5; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; background: var(--surface); color: var(--text);
   border: 1px solid var(--border-control); border-radius: 999px; box-shadow: var(--shadow-composer); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
 .chat-jump:hover { background: var(--surface-raised); color: var(--ink); }
 .chat-jump .icon { width: 14px; height: 14px; }

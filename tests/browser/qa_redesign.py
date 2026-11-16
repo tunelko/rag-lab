@@ -732,11 +732,12 @@ def run_browser(url):
         # Send sits on the tools' row, at its right end.
         tools=page.locator('.composer2__tools').bounding_box();send=page.locator('#ask-button').bounding_box();attach=page.locator('#attach-image').bounding_box()
         assert abs((send['y']+send['height']/2)-(attach['y']+attach['height']/2))<2 and tools['x']+tools['width']-send['x']-send['width']<=12, (tools,send,attach)
-        # The answer starts under the header title and reads in a 1120 px column.
-        column=page.locator('.chat-turn').last.bounding_box()
-        assert column['width']<=1120.5, f"The conversation column is {column['width']}px wide at 1440px"
+        # The conversation uses the whole card: from the header title on the left to its buttons on the right.
         edges=[page.locator(selector).last.bounding_box()['x'] for selector in ('.chat-heading .page-title','.chat-turn .a__avatar','#composer-box')]
         assert max(edges)-min(edges)<=1, f'Header title, Musa and composer do not share a left edge: {edges}'
+        right=lambda selector:(lambda box:box['x']+box['width'])(page.locator(selector).last.bounding_box())
+        ends=[right(selector) for selector in ('#new-chat','.chat-turn .a__main','.chat-turn .q__bubble','#composer-box')]
+        assert max(ends)-min(ends)<=1, f'Header buttons, answer, question and composer do not share a right edge: {ends}'
         page.screenshot(path=str(reports / "redesign-consulta-con-respuesta.png"), full_page=True)
         page.reload(wait_until="networkidle")
         expect(page.locator(".chat-turn")).to_have_count(5)
