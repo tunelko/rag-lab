@@ -96,6 +96,7 @@
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
 }
 :root[data-theme="light"] .conversation-card { background: #eef0f3; }
+:root[data-theme="light"] .chat-empty { background: #ffffff; }
 :root[data-theme="light"] :is(.chat-question, .msg-user) { background: #ffffff; }
 :root[data-theme="light"] :is(.source-chip, .badge--info) { background: var(--surface-lavender); }
 
