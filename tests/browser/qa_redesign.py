@@ -362,7 +362,11 @@ def run_browser(url):
 
         clear_queue(page)
         page.locator("#auto-index").uncheck()
-        page.locator("#file-input").set_input_files(file("sin-indexar.txt"))
+        page.locator("#file-input").set_input_files(file("sin-indexar.txt", (
+            b"El procedimiento de copia de seguridad se revisa cada viernes. "
+            b"Este documento describe una fuente independiente con evidencias adicionales: "
+            b"comprobar los archivos guardados, verificar la restauracion y registrar el resultado."
+        )))
         page.locator("#upload-button").click()
         expect(page.locator("#dialog-title")).to_have_text("Subida completada")
         dialog_close(page)
