@@ -887,5 +887,20 @@
   "lab.phase_models": "Laboratory · Preparing local models",
   "lab.phase_questions": "Laboratory · Questions evaluated · {done}/{total}",
   "lab.rerank_warning": "The configured reranker was not applied to {count} questions with results. This measurement preserves the fallback order used by the chat.",
-  "server.lab_empty_busy": "A Laboratory experiment is active. Cancel it in Laboratory before emptying the library."
+  "server.lab_empty_busy": "A Laboratory experiment is active. Cancel it in Laboratory before emptying the library.",
+  "ingestion.title": "Document ingestion",
+  "ingestion.progress": "Overall ingestion progress",
+  "ingestion.open": "View ingestion progress",
+  "ingestion.pages": "{done}/{total} pages processed",
+  "ingestion.current_page": "Page: {page}",
+  "ingestion.visuals": "Descriptions: {done}/{total} · reused: {cached}",
+  "ingestion.phase_queued": "Queued",
+  "ingestion.phase_reading": "Reading document",
+  "ingestion.phase_preparing": "Preparing document",
+  "ingestion.scope_hint": "Overall progress includes reading and index creation; it is not a time estimate.",
+  "ingestion.phase_vision": "Describing images",
+  "ingestion.phase_indexing": "Creating the index",
+  "ingestion.phase_done": "Ingestion completed",
+  "ingestion.phase_error": "Ingestion interrupted by an error",
+  "ingestion.phase_cancelled": "Ingestion cancelled"
 }

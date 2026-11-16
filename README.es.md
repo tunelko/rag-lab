@@ -55,7 +55,7 @@ bash install/linux/configurar.sh
 
 1. Abre **http://127.0.0.1:8765**.
 2. En **Configuración**, pulsa **Preparar modelo de búsqueda**. Solo hace falta una vez.
-3. En **Biblioteca**, pulsa **Subir e indexar** y espera a **Indexado**.
+3. En **Biblioteca**, pulsa **Subir e indexar** y espera a **Indexado**. Sigue el progreso en la franja del menú; púlsala para abrir **Estado del sistema** con los contadores de páginas y descripciones de imágenes.
 4. En **Chat**, haz tu pregunta. **Contexto recuperado** muestra la fuente de la respuesta.
 
 ## Arrancar y parar

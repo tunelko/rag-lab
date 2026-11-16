@@ -2,6 +2,7 @@ import {$,number,node} from './ui.js';
 import {t,serverText,intlLocale} from './i18n.js';
 import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
+import {ingestionState} from './ingestion-state.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
@@ -48,8 +49,42 @@ export class Shell {
     const metrics=device?[[device.utilization_percent,' %',h('usage')],[device.temperature_c,' °C',''],[device.power_w,' W','']].filter(([value])=>value!=null).map(([value,unit,label])=>{const item=node('span');item.append(node('b','',compact(value)+unit));if(label)item.append(' '+label);return item;}):[];
     $('system-gpu-metrics').replaceChildren(...metrics);$('system-gpu-metrics').hidden=!metrics.length;this.level();
   }
+  ingestion(job){
+    const state=ingestionState(job),active=job&&['running','queued'].includes(job.status);
+    const recent=job&&Date.now()-new Date(job.updated_at).getTime()<10000;
+    const inMenu=Boolean(state&&(active||recent));
+    $('system-ingestion').hidden=!state;$('ingestion-menu').hidden=!inMenu;
+    $('pipeline-live').classList.toggle('has-ingestion',inMenu);
+    if(!state)return;
+    const phase=t(`ingestion.phase_${state.phase}`),pages=state.pages;
+    const pageText=pages?t('ingestion.pages',{done:number(pages.completed),total:number(pages.total)}):'';
+    const percentage=state.percent==null?'…':number(state.percent)+' %';
+    const label=phase+(pageText?' · '+pageText:'');
+    $('system-ingestion-document').textContent=state.document||t('ingestion.title');
+    $('system-ingestion-percent').textContent=$('ingestion-menu-percent').textContent=percentage;
+    $('system-ingestion-phase').textContent=label;
+    $('ingestion-menu-label').textContent=label;
+    $('ingestion-menu').title=state.document+' · '+label;
+    $('ingestion-menu').setAttribute('aria-label',t('ingestion.open')+' · '+label+' · '+percentage);
+    $('ingestion-menu').dataset.state=job.status;
+    const detail=[];
+    if(pages){
+      if(pages.phase==='vision'&&pages.completed<pages.total)detail.push(t('ingestion.current_page',{page:number(pages.page)}));
+      if(pages.visuals_total>0)detail.push(t('ingestion.visuals',{done:number(pages.visuals_completed),total:number(pages.visuals_total),cached:number(pages.cached_visuals)}));
+    }
+    if(job.error_info?.message||job.error)detail.push(serverText(job.error_info?.message||job.error));
+    $('system-ingestion-detail').textContent=detail.join(' · ');
+    const bar=$('system-ingestion-bar'),track=$('ingestion-menu-track');
+    if(state.percent==null){bar.removeAttribute('value');track.removeAttribute('aria-valuenow');}
+    else{bar.value=state.percent;track.setAttribute('aria-valuenow',String(state.percent));}
+    track.setAttribute('aria-valuetext',label+' · '+percentage);
+    track.classList.toggle('is-indeterminate',state.percent==null);
+    $('ingestion-menu-fill').style.width=(state.percent??35)+'%';
+  }
   pipeline(){
     if(!this.status)return;
+    this.ingestion(this.status.ingestion||(this.status.jobs||[]).find(item=>item.kind==='index')
+      ||(this.liveJob?.kind==='index'?this.liveJob:null));
     const job=this.liveJob||(this.status.jobs||[]).find(item=>item.status==='running'&&!this.finished.has(item.id))||(this.status.jobs||[]).find(item=>item.status==='queued'&&!this.finished.has(item.id)),states=Array(6).fill('idle');let caption=h('idle');
     if(!job){for(const number of viewStages[this.view]||[])states[number-1]='rel';}
     else if(job.status==='queued')caption=h('queue_wait');

@@ -262,26 +262,45 @@ class RagService(JobRuntime):
                     record["error_info"] = {"code": "NO_TEXT", "message": "No se ha podido extraer texto: parece un PDF escaneado.", "detail": "El documento no contiene texto extraíble. No hay OCR instalado."}
                 outcomes[document] = record
                 finished.add(document)
-                overall = 100 * len(finished) / len(documents)
+                overall = (self.snapshot(job_id).get('progress', 0) if stage == 'error'
+                           else 100 * len(finished) / len(documents))
             else:
                 overall = 100 * (len(finished) + part / 100) / len(documents)
             self.update(job_id, stage=stage, stage_progress=percent, progress=min(overall, 100),
                 phase=("Fragmentando" if stage == "chunking" else "Indexando") + f" · {document}",
                 current_document=document, chunks=event.get("chunks", 0), documents=list(outcomes.values()),
                 cancellable=stage != "indexing")
+            if stage == 'chunking' and percent == 0:
+                self.update(job_id, reading_progress=None)
 
         settings = preferences or self.settings.get()
+        reading_document = ''
+
+        def reading_progress(**event):
+            self.check_cancel(job_id)
+            percent = 100 * event['completed'] / event['total'] if event['total'] else 0
+            overall = 100 * (len(finished) + percent / 200) / len(documents)
+            phase = (f"Describiendo imágenes en local · página {event['page']}/{event['total']}"
+                     if event['phase'] == 'vision' else
+                     f"Leyendo PDF · {event['completed']}/{event['total']} páginas procesadas")
+            self.update(job_id, stage='chunking', stage_progress=percent, progress=overall,
+                        current_document=reading_document, phase=phase, cancellable=True,
+                        reading_progress={**event, 'document': reading_document})
 
         def describe(data, model):
             self.check_cancel(job_id)
             if "vision" not in self.model_capabilities(model):
                 raise multimodal.VisualError("Selecciona un modelo visual instalado en Configuración.")
-            self.update(job_id, phase="Describiendo imágenes en local con Ollama", cancellable=True)
+            if not self.snapshot(job_id).get('reading_progress'):
+                self.update(job_id, phase="Describiendo imágenes en local con Ollama", cancellable=True)
             return multimodal.describe_image(data, model, os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434"), cancelled=lambda: self.cancelled(job_id))
 
-        reader = multimodal.VisualReader(self.visual_root, settings, describe, lambda: self.cancelled(job_id))
+        reader = multimodal.VisualReader(self.visual_root, settings, describe,
+                                        lambda: self.cancelled(job_id), progress=reading_progress)
 
         def loader(path):
+            nonlocal reading_document
+            reading_document = path.relative_to(self.documents).as_posix()
             if path.suffix.lower() in multimodal.EXTENSIONS:
                 if settings.multimodal:
                     return reader.load(path)
@@ -400,7 +419,14 @@ class RagService(JobRuntime):
                 pass
         documents = self.list_documents()
         chunks = sum(len(file.get("ids", [])) for file in state["files"].values())
+        with self.lock:
+            ingestions = [job for job in self.jobs.values() if job['kind'] == 'index']
+            ingestion = next((job for job in ingestions if job['status'] == 'running'), None)
+            ingestion = ingestion or next((job for job in ingestions if job['status'] == 'queued'), None)
+            ingestion = ingestion or (ingestions[-1] if ingestions else None)
+            ingestion = self.snapshot(ingestion['id']) if ingestion else None
         return {"documents": documents, "document_count": len(documents), "chunk_count": chunks,
+                "ingestion": ingestion,
                 "features": {"laboratory": True},
                 "library": self.topics.snapshot(documents),
                 "server": {"bind_host": getattr(self,'bind_host','127.0.0.1'),

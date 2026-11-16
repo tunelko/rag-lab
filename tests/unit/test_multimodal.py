@@ -3,6 +3,7 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 import zipfile
@@ -108,6 +109,28 @@ class ParsingTests(unittest.TestCase):
             self.reader.load(path)
         self.assertEqual(self.calls, [])
 
+    def test_pdf_progress_counts_completed_pages_and_cached_descriptions(self):
+        path = self.case / 'progress.pdf'
+        with pymupdf.open() as pdf:
+            for index in range(3):
+                page = pdf.new_page()
+                page.insert_text((50, 50), f'Page {index + 1}')
+                if index:
+                    page.draw_rect(pymupdf.Rect(20, 80, 100 + index, 120))
+            pdf.save(path)
+        events = []
+        self.reader.progress = lambda **event: events.append(event.copy())
+        first = self.reader.load(path)
+        self.assertEqual([event['completed'] for event in events], [0, 1, 1, 2, 2, 3])
+        self.assertEqual(events[-1], {'phase': 'reading', 'page': 3, 'completed': 3, 'total': 3,
+            'visuals_completed': 2, 'visuals_total': 2, 'cached_visuals': 0})
+        events.clear()
+        second = self.reader.load(path)
+        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(events[-1]['cached_visuals'], 2)
+        self.assertEqual(events[-1]['visuals_completed'], 2)
+        self.assertEqual(first, second)
+
     def test_visual_stream_requires_completion_and_supports_cancellation(self):
         packets = b'{"message":{"content":"42 grados"},"done":false}\n{"done":true}\n'
         with patch("multimodal.open_ollama", return_value=io.BytesIO(packets)):
@@ -145,6 +168,53 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(self.client.put("/api/settings", headers=self.headers, json={"k": 3}).status_code, 422)
         for route in ("/configuracion", "/estadisticas"):
             self.assertEqual(self.client.get(route).status_code, 200)
+
+    def test_live_pdf_progress_retains_failed_page_and_reuses_completed_cache(self):
+        service = self.client.app.state.service
+        with patch.object(service, 'model_capabilities', return_value=['vision']):
+            self.configure(multimodal=True, vision_model='test-local:latest')
+        with pymupdf.open() as pdf:
+            for index in range(2):
+                page = pdf.new_page()
+                page.insert_text((40, 40), f'Page {index + 1}')
+                page.draw_rect(pymupdf.Rect(20, 80, 120 + index, 140))
+            raw = pdf.tobytes()
+        entered, release = threading.Event(), threading.Event()
+        calls = []
+        def describe(*_args, **_kwargs):
+            calls.append(1)
+            if len(calls) == 2:
+                entered.set(); release.wait(5)
+                raise VisualError('prediction aborted, token repeat limit reached')
+            return 'Figure from the first page.'
+        try:
+            with patch.object(service, 'model_capabilities', return_value=['vision']), patch('multimodal.describe_image', side_effect=describe):
+                response = self.client.post('/api/admin/upload', headers=self.headers,
+                    files=[('files', ('progress.pdf', raw))], data={'auto_index': 'true'})
+                self.assertEqual(response.status_code, 200, response.text)
+                identifier = response.json()['job_id']
+                self.assertTrue(entered.wait(3))
+                current = self.client.get('/api/status').json()['ingestion']
+                self.assertEqual(current['id'], identifier)
+                self.assertEqual(current['reading_progress']['completed'], 1)
+                self.assertEqual(current['reading_progress']['page'], 2)
+                self.assertEqual(current['reading_progress']['visuals_completed'], 1)
+                self.assertEqual(current['progress'], 25)
+                release.set()
+                service.executor.submit(lambda: None).result(timeout=5)
+                failed = self.client.get('/api/status').json()['ingestion']
+                self.assertEqual(failed['status'], 'error')
+                self.assertEqual(failed['progress'], 25)
+                self.assertEqual(failed['reading_progress']['completed'], 1)
+            with patch.object(service, 'model_capabilities', return_value=['vision']), patch('multimodal.describe_image', return_value='Second page.') as retry:
+                response = self.client.post('/api/admin/index', headers=self.headers, json={'file': 'progress.pdf'})
+                done = self.wait(response.json()['job_id'])
+            self.assertEqual(retry.call_count, 1)
+            self.assertEqual(done['reading_progress']['completed'], 2)
+            self.assertEqual(done['reading_progress']['cached_visuals'], 1)
+            self.assertEqual(self.client.get('/api/status').json()['ingestion']['status'], 'done')
+        finally:
+            release.set()
 
     def test_chat_applies_shared_settings_without_llm(self):
         self.upload("manual.txt", b"Manual de placa y sus ajustes.")

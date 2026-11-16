@@ -90,9 +90,11 @@ def plain(value):
 
 
 class VisualReader:
-    def __init__(self, root: Path, settings, describe, cancelled=lambda: False):
+    def __init__(self, root: Path, settings, describe, cancelled=lambda: False, progress=None):
         self.root, self.settings = root.resolve(), settings
         self.describe, self.cancelled = describe, cancelled
+        self.progress = progress
+        self.cached_visuals = 0
 
     def check(self):
         if self.cancelled():
@@ -119,6 +121,7 @@ class VisualReader:
         if cache.exists():
             logging.getLogger("rag.vision").info("Vista %s · página %s · reutilizando descripción de caché", self.count, page)
             caption = json.loads(cache.read_text(encoding="utf-8"))["caption"]
+            self.cached_visuals += 1
         else:
             logging.getLogger("rag.vision").info("Vista %s · página %s · solicitando descripción a %s", self.count, page, self.settings.vision_model)
             caption = self.describe(raw, self.settings.vision_model)
@@ -133,6 +136,7 @@ class VisualReader:
 
     def load(self, path):
         self.count = 0
+        self.cached_visuals = 0
         if path.suffix.lower() == ".zip":
             return self.mineru(path)
         if path.suffix.lower() in IMAGES:
@@ -152,8 +156,18 @@ class VisualReader:
                 visual = bool(page.get_images() or page.get_drawings() or not text)
                 pages.append((number, text, visual))
             self.ensure_capacity(sum(visual for _, _, visual in pages))
+            visuals_total = sum(visual for _, _, visual in pages)
+            visuals_completed = 0
+
+            def report(phase, page, completed):
+                if self.progress:
+                    self.progress(phase=phase, page=page, completed=completed, total=len(pages),
+                                  visuals_completed=visuals_completed, visuals_total=visuals_total,
+                                  cached_visuals=self.cached_visuals)
+
             for number, text, visual in pages:
                 self.check()
+                report('vision' if visual else 'reading', number, number - 1)
                 page = pdf[number - 1]
                 if text:
                     result.append(Document(page_content=text, metadata={"page": number, "item_type": "text"}))
@@ -170,6 +184,8 @@ class VisualReader:
                     scale = min(1.5, 1440 / max(page.rect.width, page.rect.height))
                     png = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False).tobytes("png")
                     result.append(self.add_image(png, number, "page_image", f"Vista de página {number}", list(page.rect)))
+                    visuals_completed += 1
+                report('reading', number, number)
         return result
 
     def add_image(self, *args):

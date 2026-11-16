@@ -310,6 +310,16 @@
        </svg>
       </button>
      </header>
+     <section class="system-ingestion" hidden id="system-ingestion" aria-labelledby="system-ingestion-title">
+      <div class="system-ingestion__heading">
+       <h3 id="system-ingestion-title" data-i18n="ingestion.title">Ingesta de documentos</h3>
+       <span id="system-ingestion-percent"></span>
+      </div>
+      <p class="system-ingestion__document" id="system-ingestion-document"></p>
+      <progress id="system-ingestion-bar" max="100" value="0" aria-label="Progreso de ingesta" data-i18n-aria-label="ingestion.progress" data-i18n-title="ingestion.scope_hint"></progress>
+      <p id="system-ingestion-phase"></p>
+      <p class="system-ingestion__detail" id="system-ingestion-detail"></p>
+     </section>
      <ul class="sys__list">
       <li class="sys__row">
        <div class="sys__top">
@@ -400,6 +410,11 @@
      </footer>
     </section>
     <div class="pipeline2" id="pipeline-live">
+     <button class="ingestion-menu" hidden id="ingestion-menu" type="button" popovertarget="system-popover" aria-controls="system-popover" aria-label="Ver progreso de ingesta" data-i18n-aria-label="ingestion.open">
+      <span class="ingestion-menu__track" id="ingestion-menu-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso de ingesta" data-i18n-aria-label="ingestion.progress"><i id="ingestion-menu-fill"></i></span>
+      <span class="ingestion-menu__label" id="ingestion-menu-label"></span>
+      <span class="ingestion-menu__percent" id="ingestion-menu-percent"></span>
+     </button>
      <span class="pipeline2__title">
       PIPELINE
      </span>

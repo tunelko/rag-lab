@@ -887,5 +887,20 @@
   "lab.phase_models": "Laboratorio · Preparando modelos locales",
   "lab.phase_questions": "Laboratorio · Preguntas evaluadas · {done}/{total}",
   "lab.rerank_warning": "El reordenador configurado no se aplicó a {count} preguntas con resultados. La medición conserva el orden de respaldo que utilizó el chat.",
-  "server.lab_empty_busy": "Hay un experimento del Laboratorio activo. Cancélalo en Laboratorio antes de vaciar la biblioteca."
+  "server.lab_empty_busy": "Hay un experimento del Laboratorio activo. Cancélalo en Laboratorio antes de vaciar la biblioteca.",
+  "ingestion.title": "Ingesta de documentos",
+  "ingestion.progress": "Progreso total de ingesta",
+  "ingestion.open": "Ver progreso de ingesta",
+  "ingestion.pages": "{done}/{total} páginas procesadas",
+  "ingestion.current_page": "Página: {page}",
+  "ingestion.visuals": "Descripciones: {done}/{total} · reutilizadas: {cached}",
+  "ingestion.phase_queued": "En cola",
+  "ingestion.phase_reading": "Leyendo documento",
+  "ingestion.phase_preparing": "Preparando documento",
+  "ingestion.scope_hint": "El porcentaje total incluye lectura y creación del índice; no es una estimación de tiempo.",
+  "ingestion.phase_vision": "Describiendo imágenes",
+  "ingestion.phase_indexing": "Creando el índice",
+  "ingestion.phase_done": "Ingesta completada",
+  "ingestion.phase_error": "Ingesta interrumpida por un error",
+  "ingestion.phase_cancelled": "Ingesta cancelada"
 }

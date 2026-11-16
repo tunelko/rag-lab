@@ -150,7 +150,15 @@ def fixture_server(port):
                              reranker=reranker, rerank_window=rerank_window)
     retrieval_pipeline.retrieve = fixture_retrieve
     import multimodal
-    multimodal.describe_image = lambda *args, **kwargs: "Captura de prueba con 4 puertos USB."
+    def fake_describe(*args, **kwargs):
+        if service.active and service.snapshot(service.active).get('current_document') == 'qa-ingestion-progress.pdf':
+            # Genuine PDF progress needs to remain visible for polling/reload checks.
+            for _ in range(30):
+                if kwargs.get('cancelled', lambda: False)():
+                    raise InterruptedError('Cancelled visual fixture')
+                time.sleep(.2)
+        return 'Captura de prueba con 4 puertos USB.'
+    multimodal.describe_image = fake_describe
     sandbox = ROOT / "data" / "test-chroma"
     sandbox.mkdir(parents=True, exist_ok=True)
     case = Path(tempfile.mkdtemp(prefix="redesign-browser-", dir=sandbox))
@@ -986,6 +994,53 @@ def run_browser(url):
         assert detail_reads==['owned-finished'],detail_reads
         recovery.close()
         check('Chat recovery ignores foreign jobs, reads owned completed jobs and releases unacknowledged turns without resubmission')
+
+        # One system panel and the full menu strip share actual PDF page counters.
+        import pymupdf
+        ingestion_language=page.locator('#language-selection').input_value()
+        ingestion_theme=page.evaluate('document.documentElement.dataset.theme')
+        ingestion_viewport=page.viewport_size
+        ingestion_headers={'X-RAG-Token':page.request.get(url+'/api/session').json()['token']}
+        ingestion_preferences=page.request.get(url+'/api/settings').json()['settings']
+        ingestion_settings={**ingestion_preferences,'multimodal':True,'vision_model':'qa-vision:latest'}
+        assert page.request.put(url+'/api/settings',headers=ingestion_headers,data=ingestion_settings).ok
+        with pymupdf.open() as pdf:
+            for index in range(2):
+                pdf_page=pdf.new_page()
+                pdf_page.insert_text((40,40),f'Progress fixture {index+1}')
+                pdf_page.draw_rect(pymupdf.Rect(40,80,160+index,180))
+            ingestion_pdf=pdf.tobytes()
+        ingestion_upload=page.request.post(url+'/api/admin/upload',headers=ingestion_headers,multipart={
+            'files':{'name':'qa-ingestion-progress.pdf','mimeType':'application/pdf','buffer':ingestion_pdf},'auto_index':'true'}).json()
+        page.goto(url+'/',wait_until='networkidle')
+        page.locator('#language-selection').select_option('es')
+        expect(page.locator('#ingestion-menu')).to_be_visible()
+        page.wait_for_function("() => Number(document.querySelector('#ingestion-menu-track').getAttribute('aria-valuenow'))>0")
+        expect(page.locator('#ingestion-menu-label')).to_contain_text('1/2 páginas procesadas')
+        menu_bounds=page.locator('#ingestion-menu').bounding_box();strip_bounds=page.locator('#pipeline-live').bounding_box()
+        assert menu_bounds['width']>=strip_bounds['width']-2,(menu_bounds,strip_bounds)
+        page.locator('#ingestion-menu').click()
+        expect(page.locator('#system-ingestion')).to_be_visible()
+        expect(page.locator('#system-ingestion-detail')).to_contain_text('Página: 2')
+        expect(page.locator('#system-ingestion-bar')).to_have_attribute('value','25')
+        page.set_viewport_size({'width':390,'height':844})
+        page.evaluate("document.documentElement.dataset.theme='light'")
+        page.screenshot(path=str(reports/'ingestion-progress-mobile-light.png'),full_page=True)
+        page.locator('#language-selection').select_option('en')
+        expect(page.locator('#system-ingestion-phase')).to_contain_text('1/2 pages processed')
+        page.evaluate("document.documentElement.dataset.theme='dark'")
+        page.screenshot(path=str(reports/'ingestion-progress-mobile-dark.png'),full_page=True)
+        expect(page.locator('#system-ingestion-phase')).to_contain_text('Ingestion completed',timeout=20000)
+        expect(page.locator('#system-ingestion-bar')).to_have_attribute('value','100')
+        page.reload(wait_until='networkidle');page.locator('#system-button').click()
+        expect(page.locator('#system-ingestion-phase')).to_contain_text('Ingestion completed')
+        expect(page.locator('#system-ingestion-detail')).to_contain_text('Descriptions: 2/2')
+        page.locator('#system-close').click()
+        page.set_viewport_size(ingestion_viewport)
+        page.evaluate('(theme)=>document.documentElement.dataset.theme=theme',ingestion_theme)
+        page.locator('#language-selection').select_option(ingestion_language)
+        assert page.request.put(url+'/api/settings',headers=ingestion_headers,data=ingestion_preferences).ok
+        check('Central ingestion progress: real PDF page counters, full-width menu, shared system panel, completion after reload and mobile EN/ES light/dark')
 
         # Laboratory uses a genuine isolated snapshot and fake CPU vectors. The
         # injected delay only makes cancellation observable; metrics are real.
