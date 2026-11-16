@@ -61,7 +61,7 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* Blanco, azul empolvado y lavanda; textos oscuros sobre fondos pastel. */
+  /* Blanco, azul empolvado y lavanda; textos casi negros sobre fondos pastel. */
   --bg-app:          #ffffff;
   --bg-header:       #eff3fc;
   --surface:         #ffffff;
@@ -71,29 +71,29 @@
   --border:          #dce1ec;
   --border-control:  #7d8698;
 
-  --ink:             #29364a;
-  --text:            #414d62;
-  --text-muted:      #5d697e;
+  --ink:             #16181c;
+  --text:            #25282d;
+  --text-muted:      #50545c;
   --text-disabled:   #939aab;
   --disabled-bg:     #e9ecf3;
 
-  --accent:          #5a6f9c;
-  --accent-hover:    #465d87;
-  --accent-text:     #4a5d86;
+  --accent:          #22252b;
+  --accent-hover:    #121418;
+  --accent-text:     #25282d;
   --accent-soft:     #e9edf8;
   --on-accent:       #ffffff;
-  --accent-rgb:      90 111 156;
+  --accent-rgb:      34 37 43;
 
   --musa-highlight:  #eef0fc;
   --musa-body:       #c4cdec;
   --musa-shadow:     #a1aed2;
-  --musa-eyes:       #35476d;
+  --musa-eyes:       #22252b;
 
   --success:         #3b6c53;  --success-soft: #e4eee3;  --success-border: #678a71;
   --warning:         #8b592e;  --warning-soft: #f6e8d7;  --warning-border: #a17a54;
   --danger:          #a04751;  --danger-soft:  #f4e4e6;  --danger-border:  #a96872;
   --on-danger:       #ffffff;
-  --shadow-dialog: 0 24px 48px rgba(36, 49, 78, .16);
+  --shadow-dialog: 0 24px 48px rgba(18, 20, 24, .16);
 }
 
 :root[data-theme="light"] .conversation-card > .card__head {
