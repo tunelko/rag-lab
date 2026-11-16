@@ -32,6 +32,7 @@
   --accent-text:     #e2ff7a;  /* enlaces, botones ghost, citas [1]     */
   --accent-soft:     #2a3310;  /* fondo de badges y etapa activa        */
   --on-accent:       #141a00;  /* texto sobre acento                    */
+  --accent-rgb:      212 255 63;
   --focus:           var(--accent);
 
   /* Estados (reservados: no reutilizar como color de serie) */
@@ -60,31 +61,47 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --bg-app:          #f4f5ef;
-  --bg-header:       #eef2dc;
+  /* Blanco, azul empolvado y lavanda; textos oscuros sobre fondos pastel. */
+  --bg-app:          #ffffff;
+  --bg-header:       #eff3fc;
   --surface:         #ffffff;
-  --surface-raised:  #e8ebe1;
-  --border:          #d3d7cb;
-  --border-control:  #777e72;
+  --surface-raised:  #f0f1f9;
+  --surface-blue:    #edf1fb;
+  --surface-lavender:#f0ecf8;
+  --border:          #dce1ec;
+  --border-control:  #7d8698;
 
-  --ink:             #171a15;
-  --text:            #30352e;
-  --text-muted:      #61685e;
-  --text-disabled:   #858b82;
-  --disabled-bg:     #e1e4dc;
+  --ink:             #29364a;
+  --text:            #414d62;
+  --text-muted:      #5d697e;
+  --text-disabled:   #939aab;
+  --disabled-bg:     #e9ecf3;
 
-  --accent:          #587400;
-  --accent-hover:    #456000;
-  --accent-text:     #405900;
-  --accent-soft:     #e3edbd;
+  --accent:          #5a6f9c;
+  --accent-hover:    #465d87;
+  --accent-text:     #4a5d86;
+  --accent-soft:     #e9edf8;
   --on-accent:       #ffffff;
+  --accent-rgb:      90 111 156;
 
-  --success:         #147247;  --success-soft: #e3f4ea;  --success-border: #218557;
-  --warning:         #9a4c09;  --warning-soft: #fff0df;  --warning-border: #b35d12;
-  --danger:          #b52f36;  --danger-soft:  #fde9ea;  --danger-border:  #c53e45;
+  --musa-highlight:  #eef0fc;
+  --musa-body:       #c4cdec;
+  --musa-shadow:     #a1aed2;
+  --musa-eyes:       #35476d;
+
+  --success:         #3b6c53;  --success-soft: #e4eee3;  --success-border: #678a71;
+  --warning:         #8b592e;  --warning-soft: #f6e8d7;  --warning-border: #a17a54;
+  --danger:          #a04751;  --danger-soft:  #f4e4e6;  --danger-border:  #a96872;
   --on-danger:       #ffffff;
-  --shadow-dialog: 0 24px 48px rgba(34, 40, 28, .22);
+  --shadow-dialog: 0 24px 48px rgba(36, 49, 78, .16);
 }
+
+:root[data-theme="light"] .conversation-card > .card__head {
+  background: var(--accent-soft);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+}
+:root[data-theme="light"] :is(.chat-question, .msg-user) { background: var(--surface-blue); }
+:root[data-theme="light"] :is(.source-chip, .badge--info) { background: var(--surface-lavender); }
 
 /* ---------- 2. Base ------------------------------------------------------ */
 *, *::before, *::after { box-sizing: border-box; }
@@ -262,11 +279,11 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 .musa {
   --musa-size: 28px;
   position: relative; flex: 0 0 auto; width: var(--musa-size); height: var(--musa-size); border-radius: 50%;
-  background: radial-gradient(circle at 34% 30%, #f4ffc9 0, var(--accent) 46%, #93b81a 100%);
+  background: radial-gradient(circle at 34% 30%, var(--musa-highlight, #f4ffc9) 0, var(--musa-body, var(--accent)) 46%, var(--musa-shadow, #93b81a) 100%);
   animation: musa-float 3.2s ease-in-out infinite;
 }
 .musa__eyes { position: absolute; inset: 36% 0 auto; height: 24%; display: flex; justify-content: center; gap: 20%; }
-.musa__eyes > i { width: 15%; height: 100%; border-radius: 50%; background: var(--on-accent);
+.musa__eyes > i { width: 15%; height: 100%; border-radius: 50%; background: var(--musa-eyes, var(--on-accent));
   transform-origin: 50% 50%; animation: musa-blink 4.6s infinite; }
 .musa__orbit { position: absolute; inset: -28%; border-radius: 50%; display: none; animation: musa-orbit 1.4s linear infinite; }
 .musa__orbit > i { position: absolute; top: 0; left: 50%; width: 20%; height: 20%; margin-left: -10%; border-radius: 50%; background: var(--accent); }
@@ -336,7 +353,7 @@ input:checked + .toggle::after { transform: translateX(14px); background: var(--
 @keyframes musa-look  { 0%,35% { transform: translate(0,0) } 45%,70% { transform: translate(12%,-10%) } 80%,100% { transform: translate(0,0) } }
 @keyframes musa-scan  { 0%,100% { transform: translateX(-14%) } 50% { transform: translateX(14%) } }
 @keyframes musa-orbit { to { transform: rotate(360deg) } }
-@keyframes musa-pulse { 0% { box-shadow: 0 0 0 0 rgba(212,255,63,.45) } 100% { box-shadow: 0 0 0 calc(var(--musa-size) * .19) rgba(212,255,63,0) } }
+@keyframes musa-pulse { 0% { box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / .45) } 100% { box-shadow: 0 0 0 calc(var(--musa-size) * .19) rgb(var(--accent-rgb) / 0) } }
 @keyframes musa-dot   { 0%,70%,100% { transform: translateY(0); opacity: .35 } 35% { transform: translateY(-4px); opacity: 1 } }
 @keyframes caret      { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
 @keyframes live       { 0%,100% { opacity: 1 } 50% { opacity: .3 } }

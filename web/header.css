@@ -13,9 +13,9 @@
 }
 
 :root[data-theme="light"] {
-  --nav-idle: #4f574d;
-  --step-rel: #9daf62;
-  --step-run-bg: #edf3d8;
+  --nav-idle: #53627c;
+  --step-rel: #bac4df;
+  --step-run-bg: #f0f2fb;
 }
 
 /* ---------- Contenedor fijo ---------- */
@@ -171,7 +171,7 @@
 .pstep[data-state="done"] .pstep__check { display: block; }
 .pstep[data-state="run"] { background: var(--step-run-bg); }
 .pstep[data-state="run"]::before {
-  background: linear-gradient(90deg, rgba(212,255,63,0) 0, var(--accent) 45%, rgba(212,255,63,0) 90%);
+  background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0) 0, var(--accent) 45%, rgb(var(--accent-rgb) / 0) 90%);
   background-size: 200% 100%; animation: pstep-sweep 1.2s linear infinite;
 }
 .pstep[data-state="run"] .pstep__name  { color: var(--accent-text); }
