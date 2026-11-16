@@ -12,10 +12,11 @@ parser.use({renderer:{
 const cache=new WeakMap();
 
 function citation(number,prefix){
-  const link=document.createElement('a');link.className='citation';link.textContent=String(number);link.href=`#${prefix}-${number}`;
-  link.setAttribute('aria-label',t("ui.view_source_7ad4a8", {value1: (number)}));
-  link.addEventListener('click',event=>{event.preventDefault();window.dispatchEvent(new CustomEvent('rag:source',{detail:{prefix,number,trigger:link}}));});
-  return link;
+  // A button, not a link: it discloses the cited fragment in place instead of navigating.
+  const control=document.createElement('button');control.type='button';control.className='citation';control.textContent=String(number);control.dataset.citation=String(number);
+  control.setAttribute('aria-expanded','false');control.setAttribute('aria-label',t("ui.view_source_7ad4a8", {value1: (number)}));
+  control.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('rag:source',{detail:{prefix,number,trigger:control}})));
+  return control;
 }
 
 function addCitations(fragment,citations,prefix){

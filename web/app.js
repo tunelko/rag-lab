@@ -233,13 +233,13 @@ window.addEventListener('rag:languagechange',()=>{
 async function init(){
   try{
     state.token=(await api('/api/session')).token;
-    shell=new Shell(api);shell.setView(state.view);settingsController=new SettingsController(api,(value,saved)=>{preferences=value;state.k=value.k;shell.setSettings(value);if(saved)refreshStatus();});
+    shell=new Shell(api);shell.setView(state.view);settingsController=new SettingsController(api,(value,saved)=>{preferences=value;state.k=value.k;shell.setSettings(value);chat?.setSettings(value);if(saved)refreshStatus();});
     serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
     telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');
     topics=new LibraryTopics(api,refreshStatus,()=>{state.page=1;renderDocuments();});
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
     new DocumentViewer(api);
-    chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush());
+    chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush(),patch=>settingsController.patch(patch));
     laboratory=new Laboratory(api,()=>settingsController.flush(),refreshStatus);laboratory.setActive(state.view==='laboratory');
     await loadSettings();
     await refreshStatus();chat.restore(state.status?.jobs||[]);

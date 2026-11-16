@@ -586,15 +586,43 @@ def run_browser(url):
         page.locator("#question").press("Control+Enter")
         expect(page.locator('#question')).to_have_value('¿Cuándo se realiza la copia de seguridad?\n')
         assert len(queries)==previous_queries, 'Ctrl+Enter must insert a newline without sending'
+        page.locator("#question").press("Shift+Enter")
+        expect(page.locator('#question')).to_have_value('¿Cuándo se realiza la copia de seguridad?\n\n')
+        assert len(queries)==previous_queries, 'Shift+Enter must insert a newline without sending'
+        expect(page.locator('#question-help')).to_have_text('Enter envía · Mayús+Enter, nueva línea')
         page.locator("#question").press("Enter")
         # The first retrieval can initialise the persisted vector snapshot; keep
         # the acceptance test's wait aligned with the page-wide 30 s timeout.
         expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false", timeout=30000)
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#context-panel")).not_to_be_visible()
+        last_turn=page.locator('.chat-turn').last
         citation=page.locator(".chat-turn .citation").last
-        target=citation.get_attribute('href')[1:]
+        target=f"turn-{last_turn.get_attribute('data-turn')}-{citation.inner_text()}"
+        expect(last_turn.locator('.q__bubble')).to_have_text('¿Cuándo se realiza la copia de seguridad?')
+        expect(last_turn.locator('.q__meta')).to_contain_text('en Toda la biblioteca')
+        expect(last_turn.locator('.a__route')).to_have_text('Texto')
+        preview=page.locator('.cite-pop')
         citation.click()
+        expect(preview).to_be_visible()
+        expect(preview).to_be_focused()
+        expect(citation).to_have_attribute('aria-expanded','true')
+        expect(preview).to_contain_text('La copia de seguridad se realiza cada viernes.')
+        expect(preview).to_contain_text(re.compile(r'Fragmento 1 de \d+ · relevancia \d,\d\d'))
+        assert preview.locator('mark').count()>0
+        expect(last_turn.locator('.src-row.is-cited-active')).to_have_count(1)
+        expect(page.locator("#context-panel")).not_to_be_visible()
+        page.keyboard.press('Escape')
+        expect(preview).not_to_be_visible()
+        expect(citation).to_be_focused()
+        expect(citation).to_have_attribute('aria-expanded','false')
+        expect(last_turn.locator('.src-row.is-cited-active')).to_have_count(0)
+        citation.click();expect(preview).to_be_visible()
+        page.mouse.click(8,400);expect(preview).not_to_be_visible()
+        citation.click();citation.click();expect(preview).not_to_be_visible()
+        citation.click()
+        preview.get_by_role('button',name='Ver en Contexto').click()
+        expect(preview).not_to_be_visible()
         expect(page.locator('#'+target)).to_be_focused()
         expect(page.locator('#'+target)).to_have_attribute('aria-current','true')
         assert page.locator(".chat-sources mark").count() > 0
@@ -603,9 +631,14 @@ def run_browser(url):
         expect(citation).to_be_focused()
         expect(page.locator("#open-context")).to_have_attribute("aria-expanded", "false")
         # A later source must be the actual target, even when other cards precede it.
-        chip=page.locator('.chat-turn .source-chip').last
-        target=chip.get_attribute('href')[1:]
-        assert page.locator('.chat-turn .source-chip').count()>1
+        chip=last_turn.locator('.src-num').last
+        target=f"turn-{last_turn.get_attribute('data-turn')}-{chip.inner_text()}"
+        assert last_turn.locator('.src-num').count()>1
+        # Sources are listed by document: never more rows than fragments, every row with its citations.
+        rows=last_turn.locator('.src-row')
+        files=rows.evaluate_all('rows=>rows.map(row=>row.dataset.file)')
+        assert len(files)==len(set(files))>=1 and last_turn.locator('.src-num').count()>=len(files), files
+        assert all(rows.nth(index).locator('.src-num').count()>=1 for index in range(len(files)))
         theme=page.evaluate('document.documentElement.dataset.theme')
         for selected_theme in ('dark','light'):
             if page.evaluate('document.documentElement.dataset.theme')!=selected_theme:page.locator('#theme-toggle').click()
@@ -641,8 +674,11 @@ def run_browser(url):
             page.keyboard.press('Escape')
             page.evaluate('() => new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
             assert page.evaluate("() => document.querySelector('#sources .source')===window.__sourceIdentity"), 'Source panel was rebuilt during status refresh'
-        page.locator(".trace-actions button[aria-label='Copiar respuesta']").last.click()
-        expect(page.locator("#toast")).to_contain_text("Respuesta copiada")
+        copy=page.locator(".a__actions button[aria-label='Copiar respuesta']").last
+        copy.click()
+        expect(copy).to_have_text("Copiado")
+        assert 'cada viernes' in page.evaluate("navigator.clipboard.readText()")
+        expect(copy).to_have_text("Copiar")
         page.locator("#nav-settings").click()
         page.locator("#search-only").check()
         expect(page.locator("#settings-message")).to_have_text("Guardado")
@@ -658,18 +694,37 @@ def run_browser(url):
         page.locator("#ask-button").click()
         expect(page.locator(".chat-turn .chat-state").last).to_contain_text("Ollama no responde")
         assert not page.locator("#result-dialog").is_visible()
-        page.locator(".chat-actions button").filter(has_text="Reintentar").last.click()
+        page.locator(".a__actions button").filter(has_text="Reintentar").last.click()
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#ask-button")).to_contain_text("Enviar")
         page.locator("#question").fill("__QA_SLOW__")
         page.locator("#ask-button").click()
         expect(page.locator("#ask-button")).to_contain_text("Detener")
         page.locator("#ask-button").click()
-        expect(page.locator(".chat-turn .chat-state").last).to_contain_text("Consulta detenida")
+        expect(page.locator(".chat-turn .chat-state").last).to_contain_text(re.compile("Consulta detenida|Detenida · respuesta parcial"))
+        expect(page.locator(".chat-turn").last.locator(".a__actions button").filter(has_text="Regenerar")).to_be_visible()
         page.locator("#question").fill("¿Cuándo se realiza la copia de seguridad?")
         page.locator("#ask-button").click()
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#ask-button")).to_contain_text("Enviar")
+        turns_before=page.locator('.chat-turn').count()
+        with page.expect_response(lambda response:response.url.endswith('/api/query') and response.request.method=='POST'):
+            page.locator('.chat-turn').last.locator('.a__actions button').filter(has_text='Regenerar').click()
+        expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')
+        expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
+        expect(page.locator('.chat-turn')).to_have_count(turns_before)
+        expect(page.locator('#conversation-count')).to_contain_text(f'{turns_before} preguntas · empezada a las ')
+        # The composer writes the same preferences as Settings.
+        page.locator('#chat-top-k').select_option('6')
+        expect(page.locator('#top-k [data-k="6"]')).to_have_attribute('aria-checked','true')
+        page.locator('#chat-search-only').check()
+        expect(page.locator('#search-only')).to_be_checked()
+        page.locator('#chat-search-only').uncheck();page.locator('#chat-top-k').select_option('4')
+        expect(page.locator('#top-k [data-k="4"]')).to_have_attribute('aria-checked','true')
+        expect(page.locator('#settings-sync')).to_be_hidden()  # saved before the reload below
+        expect(page.locator('#composer-note')).to_contain_text('Todo se procesa en este equipo con Ollama')
+        column=page.locator('.chat-turn').last.bounding_box()['width']
+        assert column<=860.5, f'The conversation column is {column}px wide at 1440px'
         page.screenshot(path=str(reports / "redesign-consulta-con-respuesta.png"), full_page=True)
         page.reload(wait_until="networkidle")
         expect(page.locator(".chat-turn")).to_have_count(5)
@@ -743,6 +798,7 @@ def run_browser(url):
         answer.get_by_role("button",name="Copiar bloque de código",exact=True).click()
         assert '<script>literal</script>' in page.evaluate("navigator.clipboard.readText()")
         answer.locator(".citation").first.click()
+        page.locator('.cite-pop').get_by_role('button',name='Ver en Contexto').click()
         expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
         page.locator("#close-context").click()
         answer.evaluate("e=>{const thread=e.closest('.chat-thread');thread.scrollTop=e.offsetTop-thread.offsetTop;}")

@@ -20,6 +20,7 @@
  <link rel="stylesheet" href="/assets/library.css"/>
  <link rel="stylesheet" href="/assets/settings.css"/>
  <link rel="stylesheet" href="/assets/laboratory.css"/>
+ <link rel="stylesheet" href="/assets/chat.css"/>
 </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -74,6 +75,34 @@
     </symbol>
     <symbol id="i-x" viewbox="0 0 24 24">
      <path d="m6 6 12 12M6 18 18 6">
+     </path>
+    </symbol>
+    <symbol id="i-clip" viewbox="0 0 24 24">
+     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48">
+     </path>
+    </symbol>
+    <symbol id="i-database" viewbox="0 0 24 24">
+     <ellipse cx="12" cy="5" rx="9" ry="3">
+     </ellipse>
+     <path d="M3 5v14a9 3 0 0 0 18 0V5">
+     </path>
+     <path d="M3 12a9 3 0 0 0 18 0">
+     </path>
+    </symbol>
+    <symbol id="i-stop" viewbox="0 0 24 24">
+     <rect height="12" rx="2" width="12" x="6" y="6">
+     </rect>
+    </symbol>
+    <symbol id="i-arrow-down" viewbox="0 0 24 24">
+     <path d="M12 5v14">
+     </path>
+     <path d="m19 12-7 7-7-7">
+     </path>
+    </symbol>
+    <symbol id="i-panel" viewbox="0 0 24 24">
+     <rect height="18" rx="2" width="18" x="3" y="3">
+     </rect>
+     <path d="M15 3v18">
      </path>
     </symbol>
     <symbol id="i-copy" viewbox="0 0 24 24">
@@ -545,19 +574,12 @@
        <header class="page-head card__head chat-toolbar">
         <div class="chat-heading">
          <h1 class="page-title" data-i18n="sentinel.chat">Chat</h1>
-         <span class="sr-only" id="conversation-count"></span>
+         <span class="chat-summary" id="conversation-count"></span>
          <span class="meta" id="settings-sync" role="status"></span>
         </div>
-        <label class="scope-picker" for="chat-scope">
-         <span data-i18n="library.sources">
-          Fuentes
-         </span>
-         <select class="select" id="chat-scope">
-         </select>
-        </label>
         <div class="chat-actions">
          <button aria-controls="context-panel" aria-expanded="false" aria-label="Contexto recuperado" data-i18n-aria-label="sentinel.context" data-i18n-title="sentinel.context" class="btn btn--secondary context-toggle" id="open-context" type="button">
-          <svg aria-hidden="true" class="icon"><use href="#i-file"></use></svg>
+          <svg aria-hidden="true" class="icon"><use href="#i-panel"></use></svg>
           <span data-i18n="sentinel.context_short">Contexto</span>
          </button>
          <button aria-label="Nueva conversación" data-i18n-aria-label="sentinel.new_chat" data-i18n-title="sentinel.new_chat" class="btn btn--secondary" id="new-chat" type="button">
@@ -612,36 +634,56 @@
        <div aria-label="Conversación" class="chat-thread" id="chat-thread" role="region">
        </div>
        <form class="composer" id="query-form">
-        <label class="sr-only" for="question">
-         <span data-i18n="sentinel.question">
-          Pregunta
-         </span>
-        </label>
-        <textarea class="input composer__input" data-i18n-placeholder="ui.ask_your_documents_45c5ff" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
-        <div class="query-attachments" hidden="" id="query-attachments">
-        </div>
-        <div class="composer__tools">
-         <input accept="image/png,image/jpeg,image/webp" hidden="" id="query-image-input" multiple="" type="file"/>
-         <button aria-label="Adjuntar imagen" class="btn btn--secondary btn--icon" id="attach-image" type="button">
-          <svg aria-hidden="true" class="icon">
-           <use href="#i-plus">
-           </use>
-          </svg>
-         </button>
-         <span class="meta" data-i18n="ui.chat_keyboard_hint" id="question-help">
-          Enter: enviar · Ctrl+Enter: salto de línea
-         </span>
-         <button class="btn btn--primary" id="ask-button" type="submit">
-          <svg aria-hidden="true" class="icon">
-           <use href="#i-arrow">
-           </use>
-          </svg>
-          <span>
-           <span data-i18n="sentinel.send">
-            Enviar
+        <button class="chat-jump" hidden="" id="chat-jump" type="button">
+         <svg aria-hidden="true" class="icon"><use href="#i-arrow-down"></use></svg>
+         <span data-i18n="sentinel.jump_to_end">Ir al final</span>
+        </button>
+        <div class="composer2-wrap">
+         <div class="composer2" id="composer-box">
+          <label class="sr-only" for="question">
+           <span data-i18n="sentinel.question">
+            Pregunta
            </span>
-          </span>
-         </button>
+          </label>
+          <textarea aria-describedby="question-help" class="composer2__input" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
+          <div class="query-attachments" hidden="" id="query-attachments">
+          </div>
+          <div class="composer2__tools">
+           <input accept="image/png,image/jpeg,image/webp" hidden="" id="query-image-input" multiple="" type="file"/>
+           <button aria-label="Adjuntar imagen" class="tool tool--icon" id="attach-image" type="button">
+            <svg aria-hidden="true" class="icon"><use href="#i-clip"></use></svg>
+           </button>
+           <label class="tool tool--scope" for="chat-scope">
+            <svg aria-hidden="true" class="icon"><use href="#i-database"></use></svg>
+            <span class="tool__label" data-i18n="sentinel.search_in">Buscar en</span>
+            <select class="tool__select" id="chat-scope">
+            </select>
+           </label>
+           <label class="tool" for="chat-top-k">
+            <span class="tool__label">top-k</span>
+            <select aria-label="Fragmentos por respuesta" class="tool__select" data-i18n-aria-label="sentinel.fragments_per_answer" id="chat-top-k">
+             <option value="2">2</option>
+             <option value="4">4</option>
+             <option value="6">6</option>
+             <option value="8">8</option>
+            </select>
+           </label>
+           <label class="tool tool--check" for="chat-search-only">
+            <input id="chat-search-only" type="checkbox"/>
+            <span data-i18n="sentinel.retrieval_only">Solo recuperación</span>
+           </label>
+           <span class="composer2__hint" data-i18n="ui.chat_keyboard_hint" id="question-help">
+            Enter envía · Mayús+Enter, nueva línea
+           </span>
+           <button aria-describedby="ask-reason" class="send send--go" id="ask-button" type="submit">
+            <svg aria-hidden="true" class="icon send__go"><use href="#i-arrow"></use></svg>
+            <svg aria-hidden="true" class="icon send__stop"><use href="#i-stop"></use></svg>
+            <span>Enviar</span>
+           </button>
+           <span class="sr-only" id="ask-reason"></span>
+          </div>
+         </div>
+         <p class="composer2__note" id="composer-note"></p>
         </div>
        </form>
       </section>
