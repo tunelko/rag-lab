@@ -129,10 +129,12 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     checks = []
     if args.scope in {'all', 'static'}:
-        checks.extend([('source-bandit', lambda: static_scan(args.tool_python.resolve(), output)),
+        # Keep the venv entry point: resolving bin/python follows its symlink to
+        # base Python on Linux and discards the tool/runtime environment.
+        checks.extend([('source-bandit', lambda: static_scan(args.tool_python.absolute(), output)),
                        ('vendor-integrity', vendor_hashes)])
     if args.scope in {'all', 'dependencies'}:
-        checks.extend([('python-advisories', lambda: dependencies(args.tool_python.resolve(), args.runtime_python.resolve(), output)),
+        checks.extend([('python-advisories', lambda: dependencies(args.tool_python.absolute(), args.runtime_python.absolute(), output)),
                        ('javascript-advisories', lambda: vendor_advisories(output))])
     results = []
     for identifier, operation in checks:
