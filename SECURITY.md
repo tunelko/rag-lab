@@ -72,12 +72,58 @@ conflicting or unsupported declarations rather than omitting them silently.
   resized and stripped of metadata. Raw query attachments are not persisted.
 - Fonts, translations and sanitized Markdown rendering are local. Private
   documents, databases, settings, backups and credentials stay outside Git.
+- Retrieved passages are serialized as JSON data before the user's question.
+  The system prompt explicitly denies authority to instructions inside sources,
+  including claims of system priority. This is defense in depth, not a guarantee
+  that a particular model will resist every prompt injection.
 
-Tests verify transaction failures, cancellation, uncommitted vectors, scoped
-retrieval, migration fidelity, interrupted migration, proxy/redirect refusal and
-browser behavior. CI runs on Windows/Linux without inference models. `pip check`
-checks dependency consistency; it is not a vulnerability scanner. Passing these
-checks does not establish absence of every vulnerability or model error.
+## Real security checks
+
+The suite uses unmodified Musa, actual HTTP and browser execution, real E5
+embeddings and SQLite, and actual DPAPI/AES-GCM credential encryption. Its private
+library is populated through API uploads. No production documents/settings are
+used. Model cases call an explicitly chosen installed local Ollama model and
+record its digest, answers and usage. No response or model transport is patched.
+
+Retrieved evidence is quoted as JSON data, followed by the actual user question.
+The system message distinguishes document content from instructions, including
+claims of higher authority inside documents. This framing preserves evidence and
+citations without a topic blocklist. It mitigates the tested injections; it cannot
+guarantee resistance to every attack on every model.
+
+Mappings follow [OWASP Web Top 10 2025](https://top10.owasp.org/2025/) and the
+published [OWASP LLM Top 10 2026](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/tree/main/2026/final).
+They identify exercised controls, not certification or complete risk coverage:
+
+| Risks | Actual checks | Limits |
+|---|---|---|
+| A01, A02, A07 | Host/origin/token rejection, CSP/CORS, source containment | CSRF token is not authentication; no accounts or tenant isolation. |
+| A03, LLM04 | Installed-package/npm advisories and served asset hashes | Advisory availability and model training provenance remain separate concerns. |
+| A04 | Credential ciphertext persistence and plaintext absence | No deployment TLS or compromised-OS assessment. |
+| A05, LLM10 | SQL-value payloads, unsafe uploads, URL rejection observed with a listening socket, browser XSS payloads | Controlled cases, not exhaustive fuzzing. No destructive or external attack targets. |
+| A06, LLM03, LLM06 | Request bounds, actual output counts, model-to-filesystem action boundary | No load/DoS stress test. No model-controlled shell or general action tools exist. |
+| A08, A10 | Duplicate uploads, corrupt PDF, preserved published index, malformed requests | Selected parsing failures, not every parser/format combination. |
+| A09, LLM02, LLM08 | Synthetic secret canaries absent from API/logs/answers | Public system instructions are not secrets; external alerting is not tested. |
+| LLM01, LLM05 | Malicious instructions in a genuinely indexed/retrieved document | Exact model and corpus only; no training-time/weight poisoning assessment. |
+| LLM07 | Known factual answer and a question without supporting evidence | Two bounded cases, not a general accuracy benchmark. |
+| LLM09 | Actual embedding search and out-of-scope canaries | Categories scope retrieval; they do not provide user access control. |
+
+JSON/Markdown reports include every OWASP category, executed checks and limits.
+Missing checks are `not_run`, never passes. Hosted CI runs real web/vector/browser
+checks with pinned E5, while the eight LLM cases are explicitly `not_run`. Run the
+model command in [tests/README.md](tests/README.md) against the deployment model.
+Simulated-model Python and browser suites remain optional local regressions and
+are excluded from CI. Model verdicts must not be transferred between models.
+
+Bandit scans app, installer and tool source. HIGH findings block CI. Medium/low
+findings remain `review` items in the full report and summary; there are no global
+suppressions. pip-audit queries OSV for the actual installed inventory, including
+transitives and CPU/CUDA versions. OSV also checks vendored npm versions. Any
+known vulnerability, unaudited package or incomplete scan blocks the audit.
+File hashes establish correspondence with the checked-in manifest, not upstream
+authenticity. These scans do not audit GPU drivers or model weight provenance.
+`pip check` only checks dependency consistency. Passing controlled tests does not
+establish that the application or model is free of vulnerabilities.
 
 For a private report, use GitHub private vulnerability reporting if available, or
 request a private contact without posting credentials/documents in an issue.

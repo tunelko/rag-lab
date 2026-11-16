@@ -88,3 +88,4 @@ Todo queda dentro de la carpeta del proyecto y Git no sigue nada de ello.
 Las respuestas usan Ollama local salvo que elijas un proveedor en la nube en
 **Configuración**; consulta [qué recibe un proveedor en la nube](docs/CLOUD_VISION.md).
 La indexación es siempre local. Los límites de seguridad están en [SECURITY.md](SECURITY.md).
+Las pruebas reales de seguridad y sus comandos están en [tests/README.md](tests/README.md).

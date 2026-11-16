@@ -48,16 +48,22 @@ class LaboratoryEngineTests(unittest.TestCase):
         return json.dumps({'id': 'q1', 'question': 'PRO Z790 max memory?',
             'relevant': [{'file': 'PRO-Z790.pdf', 'page': 5}], 'evidence': ['192GB'], **overrides})
 
-    def test_context_extraction_keeps_baseline_messages_and_sources_byte_identical(self):
+    def test_context_wrapper_preserves_baseline_evidence_and_sources(self):
         for case in BASELINE['context']:
             with self.subTest(case=case['name']):
                 hits = [(Document(page_content=item['text'], metadata=item['metadata']), item['distance'])
                         for item in case['hits']]
                 messages, sources = rag.build_messages('Which connector?', hits, case['budget'], case['language'])
-                self.assertEqual(messages, case['messages'])
                 self.assertEqual(sources, case['sources'])
+                # Prompt hardening deliberately changes framing, not retrieved
+                # evidence. Keep the original frozen baseline as an independent
+                # reference rather than regenerating it from the implementation.
+                context = json.loads(messages[-1]['content'].splitlines()[1])
+                original = case['messages'][-1]['content'].partition('\n\nEVIDENCIA:\n')[2]
+                self.assertEqual('\n\n'.join(context), original)
+                self.assertTrue(messages[-1]['content'].endswith('Which connector?'))
                 for document, _distance in rag.context_fragments(hits, case['budget']):
-                    self.assertIn(document.page_content, messages[-1]['content'])
+                    self.assertTrue(any(document.page_content in item for item in context))
 
     def test_retrieval_extraction_preserves_baseline_order_metadata_and_trace(self):
         scorer = self.scorer

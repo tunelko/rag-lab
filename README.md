@@ -88,3 +88,4 @@ Everything stays inside the project folder and none of it is tracked by Git.
 Answers use local Ollama unless you choose a cloud provider in **Settings**; see
 [what a cloud provider receives](docs/CLOUD_VISION.md). Indexing is always local.
 Security boundaries are in [SECURITY.md](SECURITY.md).
+Real security checks and commands are in [tests/README.md](tests/README.md).

@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  offline-tests:
-    name: Python 3.13 / ${{ matrix.os }} / CPU
+  real-security:
+    name: Real web security / ${{ matrix.os }} / CPU embeddings
     strategy:
       fail-fast: false
       matrix:
@@ -58,11 +58,13 @@ jobs:
       - name: Compile every Python source
         # Scripts and tools that no test imports would otherwise ship with syntax errors.
         run: python -m compileall -q app install tools tests
-      - name: Python regression tests (fake vectors, models and sensors)
-        timeout-minutes: 10
+      - name: Prepare reports and isolated security tools
         run: |
           mkdir -p reports
-          python -m unittest discover -s tests -t . -v 2>&1 | tee reports/unit-tests.log
+          python -m venv .cache/security-tools
+          tool_python=$(python -c 'import os;print(".cache/security-tools/"+("Scripts/python.exe" if os.name=="nt" else "bin/python"))')
+          echo "SECURITY_TOOL_PYTHON=$tool_python" >> "$GITHUB_ENV"
+          "$tool_python" -m pip install --only-binary=:all: -r requirements/security.txt
       - name: Frontend tests and launcher syntax
         run: |
           node --test tests/frontend/*.test.mjs
@@ -120,32 +122,39 @@ jobs:
             retry python -m playwright install-deps chromium 2>&1 | tee reports/browser-dependencies.log
           fi
           retry python -m playwright install chromium 2>&1 | tee reports/browser-install.log
-      - name: Browser acceptance tests (isolated corpus, no inference)
+      - name: Real HTTP, browser, encryption and vector security checks
         timeout-minutes: 12
-        run: python -m tests.browser.qa_redesign 2>&1 | tee reports/browser-tests.log
+        env:
+          # Only this explicit preparation may download the pinned real E5 weights.
+          # The child application runs offline. No mocked embedding or LLM exists.
+          HF_HUB_OFFLINE: '0'
+          TRANSFORMERS_OFFLINE: '0'
+        run: python -m tests.security --download-embeddings 2>&1 | tee reports/security-web.log
+      - name: Actual installed dependencies, source and vendored JavaScript audit
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: python -m tools.security_audit --tool-python "$SECURITY_TOOL_PYTHON" 2>&1 | tee reports/security-audit.log
       - name: Summarize results
         if: always()
         run: |
-          unit=$(grep -E '^Ran [0-9]+ tests' reports/unit-tests.log 2>/dev/null | tail -n 1 || true)
-          verdict=$(tail -n 1 reports/unit-tests.log 2>/dev/null || true)
-          checks=$(grep -c '^OK: ' reports/browser-tests.log 2>/dev/null || true)
-          {
-            echo "### ${{ matrix.os }}"
-            echo "- Python tests: ${unit:-did not run} ${verdict}"
-            echo "- Browser acceptance (${RAG_BROWSER_CHANNEL:-no browser selected}): ${checks:-0} checks passed"
-          } >> "$GITHUB_STEP_SUMMARY"
+          python -m tools.security_summary >> "$GITHUB_STEP_SUMMARY"
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports-${{ matrix.os }}
-          path: reports/
+          path: |
+            reports/*.log
+            reports/security/**/security-report.*
+            reports/security/**/server.log
+            reports/security-audit/*.json
+            reports/security-audit/*.log
           if-no-files-found: ignore
           retention-days: 7
 
   dependency-graph:
     name: Publish declared dependency profiles
-    needs: offline-tests
+    needs: real-security
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

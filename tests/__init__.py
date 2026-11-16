@@ -1,4 +1,4 @@
-"""Offline unit, browser and frontend test suites."""
+"""Local regressions and separately invoked real application security checks."""
 import sys
 from pathlib import Path
 

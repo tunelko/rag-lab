@@ -43,7 +43,7 @@ def snapshot(root, sha, job_id):
     for path in sorted((root/'requirements').glob('*.txt')):
         relative=path.relative_to(root).as_posix()
         resolved={name:{'package_url':f'pkg:pypi/{name}@{quote(version,safe=".")}',
-                        'relationship':'direct','scope':'development' if path.name=='dev.txt' else 'runtime'}
+                        'relationship':'direct','scope':'development' if path.name in {'dev.txt', 'security.txt'} else 'runtime'}
                   for name,version in pins(path,root).items()}
         manifests[relative]={'name':relative,'file':{'source_location':relative},'resolved':resolved}
     if not manifests:raise ValueError('No requirements profiles found.')
