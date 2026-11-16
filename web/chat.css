@@ -6,8 +6,8 @@
 
 /* ---------- 1. Tokens ---------- */
 .conversation-card {
-  --chat-col:          100%;       /* the conversation uses the whole card, from the header title to its buttons */
-  --chat-edge:         20px;       /* side margin shared by the header, the conversation and the composer */
+  --chat-col:          100%;       /* the conversation runs between the two side margins */
+  --chat-edge:         5%;         /* side margin of the card, shared by the header, the conversation and the composer */
   --surface-sunken:    #0f1012;    /* conversation background */
   --surface-muted:     var(--surface);
   --border-soft:       #1f2125;

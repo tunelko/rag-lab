@@ -732,7 +732,10 @@ def run_browser(url):
         # Send sits on the tools' row, at its right end.
         tools=page.locator('.composer2__tools').bounding_box();send=page.locator('#ask-button').bounding_box();attach=page.locator('#attach-image').bounding_box()
         assert abs((send['y']+send['height']/2)-(attach['y']+attach['height']/2))<2 and tools['x']+tools['width']-send['x']-send['width']<=12, (tools,send,attach)
-        # The conversation uses the whole card: from the header title on the left to its buttons on the right.
+        # The conversation runs between 5 % side margins, shared with the header title and buttons.
+        card=page.locator('.conversation-card').bounding_box()
+        margin=page.locator('.chat-turn .a__avatar').last.bounding_box()['x']-card['x']
+        assert abs(margin-card['width']*.05)<=2, f"Side margin is {margin}px in a {card['width']}px card"
         edges=[page.locator(selector).last.bounding_box()['x'] for selector in ('.chat-heading .page-title','.chat-turn .a__avatar','#composer-box')]
         assert max(edges)-min(edges)<=1, f'Header title, Musa and composer do not share a left edge: {edges}'
         right=lambda selector:(lambda box:box['x']+box['width'])(page.locator(selector).last.bounding_box())
