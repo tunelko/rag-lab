@@ -140,7 +140,11 @@ def fixture_server(port):
                 hits = [(rag.Document(
                     page_content='La copia de seguridad se realiza cada viernes.',
                     metadata={'file': fixture_file, 'source': str(path), 'page': 1, 'item_type': 'text'}), 0.0)]
-                return hits, {"strategy": "qa-fixture", "candidates": 1, "reranked": False}
+                if files is None or 'sin-indexar.txt' in files:
+                    extra=rag.open_store(config,embeddings).get(where={'file':'sin-indexar.txt'})
+                    hits.extend((rag.Document(page_content=text,metadata=metadata),0.1)
+                                for text,metadata in zip(extra['documents'],extra['metadatas']))
+                return hits[:k], {"strategy": "qa-fixture", "candidates": len(hits), "reranked": False}
             rows = rag.open_store(config, embeddings).get(where={"file": fixture_file})
             assert rows['ids'], f'Missing indexed routing fixture: {fixture_file}'
             hits = [(rag.Document(page_content=text, metadata=metadata), 0.0)
