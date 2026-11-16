@@ -6,7 +6,8 @@
 
 /* ---------- 1. Tokens ---------- */
 .conversation-card {
-  --chat-col:          860px;      /* reading width of the conversation */
+  --chat-col:          1120px;     /* reading width of the conversation; it starts under the header title */
+  --chat-edge:         20px;       /* left edge shared by the header, the conversation and the composer */
   --surface-sunken:    #0f1012;    /* conversation background */
   --surface-muted:     var(--surface);
   --border-soft:       #1f2125;
@@ -78,7 +79,7 @@
 /* ---------- 2. Card, header and conversation ---------- */
 .conversation-card { display: flex; flex-direction: column; min-width: 0; height: max(620px, calc(100dvh - 178px)); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; color: var(--text); }
 .conversation-card:has(.chat-empty:not([hidden])) { height: auto; min-height: max(620px, calc(100dvh - 178px)); }
-.conversation-card > .chat-toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; padding: 8px 20px; background: var(--surface); border-bottom: 1px solid var(--border); border-radius: 0; }
+.conversation-card > .chat-toolbar { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 56px; padding: 8px var(--chat-edge); background: var(--surface); border-bottom: 1px solid var(--border); border-radius: 0; }
 .chat-heading { flex: 1 1 auto; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
 .chat-heading .page-title { margin: 0; font: 700 15px/20px var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
 .chat-summary { font-size: 12px; line-height: 18px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
@@ -89,8 +90,8 @@
 .chat-actions .icon { width: 16px; height: 16px; }
 
 .chat-thread { position: relative; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 32px;
-  padding: 36px max(24px, calc((100% - var(--chat-col)) / 2)) 28px; background: var(--surface-sunken); font-size: 14px; line-height: 24px; }
-.chat-turn { display: flex; flex-direction: column; gap: 32px; padding: 0; }
+  padding: 36px var(--chat-edge) 28px; background: var(--surface-sunken); font-size: 14px; line-height: 24px; }
+.chat-turn { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: var(--chat-col); padding: 0; }
 .chat-empty { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 300px; padding: 32px 20px; text-align: center; background: var(--surface-sunken); }
 .chat-empty h2 { margin: 0; font: 500 18px/26px var(--font-mono); color: var(--ink); }
 .chat-empty > .meta { max-width: 500px; overflow-wrap: anywhere; }
@@ -209,8 +210,8 @@ button.src-num { cursor: pointer; }
 .steps2 .icon { width: 13px; height: 13px; stroke-width: 2.4; }
 
 /* ---------- 5. Composer ---------- */
-.conversation-card > .composer { position: relative; flex: none; margin: 0; padding: 16px 24px 18px; background: var(--surface); border: 0; border-top: 1px solid var(--border); border-radius: 0; }
-.composer2-wrap { max-width: var(--chat-col); margin: 0 auto; }
+.conversation-card > .composer { position: relative; flex: none; margin: 0; padding: 16px var(--chat-edge) 18px; background: var(--surface); border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.composer2-wrap { max-width: var(--chat-col); margin: 0; }
 .composer2 { background: var(--composer-bg); border: 1px solid var(--border-control); border-radius: 14px; box-shadow: var(--shadow-composer); transition: border-color .12s, box-shadow .12s; }
 .composer2:focus-within { border-color: var(--accent-text); box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-composer); }
 .composer2.is-drop { border-style: dashed; border-color: var(--accent-text); background: var(--accent-soft); }
@@ -236,15 +237,15 @@ button.src-num { cursor: pointer; }
 .send--go .send__stop, .send--stop .send__go { display: none; }
 .send__stop { fill: currentColor; stroke: none; }
 .send:disabled { background: var(--disabled-bg); color: var(--text-disabled); cursor: not-allowed; opacity: 1; }
-.chat-jump { position: absolute; left: 50%; top: -46px; z-index: 5; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; background: var(--surface); color: var(--text);
+.chat-jump { position: absolute; left: min(50%, calc(var(--chat-edge) + var(--chat-col) / 2)); top: -46px; z-index: 5; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; background: var(--surface); color: var(--text);
   border: 1px solid var(--border-control); border-radius: 999px; box-shadow: var(--shadow-composer); font: inherit; font-size: 12px; white-space: nowrap; cursor: pointer; }
 .chat-jump:hover { background: var(--surface-raised); color: var(--ink); }
 .chat-jump .icon { width: 14px; height: 14px; }
 
 /* ---------- 6. Narrow screens ---------- */
 @media (max-width: 720px) {
-  .conversation-card > .chat-toolbar { padding: 8px 12px; }
-  .chat-thread { gap: 24px; padding: 20px 16px; }
+  .conversation-card { --chat-edge: 12px; }
+  .chat-thread { gap: 24px; padding: 20px var(--chat-edge); }
   .chat-turn { gap: 24px; }
   .q__bubble { max-width: 88%; }
   .a { gap: 10px; }
@@ -252,7 +253,7 @@ button.src-num { cursor: pointer; }
   .src-row__rel { grid-column: 2; }
   .sources__label { display: none; }
   .a__trace { flex-basis: 100%; margin-left: 0; }
-  .conversation-card > .composer { padding: 12px; }
+  .conversation-card > .composer { padding: 12px var(--chat-edge); }
   .tool--scope .tool__label { display: none; }
   .tool__select { max-width: 150px; }
   .cite-pop { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 70dvh; overflow-y: auto; }
