@@ -7,9 +7,11 @@
 .context-open{overflow:hidden}
 .context-drawer::backdrop{background:rgb(0 0 0 / .62);backdrop-filter:blur(2px)}
 :root[data-theme="light"] .context-drawer::backdrop{background:rgb(18 24 20 / .4)}
-.context-drawer .source.is-selected{padding:14px 12px;border:1px solid var(--accent-text);border-radius:6px;box-shadow:0 0 0 1px var(--accent-text);background:var(--surface-raised);scroll-margin-block:80px}
+.context-drawer{--source-light:255 248 224;--source-shade:rgb(0 0 0 / .66)}
+:root[data-theme="light"] .context-drawer{--source-light:255 255 244;--source-shade:rgb(18 24 20 / .52)}
+.context-drawer .source.is-selected{position:relative;z-index:1;padding:14px 12px;border:0;border-radius:12px;outline:none;background:radial-gradient(ellipse at 50% 25%,rgb(var(--source-light) / .09),transparent 85%),var(--surface);box-shadow:0 0 36px 10px rgb(var(--source-light) / .2),0 0 80px 30px rgb(var(--source-light) / .1),0 0 0 100vmax var(--source-shade);scroll-margin-block:80px}
 .context-drawer .source-expand{margin-right:12px}
-.context-drawer .card__head{position:sticky;top:0;z-index:2;background:var(--surface)}
+#context-details>.card__head{position:sticky;top:0;z-index:2;background:var(--surface)}
 .scope-warning{flex-wrap:wrap}.scope-warning p{flex:1 1 240px;margin:0}.scope-warning .btn{flex:none}
 .console-toolbar .tabs{max-width:100%;flex:0 1 auto}.console-card{overflow:hidden}.log{min-width:0;max-width:100%}
 .conversation-card:has(.chat-empty:not([hidden])){height:auto;min-height:max(620px,calc(100dvh - 178px))}.chat-empty{flex:1 0 auto}
