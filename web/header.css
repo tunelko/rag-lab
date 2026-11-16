@@ -105,6 +105,29 @@
   display: flex; align-items: stretch; height: var(--pipeline-h);
   border-top: 1px solid var(--border); background: var(--bg-app); overflow-x: auto; scrollbar-width: none;
 }
+:root[data-theme="light"] .pipeline2 {
+  --bg-app: #000000;
+  --surface: #000000;
+  --surface-raised: #292929;
+  --border: #292929;
+  --border-control: #929292;
+  --ink: #ffffff;
+  --text: #ffffff;
+  --text-muted: #ffffff;
+  --accent: #ffffff;
+  --accent-hover: #ffffff;
+  --accent-text: #ffffff;
+  --accent-rgb: 255 255 255;
+  --focus: #ffffff;
+  --step-rel: #8f8f8f;
+  --step-run-bg: #161616;
+  --success: #86efac;
+  --success-border: #4ade80;
+  --danger: #ffffff;
+  --danger-border: #f87171;
+  color: var(--text);
+}
+:root[data-theme="light"] .pipeline2 .pstep > a:hover { background: #1a1a1a; }
 .pipeline2::-webkit-scrollbar { display: none; }
 .pipeline2.has-ingestion { overflow: hidden; }
 .pipeline2.has-ingestion > :not(.ingestion-menu) { display: none; }
