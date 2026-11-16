@@ -58,6 +58,8 @@ bash install/linux/configurar.sh
 3. In **Library**, click **Upload and index** and wait for **Indexed**. Follow progress in the menu strip; click it to open **System status** with page and image-description counts.
 4. In **Chat**, ask your question. **Retrieved context** shows the source of the answer. Open a source in the document viewer to read it in a modal or expand it to the full app window; PDFs open on the cited page.
 
+Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate adapter; the general document RAG and active library remain unchanged.
+
 ## Start and stop
 
 Run these from the project folder. The server keeps running after you close the terminal.

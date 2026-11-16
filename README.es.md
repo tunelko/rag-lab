@@ -58,6 +58,8 @@ bash install/linux/configurar.sh
 3. En **Biblioteca**, pulsa **Subir e indexar** y espera a **Indexado**. Sigue el progreso en la franja del menú; púlsala para abrir **Estado del sistema** con los contadores de páginas y descripciones de imágenes.
 4. En **Chat**, haz tu pregunta. **Contexto recuperado** muestra la fuente de la respuesta. Abre una fuente en el visor de documentos para leerla en una ventana modal o ampliarla a toda la aplicación; los PDF se abren en la página citada.
 
+Opcional: [preparar un corpus de recetas](tools/recipes/README.md) con un adaptador separado; el RAG general y la biblioteca activa se mantienen.
+
 ## Arrancar y parar
 
 Ejecuta estas órdenes desde la carpeta del proyecto. El servidor sigue en marcha al cerrar la terminal.
