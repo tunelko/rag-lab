@@ -142,6 +142,30 @@ class ParsingTests(unittest.TestCase):
             with self.assertRaises(VisualError):
                 describe_image(png(), "fake", "http://localhost")
 
+    def test_repeat_guard_has_one_targeted_retry_and_discards_partial_output(self):
+        failed=b'{"message":{"content":"partial ...."}}\n{"error":"prediction aborted, token repeat limit reached"}\n'
+        complete=b'{"message":{"content":"Title | 193"},"done":false}\n{"done":true}\n'
+        with patch('multimodal.open_ollama', side_effect=[io.BytesIO(failed),io.BytesIO(complete)]) as request:
+            self.assertEqual(describe_image(png(),'fake','http://localhost'),'Title | 193')
+        bodies=[json.loads(call.args[0].data) for call in request.call_args_list]
+        self.assertEqual(len(bodies),2)
+        self.assertNotIn('puntos de relleno',bodies[0]['messages'][0]['content'])
+        self.assertIn('puntos de relleno',bodies[1]['messages'][0]['content'])
+        self.assertEqual(bodies[0]['options'],bodies[1]['options'])
+        self.assertEqual(bodies[0]['model'],bodies[1]['model'])
+        self.assertEqual(bodies[0]['messages'][0]['images'],bodies[1]['messages'][0]['images'])
+
+    def test_repeat_guard_does_not_loop_or_retry_other_visual_errors(self):
+        repeated=b'{"error":"prediction aborted, token repeat limit reached"}\n'
+        with patch('multimodal.open_ollama', side_effect=[io.BytesIO(repeated),io.BytesIO(repeated)]) as request:
+            with self.assertRaisesRegex(VisualError,'token repeat limit'):
+                describe_image(png(),'fake','http://localhost')
+            self.assertEqual(request.call_count,2)
+        with patch('multimodal.open_ollama', return_value=io.BytesIO(b'{"error":"model unavailable"}\n')) as request:
+            with self.assertRaisesRegex(VisualError,'model unavailable'):
+                describe_image(png(),'fake','http://localhost')
+            self.assertEqual(request.call_count,1)
+
 
 class IntegrationTests(unittest.TestCase):
     setUp = test_web.WebTests.setUp
