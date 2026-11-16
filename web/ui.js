@@ -72,7 +72,8 @@ export function renderSources(sources, question, container = $('sources'), prefi
     if((source.text||'').length>160){const expand=button(t('sentinel.expand_source'),'source-expand',()=>{const open=card.classList.toggle('is-expanded');expand.textContent=t(open?'sentinel.collapse_source':'sentinel.expand_source');expand.setAttribute('aria-expanded',String(open));});expand.setAttribute('aria-expanded','false');card.append(expand);}
     for (const figure of source.figures || []) {
       if (!/^\/api\/figures\/[a-f0-9]{64}$/.test(figure.url)) continue;
-      const link = node('a', 'figure-link'); link.href = figure.url; link.target = '_blank'; link.rel = 'noopener';
+      const link = node('a', 'figure-link'); link.href = figure.url;
+      previewLink(link, {url:figure.url, file:source.file, page:figure.page});
       const figureLocation = `${pdf ? t("ui.pdf_p_354326") : t("ui.p_96d288")} ${figure.page}`;
       const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = t("ui.document_view_of_cb6081", {value1: (source.file), value2: (figureLocation)});
       link.append(image, node('span', 'help-text', t("ui.view_image_82ab3f", {value1: (figureLocation)}))); card.append(link);
@@ -81,10 +82,18 @@ export function renderSources(sources, question, container = $('sources'), prefi
       const link = node('a', 'source-link', pdf && hasPage ? t("ui.open_pdf_page_95085f", {value1: (page)}) : t("ui.open_in_document_73e4f6"));
       // Also repair page links in conversations saved by earlier UI versions.
       link.href = pdf && hasPage ? `${source.url.split('#')[0]}#page=${page}` : source.url;
-      link.target = '_blank'; link.rel = 'noopener'; link.append(icon('external')); card.append(link);
+      previewLink(link, {url:link.getAttribute('href'), file:source.file, page:hasPage?page:1});
+      link.append(icon('maximize')); card.append(link);
     }
     container.append(card);
   }
+}
+
+function previewLink(link, details) {
+  link.addEventListener('click', event => {
+    event.preventDefault();
+    window.dispatchEvent(new CustomEvent('rag:document', {detail:{...details, trigger:link}}));
+  });
 }
 
 let returnFocus;

@@ -295,7 +295,7 @@ def run_browser(url):
         assert page_locations[2]['location'] == 'pág. PDF 12'
         assert page_locations[2]['href'].endswith('#page=12')
         assert page_locations[3]['href'] == '/api/source?file=notes.txt'
-        assert all(item['target'] == '_blank' for item in page_locations)
+        assert all(item['target'] == '' for item in page_locations)
         check('PDF physical page navigation and independent document numbering')
         expect(page.locator("#system-ollama")).to_have_text("Conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
@@ -879,6 +879,20 @@ def run_browser(url):
         expect(source_details.locator(".source-figure").first).to_be_visible()
         page.wait_for_function('image=>image.complete&&image.naturalWidth>0',arg=source_details.locator('.source-figure').first.element_handle())
         page.screenshot(path=str(reports / "redesign-fuentes-multimodales.png"), full_page=True)
+        figure_link=source_details.locator('.figure-link').first
+        before_pages=len(context.pages)
+        figure_link.click()
+        expect(page.locator('#document-viewer')).to_be_visible()
+        expect(page.locator('#document-viewer')).to_have_attribute('aria-busy','false')
+        expect(page.locator('#document-content img')).to_be_visible()
+        expect(page.locator('#document-pagination')).not_to_be_visible()
+        page.locator('#document-maximize').click()
+        expect(page.locator('#document-maximize')).to_have_attribute('aria-pressed','true')
+        assert abs(page.locator('#document-viewer').bounding_box()['width']-1440)<2
+        page.keyboard.press('Escape')
+        expect(page.locator('#document-viewer')).not_to_be_visible()
+        expect(figure_link).to_be_focused()
+        assert len(context.pages)==before_pages,'Figure preview opened another tab'
         page.locator("#close-context").click()
         page.locator("#nav-statistics").click()
         expect(page.locator("#query-statistics")).to_contain_text("VISUAL")
@@ -1049,6 +1063,74 @@ def run_browser(url):
                 data={'names':[item['name'] for item in scope_documents if item['topic_id']==original_topic],'topic_id':original_topic})
             assert restored.ok,restored.text()
         check('Empty saved source: accurate counts/warning after reload, ES/EN and mobile, explicit whole-library action preserves draft without auto-query')
+
+        # Preview actual PDFs/text in the production container without invoking a model.
+        import pymupdf
+        with pymupdf.open() as preview_pdf:
+            for index in range(3):
+                preview_pdf.new_page().insert_text((60,80),f'Viewer QA - physical page {index+1}',fontsize=20)
+            preview_pdf.set_page_labels([{'startpage':1,'style':'D','firstpagenum':8}])
+            pdf_content=preview_pdf.tobytes()
+        for name,content,mime in [('viewer-qa.pdf',pdf_content,'application/pdf'),
+                                  ('viewer-qa.md',b'Literal <script>window.__viewerXss=true</script>','text/plain')]:
+            uploaded=page.request.post(url+'/api/admin/upload',headers=scope_headers,
+                multipart={'files':{'name':name,'mimeType':mime,'buffer':content},'auto_index':'false'})
+            assert uploaded.ok,uploaded.text()
+        page.locator('#nav-query').click();page.locator('#open-context').click()
+        page.evaluate('''async () => {
+            const {renderSources}=await import('/assets/ui.js');
+            const host=document.createElement('div');host.id='qa-viewer-links';
+            document.querySelector('#context-panel').append(host);
+            renderSources([
+                {citation:1,file:'viewer-qa.pdf',page:2,page_label:'8',url:'/api/source?file=viewer-qa.pdf#page=2'},
+                {citation:2,file:'viewer-qa.md',url:'/api/source?file=viewer-qa.md'},
+                {citation:3,file:'qa-figure.png',url:'/api/source?file=qa-figure.png'},
+                {citation:4,file:'missing-viewer.pdf',url:'/api/source?file=missing-viewer.pdf'},
+            ],'',host,'viewer-qa');
+        }''')
+        pdf_link=page.locator('#qa-viewer-links .source-link').nth(0)
+        before_pages=len(context.pages)
+        pdf_link.click()
+        expect(page.locator('#document-viewer')).to_have_attribute('aria-busy','false')
+        expect(page.locator('#document-title')).to_have_text('viewer-qa.pdf')
+        expect(page.locator('#document-page')).to_have_value('2')
+        expect(page.locator('#document-location')).to_contain_text('numeración del documento: 8')
+        assert 'page=2' in page.locator('#document-content img').get_attribute('src')
+        page.screenshot(path=str(reports/'redesign-document-modal.png'))
+        page.locator('#document-next').click();expect(page.locator('#document-page')).to_have_value('3')
+        expect(page.locator('#document-next')).to_be_disabled()
+        page.locator('#document-previous').click();expect(page.locator('#document-page')).to_have_value('2')
+        page.locator('#document-page').fill('1');page.locator('#document-go').click()
+        expect(page.locator('#document-page')).to_have_value('1');expect(page.locator('#document-previous')).to_be_disabled()
+        page.locator('#document-maximize').click()
+        expect(page.locator('#document-maximize')).to_have_attribute('aria-label','Volver a ventana')
+        assert abs(page.locator('#document-viewer').bounding_box()['height']-1100)<2
+        page.screenshot(path=str(reports/'redesign-document-fullscreen.png'))
+        page.locator('#document-maximize').click()
+        expect(page.locator('#document-maximize')).to_have_attribute('aria-pressed','false')
+        page.locator('#document-close').click();expect(pdf_link).to_be_focused()
+        expect(page.locator('#context-panel')).to_be_visible()
+        text_link=page.locator('#qa-viewer-links .source-link').nth(1)
+        text_link.click();expect(page.locator('#document-viewer')).to_have_attribute('aria-busy','false')
+        expect(page.locator('#document-content pre')).to_contain_text('<script>window.__viewerXss=true</script>')
+        expect(page.locator('#document-content script')).to_have_count(0)
+        assert not page.evaluate('window.__viewerXss')
+        page.keyboard.press('Escape');expect(text_link).to_be_focused()
+        page.locator('#qa-viewer-links .source-link').nth(2).click()
+        expect(page.locator('#document-viewer')).to_have_attribute('aria-busy','false')
+        expect(page.locator('#document-content img')).to_be_visible()
+        page.set_viewport_size({'width':390,'height':844})
+        assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        expect(page.locator('#document-close')).to_be_in_viewport()
+        page.screenshot(path=str(reports/'redesign-document-mobile.png'))
+        page.keyboard.press('Escape');page.set_viewport_size({'width':1440,'height':1100})
+        missing_link=page.locator('#qa-viewer-links .source-link').nth(3)
+        missing_link.click();expect(page.locator('#document-status')).to_contain_text('No se ha podido mostrar')
+        page.keyboard.press('Escape');expect(missing_link).to_be_focused()
+        assert len(context.pages)==before_pages,'Document preview opened another tab'
+        page.evaluate("document.querySelector('#qa-viewer-links').remove()")
+        page.keyboard.press('Escape');page.locator('#nav-admin').click()
+        check('Document container: real PDF cited physical page/labels, page navigation, maximize/restore, inert text, images/mobile, unavailable source, no new tab and nested modal focus restoration')
 
         # Shared server jobs must not become another tab's conversation. A known
         # job may have finished while this tab was closed and must still be read.

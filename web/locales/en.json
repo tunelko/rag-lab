@@ -906,5 +906,18 @@
   "library.empty_scope": "The source “{name}” has no indexed documents. Content is available in other sources.",
   "library.use_all": "Use the whole library",
   "answer.empty_scope": "The source “{name}” has no indexed documents. Select another source or the whole library to search.",
-  "answer.no_matches": "No relevant passages were found for this question in the selected sources."
+  "answer.no_matches": "No relevant passages were found for this question in the selected sources.",
+  "viewer.title": "Document",
+  "viewer.close": "Close document",
+  "viewer.maximize": "Expand to full screen",
+  "viewer.restore": "Return to window",
+  "viewer.loading": "Loading document…",
+  "viewer.error": "The document could not be displayed. It may no longer be available or the page may not exist.",
+  "viewer.previous": "Previous",
+  "viewer.next": "Next",
+  "viewer.page": "Page",
+  "viewer.location": "PDF page {page} of {pages}",
+  "viewer.go": "Go",
+  "viewer.page_image": "{file}, PDF page {page}",
+  "viewer.truncated": "This preview shows the first 512 KiB of the file."
 }

@@ -144,6 +144,9 @@
      <path d="M12 5v14M5 12h14">
      </path>
     </symbol>
+    <symbol id="i-restore" viewbox="0 0 24 24">
+     <path d="M8 3h13v13h-4M3 8h13v13H3z"></path>
+    </symbol>
     <symbol id="i-minus" viewbox="0 0 24 24">
      <path d="M5 12h14">
      </path>
@@ -2629,6 +2632,30 @@
      </button>
     </div>
    </form>
+  </dialog>
+  <dialog aria-labelledby="document-title" class="document-viewer" id="document-viewer">
+   <header class="document-viewer__header">
+    <div class="document-viewer__heading">
+     <h2 id="document-title" data-i18n="viewer.title">Documento</h2>
+     <p id="document-location"></p>
+    </div>
+    <button class="btn btn--secondary btn--icon" id="document-maximize" type="button" aria-pressed="false" data-i18n-aria-label="viewer.maximize" aria-label="Ampliar a pantalla completa">
+     <svg aria-hidden="true" class="icon"><use href="#i-maximize"></use></svg>
+    </button>
+    <button class="btn btn--secondary btn--icon" id="document-close" type="button" data-i18n-aria-label="viewer.close" aria-label="Cerrar documento">
+     <svg aria-hidden="true" class="icon"><use href="#i-x"></use></svg>
+    </button>
+   </header>
+   <form class="document-pagination" hidden id="document-pagination">
+    <button class="btn btn--secondary" id="document-previous" type="button" data-i18n="viewer.previous">Anterior</button>
+    <label for="document-page" data-i18n="viewer.page">Página</label>
+    <input class="input" id="document-page" type="number" min="1" step="1" required/>
+    <span id="document-pages"></span>
+    <button class="btn btn--secondary" id="document-go" type="submit" data-i18n="viewer.go">Ir</button>
+    <button class="btn btn--secondary" id="document-next" type="button" data-i18n="viewer.next">Siguiente</button>
+   </form>
+   <p class="document-status" id="document-status" role="status" data-i18n="viewer.loading">Cargando documento…</p>
+   <div class="document-viewer__content" id="document-content"></div>
   </dialog>
   <dialog aria-labelledby="resource-dialog-title" class="resource-dialog" id="resource-dialog">
    <header class="resource-dialog-heading">

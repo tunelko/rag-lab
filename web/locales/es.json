@@ -906,5 +906,18 @@
   "library.empty_scope": "La fuente «{name}» no contiene documentos indexados. Hay contenido disponible en otras fuentes.",
   "library.use_all": "Usar toda la biblioteca",
   "answer.empty_scope": "La fuente «{name}» no contiene documentos indexados. Selecciona otra fuente o Toda la biblioteca para buscar.",
-  "answer.no_matches": "No se han encontrado fragmentos relevantes para esta pregunta en las fuentes seleccionadas."
+  "answer.no_matches": "No se han encontrado fragmentos relevantes para esta pregunta en las fuentes seleccionadas.",
+  "viewer.title": "Documento",
+  "viewer.close": "Cerrar documento",
+  "viewer.maximize": "Ampliar a pantalla completa",
+  "viewer.restore": "Volver a ventana",
+  "viewer.loading": "Cargando documento…",
+  "viewer.error": "No se ha podido mostrar el documento. Puede que ya no esté disponible o que la página no exista.",
+  "viewer.previous": "Anterior",
+  "viewer.next": "Siguiente",
+  "viewer.page": "Página",
+  "viewer.location": "Página PDF {page} de {pages}",
+  "viewer.go": "Ir",
+  "viewer.page_image": "{file}, página PDF {page}",
+  "viewer.truncated": "Esta vista muestra los primeros 512 KiB del archivo."
 }

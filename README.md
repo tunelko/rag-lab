@@ -56,7 +56,7 @@ bash install/linux/configurar.sh
 1. Open **http://127.0.0.1:8765**.
 2. In **Settings**, click **Prepare retrieval model**. This is needed once.
 3. In **Library**, click **Upload and index** and wait for **Indexed**. Follow progress in the menu strip; click it to open **System status** with page and image-description counts.
-4. In **Chat**, ask your question. **Retrieved context** shows the source of the answer.
+4. In **Chat**, ask your question. **Retrieved context** shows the source of the answer. Open a source in the document viewer to read it in a modal or expand it to the full app window; PDFs open on the cited page.
 
 ## Start and stop
 

@@ -21,7 +21,7 @@ from urllib.parse import quote, urlsplit
 import urllib.request
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, Query as QueryParameter
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -52,6 +52,7 @@ import provider_vision
 import provider_pricing
 from laboratory_store import LaboratoryStore
 import retrieval_evaluation as lab_eval
+import document_preview
 
 ALLOWED = {".pdf", ".txt", ".md", ".markdown", ".zip", *multimodal.IMAGES}
 MAX_FILE = 20 * 1024**2
@@ -1159,6 +1160,28 @@ def create_app(service=None):
                 document_name=name, document_id=result["document_id"], batch_id=batch_id[:100],
                 bytes=len(payloads[0][1]) if len(payloads) == 1 else sum(len(item[1]) for item in payloads)))
         return result
+
+    def preview_path(file):
+        try:
+            return document_preview.resolve_document(service.documents, file)
+        except (OSError, ValueError):
+            raise HTTPException(404, "Documento no disponible.") from None
+
+    @app.get('/api/source/preview')
+    def source_preview(file: str, page: int = QueryParameter(default=1, ge=1)):
+        path = preview_path(file)
+        try:
+            return document_preview.describe(path, file, page)
+        except (OSError, RuntimeError, ValueError):
+            raise HTTPException(422, 'No se puede previsualizar este documento o la página solicitada.') from None
+
+    @app.get('/api/source/page')
+    def source_page(file: str, page: int = QueryParameter(default=1, ge=1)):
+        path = preview_path(file)
+        try:
+            return Response(document_preview.render_page(path, page), media_type='image/png')
+        except (OSError, RuntimeError, ValueError):
+            raise HTTPException(422, 'No se puede previsualizar este documento o la página solicitada.') from None
 
     @app.get("/api/source")
     def source(file: str):

@@ -8,6 +8,7 @@ import {ServerConsole} from './console.js';
 import {Telemetry} from './telemetry.js';
 import {LibraryTopics} from './topics.js';
 import {Laboratory} from './laboratory.js';
+import {DocumentViewer} from './document-viewer.js';
 
 await initI18n();
 
@@ -237,6 +238,7 @@ async function init(){
     telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');
     topics=new LibraryTopics(api,refreshStatus,()=>{state.page=1;renderDocuments();});
     queue=new UploadQueue({api,token:()=>state.token,completed:(result)=>completed(result),changed:()=>renderProcess()});
+    new DocumentViewer(api);
     chat=new Chat(api,()=>{if(state.view==='statistics')refreshStatistics();},()=>settingsController.flush());
     laboratory=new Laboratory(api,()=>settingsController.flush(),refreshStatus);laboratory.setActive(state.view==='laboratory');
     await loadSettings();
