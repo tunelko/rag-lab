@@ -44,7 +44,6 @@ export class Chat{
     $('attach-image').addEventListener('click',()=>$('query-image-input').click());
     $('query-image-input').addEventListener('change',()=>this.addImages([...$('query-image-input').files]));
     $('chat-top-k').addEventListener('change',event=>this.patchSettings({k:Number(event.target.value)}));
-    $('chat-search-only').addEventListener('change',event=>this.patchSettings({search_only:event.target.checked}));
     // Dropping an image on the composer attaches it to the question.
     let depth=0;const carriesFiles=event=>[...(event.dataTransfer?.types||[])].includes('Files');
     box.addEventListener('dragenter',event=>{if(!carriesFiles(event))return;event.preventDefault();depth++;box.classList.add('is-drop');});
@@ -59,7 +58,7 @@ export class Chat{
     document.addEventListener('pointerdown',event=>{if(this.cited&&!this.pop.contains(event.target)&&!event.target.closest?.('.citation'))this.closeCitation();});
     window.addEventListener('resize',()=>{if(this.cited)this.place();});
     window.addEventListener('rag:scope',()=>{this.suggestions();this.scopeWarning();this.controls();});
-    window.addEventListener('rag:languagechange',()=>{this.suggestions();this.scopeWarning();this.setSettings(this.settings);});
+    window.addEventListener('rag:languagechange',()=>{this.suggestions();this.scopeWarning();});
     $('scope-use-all').addEventListener('click',()=>{
       const scope=$('chat-scope'),previous=scope.value,last=this.turns.at(-1);
       if(!question.value.trim()&&last?.topic_id===previous&&last.metrics?.scope_documents===0)question.value=last.question;
@@ -77,15 +76,13 @@ export class Chat{
     ask.disabled=this.submitting||this.stopping||(!busy&&(!this.status||empty));ask.setAttribute('aria-busy',String(busy));
     $('ask-reason').textContent=!busy&&empty?s('send_needs_question'):'';
     $('new-chat').disabled=busy;$('question').required=!busy;$('question').placeholder=name?s('ask_scope',{name}):t('ui.ask_your_documents_45c5ff');
-    $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));$('question-help').textContent=t('ui.chat_keyboard_hint');
+    $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));
     $('conversation-count').textContent=count?[plural('question_count',count),first?s('started_at',{time:clock(first)}):''].filter(Boolean).join(' · '):'';
   }
-  // The composer shows the same two preferences as Settings and writes them through the same store.
+  // The composer shows the same top-k as Settings and writes it through the same store.
   setSettings(value){
     this.settings=value;if(!value)return;
     if($('chat-top-k').value!==String(value.k))$('chat-top-k').value=String(value.k);
-    $('chat-search-only').checked=Boolean(value.search_only);
-    $('composer-note').textContent=s(value.response_provider==='ollama'?'note_local':'note_cloud');
   }
   setStatus(status){
     this.status=status;this.controls();this.suggestions();this.context();this.scopeWarning();
@@ -196,8 +193,9 @@ export class Chat{
     for(const group of groups){
       const row=node('li','src-row'),numbers=node('span','src-row__nums'),text=node('span','src-row__text'),file=node('span','src-row__file');row.dataset.file=group.file;
       for(const citation of group.citations){const chip=node('button','src-num',citation);chip.type='button';chip.setAttribute('aria-label',s('show_in_context',{number:citation}));chip.addEventListener('click',()=>this.selectContext(turn,citation,chip));numbers.append(chip);}
-      const best=group.fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top),target=documentTarget(best),title=node(target?'a':'span','src-row__title',group.title);title.title=group.file;
-      if(target){title.href=target.url;title.addEventListener('click',event=>{event.preventDefault();window.dispatchEvent(new CustomEvent('rag:document',{detail:{...target,trigger:title}}));});}
+      // The document opens the Context panel on its best fragment, lit against the darkened rest.
+      const best=group.fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top),title=node('button','src-row__title',group.title);title.type='button';title.title=group.file;
+      title.addEventListener('click',()=>this.selectContext(turn,best.citation,title));
       file.append(node('span','src-row__name',group.file),node('span','',' · '+plural('fragments',group.fragments.length)));text.append(title,file);
       const score=node('span','src-row__rel'),bar=node('span','bar'),fill=node('i');fill.style.width=Math.round(group.relevance*100)+'%';bar.append(fill);
       score.title=t('ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451');score.append(bar,node('span','src-row__score',number(group.relevance,2)));

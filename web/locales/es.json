@@ -21,7 +21,6 @@
   "ui.your_question_5fd707": "Tu pregunta",
   "ui.ask_your_documents_45c5ff": "Pregunta a tus documentos…",
   "ui.ctrl_enter_to_send_395750": "Enter para enviar · Ctrl+Enter para salto de línea",
-  "ui.chat_keyboard_hint": "Enter envía · Mayús+Enter, nueva línea",
   "ui.send_e1d12d": "Enviar",
   "ui.prepare_the_context_5c0be4": "PREPARA EL CONTEXTO",
   "ui.your_library_locally_101a7e": "Tu biblioteca, en local.",
@@ -950,8 +949,6 @@
   "sentinel.route_cloud": "Nube",
   "sentinel.send_needs_question": "Escribe una pregunta para poder enviarla.",
   "sentinel.ask_scope": "Pregunta a «{name}»…",
-  "sentinel.note_local": "Todo se procesa en este equipo con Ollama · cada respuesta cita sus fuentes",
-  "sentinel.note_cloud": "La búsqueda se hace en este equipo · la respuesta la genera el proveedor en la nube elegido en Configuración",
   "sentinel.jump_to_end": "Ir al final",
   "sentinel.search_in": "Buscar en",
   "sentinel.fragments_per_answer": "Fragmentos recuperados por pregunta"

@@ -589,7 +589,6 @@ def run_browser(url):
         page.locator("#question").press("Shift+Enter")
         expect(page.locator('#question')).to_have_value('¿Cuándo se realiza la copia de seguridad?\n\n')
         assert len(queries)==previous_queries, 'Shift+Enter must insert a newline without sending'
-        expect(page.locator('#question-help')).to_have_text('Enter envía · Mayús+Enter, nueva línea')
         page.locator("#question").press("Enter")
         # The first retrieval can initialise the persisted vector snapshot; keep
         # the acceptance test's wait aligned with the page-wide 30 s timeout.
@@ -666,6 +665,16 @@ def run_browser(url):
         page.screenshot(path=str(reports/'redesign-reference-mobile.png'),full_page=True)
         page.locator('#close-context').click();expect(chip).to_be_focused()
         page.set_viewport_size({'width':1440,'height':1100})
+        # A document in Sources opens the side panel on its best fragment, lit against the darkened rest.
+        document_title=last_turn.locator('.src-row__title').first
+        lit=f"turn-{last_turn.get_attribute('data-turn')}-{last_turn.locator('.src-row').first.locator('.src-num').first.inner_text()}"
+        document_title.click()
+        expect(page.locator('#context-panel')).to_be_visible()
+        expect(page.locator('#'+lit)).to_have_class(re.compile(r'\bis-selected\b'))
+        expect(page.locator('#'+lit)).to_be_focused()
+        assert page.locator('#'+lit).evaluate("e=>getComputedStyle(e).boxShadow")!='none', 'The selected source is not lit'
+        expect(page.locator('#document-viewer')).not_to_be_visible()
+        page.keyboard.press('Escape');expect(document_title).to_be_focused()
         check('Citation focus: exact later source, expanded excerpt, dark/light backdrop, keyboard containment, mobile close and focus restoration on Escape/outside click')
         page.evaluate("() => {window.__sourceIdentity=document.querySelector('#sources .source');}")
         for _ in range(3):
@@ -714,15 +723,15 @@ def run_browser(url):
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator('.chat-turn')).to_have_count(turns_before)
         expect(page.locator('#conversation-count')).to_contain_text(f'{turns_before} preguntas · empezada a las ')
-        # The composer writes the same preferences as Settings.
+        # The composer writes the same preference as Settings.
         page.locator('#chat-top-k').select_option('6')
         expect(page.locator('#top-k [data-k="6"]')).to_have_attribute('aria-checked','true')
-        page.locator('#chat-search-only').check()
-        expect(page.locator('#search-only')).to_be_checked()
-        page.locator('#chat-search-only').uncheck();page.locator('#chat-top-k').select_option('4')
+        page.locator('#chat-top-k').select_option('4')
         expect(page.locator('#top-k [data-k="4"]')).to_have_attribute('aria-checked','true')
         expect(page.locator('#settings-sync')).to_be_hidden()  # saved before the reload below
-        expect(page.locator('#composer-note')).to_contain_text('Todo se procesa en este equipo con Ollama')
+        # Send sits on the tools' row, at its right end.
+        tools=page.locator('.composer2__tools').bounding_box();send=page.locator('#ask-button').bounding_box();attach=page.locator('#attach-image').bounding_box()
+        assert abs((send['y']+send['height']/2)-(attach['y']+attach['height']/2))<2 and tools['x']+tools['width']-send['x']-send['width']<=12, (tools,send,attach)
         column=page.locator('.chat-turn').last.bounding_box()['width']
         assert column<=860.5, f'The conversation column is {column}px wide at 1440px'
         page.screenshot(path=str(reports / "redesign-consulta-con-respuesta.png"), full_page=True)

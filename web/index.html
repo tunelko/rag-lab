@@ -645,7 +645,7 @@
             Pregunta
            </span>
           </label>
-          <textarea aria-describedby="question-help" class="composer2__input" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
+          <textarea class="composer2__input" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
           <div class="query-attachments" hidden="" id="query-attachments">
           </div>
           <div class="composer2__tools">
@@ -668,13 +668,6 @@
              <option value="8">8</option>
             </select>
            </label>
-           <label class="tool tool--check" for="chat-search-only">
-            <input id="chat-search-only" type="checkbox"/>
-            <span data-i18n="sentinel.retrieval_only">Solo recuperación</span>
-           </label>
-           <span class="composer2__hint" data-i18n="ui.chat_keyboard_hint" id="question-help">
-            Enter envía · Mayús+Enter, nueva línea
-           </span>
            <button aria-describedby="ask-reason" class="send send--go" id="ask-button" type="submit">
             <svg aria-hidden="true" class="icon send__go"><use href="#i-arrow"></use></svg>
             <svg aria-hidden="true" class="icon send__stop"><use href="#i-stop"></use></svg>
@@ -683,7 +676,6 @@
            <span class="sr-only" id="ask-reason"></span>
           </div>
          </div>
-         <p class="composer2__note" id="composer-note"></p>
         </div>
        </form>
       </section>
