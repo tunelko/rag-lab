@@ -7,7 +7,8 @@
 .context-open{overflow:hidden}
 .context-drawer::backdrop{background:rgb(0 0 0 / .62);backdrop-filter:blur(2px)}
 :root[data-theme="light"] .context-drawer::backdrop{background:rgb(18 24 20 / .4)}
-.context-drawer .source.is-selected{border-color:var(--accent-text);box-shadow:0 0 0 1px var(--accent-text);background:var(--surface-raised);scroll-margin-block:80px}
+.context-drawer .source.is-selected{padding:14px 12px;border:1px solid var(--accent-text);border-radius:6px;box-shadow:0 0 0 1px var(--accent-text);background:var(--surface-raised);scroll-margin-block:80px}
+.context-drawer .source-expand{margin-right:12px}
 .context-drawer .card__head{position:sticky;top:0;z-index:2;background:var(--surface)}
 .scope-warning{flex-wrap:wrap}.scope-warning p{flex:1 1 240px;margin:0}.scope-warning .btn{flex:none}
 .console-toolbar .tabs{max-width:100%;flex:0 1 auto}.console-card{overflow:hidden}.log{min-width:0;max-width:100%}
