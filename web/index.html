@@ -832,6 +832,12 @@
      </div>
     </section>
     <section class="page" hidden="" id="admin-view">
+     <div class="library-organize">
+      <label class="scope-picker" for="collection-select"><span data-i18n="collections.label">Colección</span><select class="select" id="collection-select"></select></label>
+      <label class="scope-picker" for="cti-limit" id="cti-limit-field" hidden><span data-i18n="collections.sample">Documentos para búsqueda semántica</span><input class="input" type="number" id="cti-limit" min="1" max="200000" value="5000" required></label>
+      <button class="btn btn--secondary" id="cti-import" type="button"><span data-i18n="collections.import_cti">Añadir CTI · APTs</span></button>
+     </div>
+     <p class="meta" id="cti-summary" hidden></p>
      <header class="page-head">
       <svg aria-hidden="true" class="icon">
        <use href="#i-library">

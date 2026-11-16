@@ -1,7 +1,8 @@
 import {$, node, button, icon, number, toast} from './ui.js';
 import {t, serverText} from './i18n.js';
+import {sessionKey} from './collection-scope.js';
 
-const key='rag-local-source-topic',text=(name,values={})=>t(`library.${name}`,values);
+const key=sessionKey('rag-local-source-topic'),text=(name,values={})=>t(`library.${name}`,values);
 
 export class LibraryTopics {
   constructor(api,refresh,filterChanged) {

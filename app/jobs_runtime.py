@@ -42,7 +42,8 @@ class JobRuntime:
             self.closed = True
             for event in self.cancels.values():
                 event.set()
-        self.executor.shutdown(wait=True, cancel_futures=True)
+        if getattr(self, 'owns_executor', True):
+            self.executor.shutdown(wait=True, cancel_futures=True)
 
     def snapshot(self, job_id):
         with self.lock:

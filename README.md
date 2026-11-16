@@ -60,6 +60,8 @@ bash install/linux/configurar.sh
 
 Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate adapter; the general document RAG and active library remain unchanged.
 
+**CTI / APT datasets:** in **Library**, click **Add CTI · APTs**, select the new collection and click **Sync CTI · ATT&CK 20.1**. The default semantic sample is 5,000 documents; complete documented relationships are stored separately in SQLite. Switch collections in Library to return to your existing documents. Downloads, originals, Markdown evidence, JSONL exports and licenses are kept in `datasets/cti/`; collection indexes and history are in `data/collections/`. Chat uses the configured model to interpret structured questions and cites the actual evidence; a group's techniques do not establish an incident's sequence.
+
 ## Start and stop
 
 Run these from the project folder. The server keeps running after you close the terminal.

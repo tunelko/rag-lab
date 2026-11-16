@@ -49,7 +49,7 @@ def index_files(config):
 
 
 def empty_library(config, documents, visual_root, backups_root, *, keep_captions=False,
-                  attempts=6, delay=0.25):
+                  attempts=6, delay=0.25, extra_paths=()):
     """Move documents, index, topics and (optionally) the visual cache to a new backup folder.
 
     The caller holds the index writer lock and guarantees that no job is running.
@@ -72,6 +72,9 @@ def empty_library(config, documents, visual_root, backups_root, *, keep_captions
         target = Path(backups_root) / f'{stamp}-{number}'
     (target / 'index').mkdir(parents=True)
     plan = [(path, target / 'index' / path.name) for path in index_files(config)]
+    if extra_paths:
+        (target / 'dataset').mkdir()
+        plan.extend((Path(path), target / 'dataset' / Path(path).name) for path in extra_paths)
     if not keep_captions:
         plan.append((visual_root, target / 'visual'))
     plan.append((documents, target / 'documents'))
@@ -100,5 +103,11 @@ def empty_library(config, documents, visual_root, backups_root, *, keep_captions
         shutil.copyfile(keep, documents / '.gitkeep')
     if not keep_captions:
         visual_root.mkdir(parents=True, exist_ok=True)
-    (target / 'LEEME-README.txt').write_text(RESTORE_NOTE, encoding='utf-8')
+    note = RESTORE_NOTE.replace('data/documents/', str(documents) + os.sep).replace(
+        'data/chroma/', str(config.db) + os.sep).replace('data/visual/', str(visual_root) + os.sep)
+    if extra_paths:
+        note += '\nDataset / datos estructurados:\n' + ''.join(
+            f'{destination.relative_to(target)} -> {source}\n' for source, destination in moved
+            if destination.parent == target / 'dataset')
+    (target / 'LEEME-README.txt').write_text(note, encoding='utf-8')
     return {'path': target, 'moved': [destination.relative_to(target).as_posix() for _, destination in moved]}

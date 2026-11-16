@@ -13,6 +13,7 @@ __pycache__/
 /data/documents/*
 !/data/documents/.gitkeep
 /reports/
+/datasets/
 /install-*.json
 /web/runtime-console.json
 *.log

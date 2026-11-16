@@ -1,6 +1,7 @@
 import {$, node, number, size, toast} from './ui.js';
 import {t, serverText, intlLocale} from './i18n.js';
 import {activeExperiment, evidenceOutcome, evidenceCoverage} from './laboratory-state.js';
+import {collectionUrl} from './collection-scope.js';
 
 const label = (key, values = {}) => t(`lab.${key}`, values);
 const post = body => ({method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
@@ -243,7 +244,7 @@ export class Laboratory {
     for (const hit of row.context || []) {
       const heading = node('p', 'lab-context-source');
       const text = (hit.file || '') + (hit.page ? ' · ' + label('page', {page: hit.page}) : '');
-      if (current && hit.file) {const link = node('a', '', text); link.href = '/api/source?file=' + encodeURIComponent(hit.file) + (hit.page ? '#page=' + hit.page : ''); link.target = '_blank'; link.rel = 'noopener'; heading.append(link);}
+      if (current && hit.file) {const link = node('a', '', text); link.href = collectionUrl('/api/source?file=' + encodeURIComponent(hit.file) + (hit.page ? '#page=' + hit.page : '')); link.target = '_blank'; link.rel = 'noopener'; heading.append(link);}
       else heading.textContent = text;
       body.append(heading, node('pre', '', hit.text));
     }

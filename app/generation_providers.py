@@ -12,7 +12,10 @@ import provider_vision
 
 
 class ProviderError(RuntimeError):
-    pass
+    def __init__(self, message, *, http_status=None, error_code=None):
+        super().__init__(message)
+        self.http_status = http_status
+        self.error_code = error_code
 
 
 @dataclass(frozen=True)
@@ -128,15 +131,18 @@ def list_models(provider: str, api_key: str, *, timeout=30, opener=None):
         with client.open(request, timeout=timeout) as response:
             result = json.load(response)
     except urllib.error.HTTPError as exc:
+        error_code = None
         try:
             detail = json.loads(exc.read(4096).decode("utf-8", "replace"))
             detail = detail.get("error", detail)
             if isinstance(detail, dict):
+                error_code = detail.get("code")
                 detail = detail.get("message") or detail.get("detail") or detail.get("title") or str(detail)
         except (ValueError, OSError):
             detail = exc.reason
         clean_detail = str(detail).replace(api_key, "[credencial omitida]")
-        raise ProviderError(_rejection_message(profile, exc.code, clean_detail, "la consulta de modelos")) from exc
+        raise ProviderError(_rejection_message(profile, exc.code, clean_detail, "la consulta de modelos"),
+                            http_status=exc.code, error_code=error_code) from exc
     except urllib.error.URLError as exc:
         raise ProviderError(f"No se pudo consultar el catálogo de {profile.label}: {exc.reason}") from exc
     except (ValueError, TypeError) as exc:
@@ -245,15 +251,18 @@ def generate(messages, provider: str, model: str, api_key: str, *, on_chunk=None
                 if not completed:
                     raise ProviderError("El proveedor cerró el stream sin confirmar que la respuesta había terminado.")
     except urllib.error.HTTPError as exc:
+        error_code = None
         try:
             detail = json.loads(exc.read(4096).decode("utf-8", "replace"))
             detail = detail.get("error", detail)
             if isinstance(detail, dict):
+                error_code = detail.get("code")
                 detail = detail.get("message") or detail.get("detail") or detail.get("title") or str(detail)
         except (ValueError, OSError):
             detail = exc.reason
         detail = str(detail).replace(api_key, "[credencial omitida]")
-        raise ProviderError(_rejection_message(profile, exc.code, detail, "realizar la petición")) from exc
+        raise ProviderError(_rejection_message(profile, exc.code, detail, "realizar la petición"),
+                            http_status=exc.code, error_code=error_code) from exc
     except urllib.error.URLError as exc:
         raise ProviderError(f"No se pudo conectar con {profile.label}: {exc.reason}") from exc
     prompt_tokens = int(usage.get("prompt_tokens") or usage.get("input_tokens") or 0)

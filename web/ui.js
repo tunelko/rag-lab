@@ -1,5 +1,6 @@
 import {t, intlLocale, serverText} from './i18n.js';
 import {renderMarkdown} from './markdown.js';
+import {collectionUrl} from './collection-scope.js';
 
 export const $ = (id) => document.getElementById(id);
 export const number = (value, digits = 0) => new Intl.NumberFormat(intlLocale(), {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
@@ -63,25 +64,28 @@ export function renderSources(sources, question, container = $('sources'), prefi
     const pageLabel = pdf && hasPage && source.page_label && String(source.page_label) !== String(page) ? t("ui.document_numbering_9d763c", {value1: (source.page_label)}) : '';
     const location = [pageLocation, pageLabel, source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
     meta.append(node('span', '', location));
+    if(source.match_type==='documented_relationship')meta.append(node('span','badge badge--neutral',t('collections.documented')));
+    else {
     const score = Math.max(0, Math.min(1, source.relevance ?? (1 - Number(source.cosine_distance || 0))));
     const relevance = node('div', 'relevance'); relevance.title = t("ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451");
     relevance.append(progress(score * 100, score >= .85 ? 'moss' : score >= .75 ? '' : 'ochre', t("ui.relevance_of_e74d90", {value1: (source.file)})), node('span', '', number(score, 2))); meta.append(relevance);
+    }
     const excerpt = node('p', 'source-excerpt'); highlighted(excerpt, source.text || '', question);
     const kind=node('span','badge '+(source.figures?.length?'badge--info':'badge--neutral'),t(source.figures?.length?'sentinel.image':'sentinel.text'));
     top.append(kind);card.append(top, meta, excerpt);
     if((source.text||'').length>160){const expand=button(t('sentinel.expand_source'),'source-expand',()=>{const open=card.classList.toggle('is-expanded');expand.textContent=t(open?'sentinel.collapse_source':'sentinel.expand_source');expand.setAttribute('aria-expanded',String(open));});expand.setAttribute('aria-expanded','false');card.append(expand);}
     for (const figure of source.figures || []) {
       if (!/^\/api\/figures\/[a-f0-9]{64}$/.test(figure.url)) continue;
-      const link = node('a', 'figure-link'); link.href = figure.url;
+      const link = node('a', 'figure-link'); link.href = collectionUrl(figure.url);
       previewLink(link, {url:figure.url, file:source.file, page:figure.page});
       const figureLocation = `${pdf ? t("ui.pdf_p_354326") : t("ui.p_96d288")} ${figure.page}`;
-      const image = node('img', 'source-figure'); image.src = figure.url; image.loading = 'lazy'; image.alt = t("ui.document_view_of_cb6081", {value1: (source.file), value2: (figureLocation)});
+      const image = node('img', 'source-figure'); image.src = collectionUrl(figure.url); image.loading = 'lazy'; image.alt = t("ui.document_view_of_cb6081", {value1: (source.file), value2: (figureLocation)});
       link.append(image, node('span', 'help-text', t("ui.view_image_82ab3f", {value1: (figureLocation)}))); card.append(link);
     }
-    if (source.url && source.url.startsWith('/api/source?')) {
+    if (source.url && (source.url.startsWith('/api/source?')||source.url.startsWith('/api/knowledge/source?'))) {
       const link = node('a', 'source-link', pdf && hasPage ? t("ui.open_pdf_page_95085f", {value1: (page)}) : t("ui.open_in_document_73e4f6"));
       // Also repair page links in conversations saved by earlier UI versions.
-      link.href = pdf && hasPage ? `${source.url.split('#')[0]}#page=${page}` : source.url;
+      link.href = collectionUrl(pdf && hasPage ? `${source.url.split('#')[0]}#page=${page}` : source.url);
       previewLink(link, {url:link.getAttribute('href'), file:source.file, page:hasPage?page:1});
       link.append(icon('maximize')); card.append(link);
     }

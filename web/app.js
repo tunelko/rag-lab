@@ -9,18 +9,21 @@ import {Telemetry} from './telemetry.js';
 import {LibraryTopics} from './topics.js';
 import {Laboratory} from './laboratory.js';
 import {DocumentViewer} from './document-viewer.js';
+import {collectionId,collectionUrl,sessionKey} from './collection-scope.js';
+import {Collections} from './collections.js';
 
 await initI18n();
 
-const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem('rag-local-new-documents')||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
+const state={token:'',status:null,k:4,filter:'all',search:'',page:1,view:'query',queryJob:null,querySubmitting:false,queryCancel:false,lastQuery:null,answer:'',sources:[],sourceKey:'',newDocuments:new Set(JSON.parse(sessionStorage.getItem(sessionKey('rag-local-new-documents'))||'[]')),lastResult:null,operationJobs:new Set(),lastPhase:null};
 let queue, chat, serverConsole, telemetry, settingsController, shell, topics, laboratory;
 const s=(key,values={})=>t(`sentinel.${key}`,values);
 $('server-address').textContent=location.host;
 let preferences = null; let modelList = [];
-state.lastIndex=Number(sessionStorage.getItem('rag-local-last-index')||0);
+state.lastIndex=Number(sessionStorage.getItem(sessionKey('rag-local-last-index'))||0);
 async function api(path,options={},refreshed=false){
   const headers={...(options.headers||{})};if(options.method&&options.method!=='GET')headers['X-RAG-Token']=state.token;
   let response,result;
+  headers['X-RAG-Collection']=collectionId;
   try{response=await fetch(path,{...options,headers});result=await response.json();}
   catch(error){const problem=new Error(t("ui.the_connection_to_the_local_server_was_lost_8caf59"));problem.info=errorData({code:'NETWORK',detail:error.message});throw problem;}
   if(response.status===403&&!refreshed&&options.method&&options.method!=='GET'&&typeof result.detail==='string'&&result.detail.includes('Recarga esta página')){
@@ -32,7 +35,7 @@ async function api(path,options={},refreshed=false){
 }
 function navigate(path,replace=false){
   const views={'/':['query','query-view','nav-query','Chat'],'/admin':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/biblioteca':['library','admin-view','nav-admin',t("ui.library_c9169c")],'/configuracion':['settings','settings-view','nav-settings',t("ui.settings_bb5071")],'/estadisticas':['statistics','statistics-view','nav-statistics',t("ui.statistics_bb847b")],'/consola':['console','console-view','nav-console',t("ui.console_e0236e")],'/laboratorio':['laboratory','laboratory-view','nav-laboratory',t('lab.title')]};
-  const route=new URL(path,location.origin);const target=views[route.searchParams.get('vista')==='consola'?'/consola':route.pathname]||views['/'];state.view=target[0];
+  const route=new URL(path,location.origin);if(collectionId!=='default')route.searchParams.set('collection',collectionId);path=route.pathname+route.search;const target=views[route.searchParams.get('vista')==='consola'?'/consola':route.pathname]||views['/'];state.view=target[0];
   if(state.view!=='query')chat?.contextPanel.close();
   if(state.view!=='statistics'&&$('resource-dialog').open)$('resource-dialog').close();
   if(location.pathname+location.search!==path)history[replace?'replaceState':'pushState']({},'',path);
@@ -100,7 +103,7 @@ function renderDocuments(){
   state.documentRenderSignature=signature;
   $('documents-table').replaceChildren();
   for(const doc of visible){
-    const row=node('tr','doc-state-'+status(doc)),name=node('td'),wrap=node('div','document-name'),link=node('a','',doc.name);link.href='/api/source?file='+encodeURIComponent(doc.name);link.title=doc.name;link.target='_blank';link.rel='noopener';wrap.append(fileType(doc.name),link);if(state.newDocuments.has(doc.name))wrap.append(node('span','new-badge',s('new')));name.append(wrap);
+    const row=node('tr','doc-state-'+status(doc)),name=node('td'),wrap=node('div','document-name'),link=node('a','',doc.name);link.href=collectionUrl('/api/source?file='+encodeURIComponent(doc.name));link.title=doc.name;link.target='_blank';link.rel='noopener';wrap.append(fileType(doc.name),link);if(state.newDocuments.has(doc.name))wrap.append(node('span','new-badge',s('new')));name.append(wrap);
     const bytes=node('td','num',size(doc.bytes)),chunks=node('td','chunks-cell');chunks.append(node('span','num',doc.indexed||doc.chunks?number(doc.chunks):'—'));const bar=node('span','bar'),fill=node('i');fill.style.width=100*(doc.chunks||0)/maximum+'%';bar.append(fill);chunks.append(bar);
     const stateCell=node('td'),label=node('div','doc-status'),dot=node('i','status-dot '+(status(doc)==='error'?'danger':status(doc)==='processing'?'warning':'success'));
     let caption=s(doc.indexed?'indexed':'pending');if(status(doc)==='processing')caption=s(doc.stage==='indexing'?'indexing':doc.stage==='chunking'?'chunking':'queued');if(status(doc)==='error')caption=serverText(doc.error_info?.message)||s('error');if(doc.needs_reindex)caption=s('reindex_required_short');label.append(dot,node('span','',caption));stateCell.append(label);
@@ -130,8 +133,8 @@ function renderProcess(){
 function completed(result,opener=$('upload-button')){
   state.lastResult=result;$('queue-result-button').hidden=false;
   for(const item of result.successes||[])if(item.chunks>0&&!item.skipped&&!item.recovered)state.newDocuments.add(item.name);
-  sessionStorage.setItem('rag-local-new-documents',JSON.stringify([...state.newDocuments]));
-  if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped&&!item.recovered)){state.lastIndex=Date.now();sessionStorage.setItem('rag-local-last-index',String(state.lastIndex));$('last-index').textContent=t("ui.last_indexing_now_7ae6c0");}
+  sessionStorage.setItem(sessionKey('rag-local-new-documents'),JSON.stringify([...state.newDocuments]));
+  if(result.kind!=='prepare'&&!result.unindexed&&(result.successes||[]).some((item)=>item.chunks>0&&!item.skipped&&!item.recovered)){state.lastIndex=Date.now();sessionStorage.setItem(sessionKey('rag-local-last-index'),String(state.lastIndex));$('last-index').textContent=t("ui.last_indexing_now_7ae6c0");}
   if(state.view==='library'||result.failures?.length)showResult(result,opener);else toast(result.kind==='prepare'?t("ui.retrieval_model_ready_view_result_9b1465"):t("ui.indexing_complete_view_result_2c154a"),()=>showResult(result,opener));
   refreshStatus();
 }
@@ -175,7 +178,7 @@ $('empty-library-form').addEventListener('submit',async event=>{
   event.preventDefault();const confirm=$('empty-library-confirm');if(confirm.disabled)return;confirm.disabled=true;confirm.setAttribute('aria-busy','true');
   try{
     const result=await api('/api/admin/library/empty',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:'empty-library',keep_captions:$('empty-library-keep').checked})});
-    state.newDocuments.clear();sessionStorage.removeItem('rag-local-new-documents');state.lastResult=null;$('queue-result-button').hidden=true;
+    state.newDocuments.clear();sessionStorage.removeItem(sessionKey('rag-local-new-documents'));state.lastResult=null;$('queue-result-button').hidden=true;
     emptyDialog.close();toast(s('empty_done',{path:result.backup}));await refreshStatus();
   }catch(error){$('empty-library-error').textContent=error.message;$('empty-library-error').hidden=false;confirm.disabled=false;}
   finally{confirm.removeAttribute('aria-busy');}
@@ -233,6 +236,7 @@ window.addEventListener('rag:languagechange',()=>{
 async function init(){
   try{
     state.token=(await api('/api/session')).token;
+    await new Collections(api,refreshStatus).load();
     shell=new Shell(api);shell.setView(state.view);settingsController=new SettingsController(api,(value,saved)=>{preferences=value;state.k=value.k;shell.setSettings(value);chat?.setSettings(value);if(saved)refreshStatus();});
     serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
     telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');

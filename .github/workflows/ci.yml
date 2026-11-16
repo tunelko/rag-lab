@@ -75,6 +75,8 @@ jobs:
           for module in web/*.js; do node --check "$module"; done
           bash -n install/linux/configurar.sh
           bash -n install/linux/web.sh
+      - name: CTI adapters and collection separation (real files, SQLite and ASGI)
+        run: python -m unittest -v tests.unit.test_cti tests.unit.test_document_collections
       - name: Select a browser for acceptance tests
         id: browser
         # Runner images ship Chrome and Edge. Using one of them needs no package mirror

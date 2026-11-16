@@ -96,7 +96,7 @@ def matching_processes(root, port):
 def active_jobs(port,host='127.0.0.1'):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with opener.open(f'http://{host}:{port}/api/jobs?active=1', timeout=3) as response:
+        with opener.open(f'http://{host}:{port}/api/jobs?active=1&all_collections=1', timeout=3) as response:
             payload = json.load(response)
         if not isinstance(payload.get('jobs'), list):
             raise RuntimeError('No se puede verificar la cola del servidor; no se detendra.')

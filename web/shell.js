@@ -22,7 +22,7 @@ export class Shell {
     document.addEventListener('visibilitychange',()=>this.schedule(0));
     let last=scrollY;window.addEventListener('scroll',()=>{const current=scrollY;$('topbar').classList.toggle('is-compact',current>120&&current>last);last=current;},{passive:true});this.schedule(0);
   }
-  setStatus(status){this.status=status;this.render();}
+  setStatus(status){this.status={...status,jobs:status.global_jobs||status.jobs};this.render();}
   setSettings(value){this.settings=value;this.render();}
   setView(view){this.view=view;this.pipeline();}
   render(){
@@ -104,5 +104,5 @@ export class Shell {
     $('pipeline-state').textContent=caption;$('pipeline-status').classList.toggle('is-busy',states.includes('run'));$('pipeline-live').setAttribute('aria-label',h('pipeline')+' · '+caption);
   }
   schedule(delay=2000){clearTimeout(this.timer);if(!document.hidden)this.timer=setTimeout(()=>this.poll(),delay);}
-  async poll(){if(this.loading)return;this.loading=true;try{if(this.view!=='statistics')this.hardware(await this.api('/api/telemetry?history_seconds=60'));}catch{}finally{this.loading=false;this.schedule();}}
+  async poll(){if(this.loading)return;this.loading=true;try{if(this.view!=='statistics')this.hardware(await this.api('/api/telemetry?history_seconds=60'));const shared=await this.api('/api/jobs?active=1&all_collections=1');if(this.status){this.status.jobs=shared.jobs;this.render();}}catch{}finally{this.loading=false;this.schedule();}}
 }

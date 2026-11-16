@@ -1,9 +1,10 @@
 import {randomId} from './ids.js';
+import {sessionKey} from './collection-scope.js';
 import {t, serverText} from './i18n.js';
 import {$, node, icon, iconButton, button, fileType, progress, segments, errorData, number, size, terminal, toast, announce} from './ui.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
-const STORE = 'rag-local-upload-queue-v2';
+const STORE = sessionKey('rag-local-upload-queue-v2');
 const labels = () => ({queued:t("ui.queued_d19761"), uploading:t("ui.uploading_8f2161"), uploaded:t("ui.uploaded_24762e"), fragmenting:t("ui.splitting_into_chunks_726c36"), indexing:t("ui.indexing_8df561"), indexed:t("ui.indexed_bb7f0d"), unindexed:t("ui.not_indexed_f84805"), error:t("ui.error_54a0e8"), rejected:t("ui.error_54a0e8"), cancelled:t("ui.cancelled_f40738"), interrupted:t("ui.interrupted_8da730")});
 const activeStates = new Set(['queued','uploading','uploaded','fragmenting','indexing']);
 const phaseClass = (state) => ['fragmenting','indexing','uploaded'].includes(state) ? 'processing' : ['error','rejected','interrupted'].includes(state) ? 'error' : state === 'indexed' ? 'success' : state === 'uploading' ? 'uploading' : '';

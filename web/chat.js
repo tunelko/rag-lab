@@ -5,8 +5,9 @@ import {createMusa} from './musa.js';
 import {ContextPanel} from './context-panel.js';
 import {sourceScope} from './source-scope.js';
 import {groupSources,relevance} from './chat-sources.js';
+import {sessionKey} from './collection-scope.js';
 
-const STORE='rag-local-chat-v3',VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
+const STORE=sessionKey('rag-local-chat-v3'),VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
 const clock=value=>new Intl.DateTimeFormat(intlLocale(),{hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 const plural=(key,count)=>s(`${key}_${count===1?'one':'other'}`,{count:number(count)});
@@ -138,7 +139,7 @@ export class Chat{
     e.answer.querySelector('.stream-caret')?.remove();if(busy&&turn.answer){const caret=node('span','stream-caret');caret.setAttribute('aria-hidden','true');e.answer.append(caret);}
     e.answer.hidden=!turn.answer;
     const avatar=turn.status==='error'?'offline':busy?turn.answer?'answering':sources.length?'thinking':'retrieving':'idle';e.avatar.dataset.state=avatar;e.avatar.classList.toggle('is-static',!busy||avatar==='offline');
-    const indexing=this.status?.jobs?.some(job=>job.kind==='index'&&job.status==='running');
+    const indexing=(this.status?.global_jobs||this.status?.jobs)?.some(job=>job.kind==='index'&&job.status==='running');
     // One state chip: what is happening now, or how the answer ended.
     let label='',kind='';
     if(turn.status==='error'){label=serverText(turn.error_info?.message)||s('query_error');kind='error';}
@@ -158,8 +159,9 @@ export class Chat{
     if(busy){
       const ready=sources.length>0||metrics.vector_search_seconds!=null,hasRoute=Boolean(turn.model||metrics.model);
       const stages=[{caption:s('vectorized'),done:ready,run:!ready},{caption:s('sources_ready',{count:sources.length||'—'}),done:ready,run:false}];
+      if(metrics.retrieval_mode==='structured')stages.splice(0,stages.length,{caption:t('collections.interpreting'),done:ready,run:!ready},{caption:t('collections.graph_lookup'),done:false,run:ready});
       if(metrics.images_used!=null)stages.push({caption:s('images_ready',{count:metrics.images_used}),done:hasRoute,run:false});
-      stages.push({caption:hasRoute?s('generating_with',{model:turn.model||metrics.model}):s('preparing_model'),done:false,run:ready});
+      if(metrics.retrieval_mode!=='structured')stages.push({caption:hasRoute?s('generating_with',{model:turn.model||metrics.model}):s('preparing_model'),done:false,run:ready});
       for(const stage of stages){const chip=node('li',stage.done?'is-done':stage.run?'is-run':'');if(stage.done)chip.append(icon('check'));chip.append(document.createTextNode(stage.caption));e.steps.append(chip);}
     }
     const key=getLanguage()+JSON.stringify(sources);if(e.sourceKey!==key){this.renderSourceList(turn,e.sources,sources);e.sourceKey=key;}
@@ -174,7 +176,7 @@ export class Chat{
   renderSourceList(turn,box,sources){
     box.replaceChildren();box.classList.remove('is-expanded');box.hidden=!sources.length;box.setAttribute('aria-label',s('answer_sources'));if(!sources.length)return;
     const groups=groupSources(sources),head=node('div','sources__head'),list=node('ol','sources__list');
-    head.append(icon('layers'),node('h3','sources__title',s('sources_title')),node('span','sources__count',plural('documents',groups.length)+' · '+plural('fragments',sources.length)),node('span','sources__label',s('relevance_label')));
+    head.append(icon('layers'),node('h3','sources__title',s('sources_title')),node('span','sources__count',plural('documents',groups.length)+' · '+plural('fragments',sources.length)),node('span','sources__label',sources.every(source=>source.match_type==='documented_relationship')?t('collections.documented'):s('relevance_label')));
     for(const group of groups){
       const row=node('li','src-row'),numbers=node('span','src-row__nums'),text=node('span','src-row__text'),file=node('span','src-row__file');row.dataset.file=group.file;
       for(const citation of group.citations){const chip=node('button','src-num',citation);chip.type='button';chip.setAttribute('aria-label',s('show_in_context',{number:citation}));chip.addEventListener('click',()=>this.selectContext(turn,citation,chip));numbers.append(chip);}
@@ -183,6 +185,7 @@ export class Chat{
       file.append(node('span','src-row__name',group.file),node('span','',' · '+plural('fragments',group.fragments.length)));text.append(title,file);
       const score=node('span','src-row__rel'),bar=node('span','bar'),fill=node('i');fill.style.width=Math.round(group.relevance*100)+'%';bar.append(fill);
       score.title=t('ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451');score.append(bar,node('span','src-row__score',number(group.relevance,2)));
+      if(group.fragments.every(source=>source.match_type==='documented_relationship')){score.title=t('collections.documented');score.replaceChildren(node('span','',t('collections.documented')));}
       row.append(numbers,text,score);list.append(row);
     }
     box.append(head,list);
