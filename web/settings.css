@@ -5,9 +5,9 @@
   --cfg-control: max(40px, var(--control-h));
   display: block;
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--space-5) var(--space-6) 48px;
+  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 /* Same header as the other sections: icon, title and its one-line description. */
 .cfg__head { margin-bottom: var(--space-5); }

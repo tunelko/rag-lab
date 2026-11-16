@@ -473,6 +473,8 @@
   "sentinel.retrieval_only": "Retrieval only",
   "sentinel.send": "Send",
   "sentinel.context": "Retrieved context",
+  "sentinel.context_short": "Context",
+  "sentinel.new_chat_short": "New",
   "sentinel.sources_empty": "Sources appear after a query.",
   "sentinel.route": "Route",
   "sentinel.new_chat": "New conversation",

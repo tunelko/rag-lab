@@ -473,6 +473,8 @@
   "sentinel.retrieval_only": "Solo recuperación",
   "sentinel.send": "Enviar",
   "sentinel.context": "Contexto recuperado",
+  "sentinel.context_short": "Contexto",
+  "sentinel.new_chat_short": "Nueva",
   "sentinel.sources_empty": "Las fuentes aparecerán al consultar.",
   "sentinel.route": "Ruta",
   "sentinel.new_chat": "Nueva conversación",

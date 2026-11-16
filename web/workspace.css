@@ -1,5 +1,12 @@
 /* Intrinsic Sentinel layout: no page-specific breakpoints. */
-.chat-split{display:block}.context-toggle{margin-left:auto;flex:none}
+.chat-split{display:block}.context-toggle{flex:none}
+.conversation-card>.chat-toolbar{display:grid;grid-template-columns:auto minmax(160px,1fr) auto;gap:12px;align-items:center}
+.chat-heading{display:flex;align-items:center;gap:8px;min-width:0}.chat-heading .page-title{font-size:16px;line-height:24px;margin:0}
+.chat-actions{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}.chat-actions .btn{height:36px;min-height:36px;padding:0 10px;white-space:nowrap}.chat-actions .icon{width:14px;height:14px}
+.chat-toolbar .scope-picker{width:100%;max-width:440px}.chat-toolbar .scope-picker .select{width:100%;max-width:none}
+:root .composer__input{background:#0c1016;color:#f6f7fb;border-color:#5a6473;caret-color:#f6f7fb}:root .composer__input::placeholder{color:#c5cbd5;opacity:1}
+:root[data-theme="light"] .composer__input{background:#343a44;color:#f6f7fb;border-color:#555f6e}
+@media(max-width:640px){.conversation-card>.chat-toolbar{grid-template-columns:1fr auto;padding:12px}.chat-toolbar .scope-picker{grid-column:1/-1;grid-row:2;max-width:none}.chat-actions{grid-column:2;grid-row:1}}
 .context-drawer{inset:0 0 0 auto;margin:0;border:0;border-left:1px solid var(--border-control);border-radius:0;padding:0;width:min(460px,100%);height:100dvh;max-width:100%;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain}
 .context-drawer[open]{animation:context-enter .18s ease-out}
 .context-drawer .context-aside{display:flex;flex-direction:column;gap:16px;padding:16px;min-width:0}

@@ -524,31 +524,6 @@
      </div>
     </aside>
     <section class="page" id="query-view">
-     <header class="page-head">
-      <svg aria-hidden="true" class="icon">
-       <use href="#i-chat">
-       </use>
-      </svg>
-      <div class="page-head__text">
-       <h1 class="page-title">
-        <span data-i18n="sentinel.chat">
-         Chat
-        </span>
-       </h1>
-       <p class="meta">
-        <span data-i18n="sentinel.chat_sub">
-         Consulta con evidencia documental
-        </span>
-       </p>
-      </div>
-      <span class="page-head__spacer">
-      </span>
-      <button class="btn btn--secondary" id="new-chat" type="button">
-       <span data-i18n="sentinel.new_chat">
-        Nueva conversación
-       </span>
-      </button>
-     </header>
      <div class="banner banner--warn" id="empty-banner">
       <p>
        <span data-i18n="ui.add_and_index_documents_to_get_started_01f4e5">
@@ -567,16 +542,12 @@
      </div>
      <div class="split chat-split">
       <section class="split__main card conversation-card">
-       <header class="card__head">
-        <h2 class="card-title">
-         <span data-i18n="sentinel.conversation">
-          Conversación
-         </span>
-        </h2>
-        <span class="meta" id="conversation-count">
-        </span>
-        <span class="meta" id="settings-sync" role="status">
-        </span>
+       <header class="page-head card__head chat-toolbar">
+        <div class="chat-heading">
+         <h1 class="page-title" data-i18n="sentinel.chat">Chat</h1>
+         <span class="sr-only" id="conversation-count"></span>
+         <span class="meta" id="settings-sync" role="status"></span>
+        </div>
         <label class="scope-picker" for="chat-scope">
          <span data-i18n="library.sources">
           Fuentes
@@ -584,11 +555,16 @@
          <select class="select" id="chat-scope">
          </select>
         </label>
-        <button aria-controls="context-panel" aria-expanded="false" class="btn btn--secondary context-toggle" id="open-context" type="button">
-         <span data-i18n="sentinel.context">
-          Contexto recuperado
-         </span>
-        </button>
+        <div class="chat-actions">
+         <button aria-controls="context-panel" aria-expanded="false" aria-label="Contexto recuperado" data-i18n-aria-label="sentinel.context" data-i18n-title="sentinel.context" class="btn btn--secondary context-toggle" id="open-context" type="button">
+          <svg aria-hidden="true" class="icon"><use href="#i-file"></use></svg>
+          <span data-i18n="sentinel.context_short">Contexto</span>
+         </button>
+         <button aria-label="Nueva conversación" data-i18n-aria-label="sentinel.new_chat" data-i18n-title="sentinel.new_chat" class="btn btn--secondary" id="new-chat" type="button">
+          <svg aria-hidden="true" class="icon"><use href="#i-plus"></use></svg>
+          <span data-i18n="sentinel.new_chat_short">Nueva</span>
+         </button>
+        </div>
        </header>
        <div class="chat-empty" id="chat-empty">
         <div aria-hidden="true" class="musa musa--empty" data-state="idle">

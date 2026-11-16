@@ -62,9 +62,9 @@
   color-scheme: light;
 
   /* Blanco, azul empolvado y lavanda; textos casi negros sobre fondos pastel. */
-  --bg-app:          #edf1fb;
+  --bg-app:          #ffffff;
   --bg-header:       #eceef0;
-  --surface:         #edf1fb;
+  --surface:         #ffffff;
   --surface-raised:  #f0f1f9;
   --surface-blue:    #edf1fb;
   --surface-lavender:#f0ecf8;
@@ -92,10 +92,11 @@
 }
 
 :root[data-theme="light"] .conversation-card > .card__head {
-  background: var(--accent-soft);
+  background: #e5e8ec;
   border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
 }
-:root[data-theme="light"] :is(.chat-question, .msg-user) { background: var(--surface-blue); }
+:root[data-theme="light"] .conversation-card { background: #eef0f3; }
+:root[data-theme="light"] :is(.chat-question, .msg-user) { background: #ffffff; }
 :root[data-theme="light"] :is(.source-chip, .badge--info) { background: var(--surface-lavender); }
 
 /* ---------- 2. Base ------------------------------------------------------ */
