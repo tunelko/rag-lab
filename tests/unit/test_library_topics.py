@@ -64,6 +64,37 @@ class TopicWebTests(unittest.TestCase):
         self.assertEqual(response.status_code,202,response.text)
         return self.wait(response.json()['job_id'])
 
+    def test_empty_selected_source_names_the_scope_without_searching_other_documents(self):
+        recipes=self.topic('Recetas');empty=self.topic('Empty')
+        self.upload('recipes.txt','Ingredientes para una tortilla de patatas.',recipes)
+        service=self.client.app.state.service
+        with patch.object(service,'get_embeddings') as embeddings, patch.object(rag,'generate_ollama') as generate:
+            for language,scope,label in [('es','unassigned','Sin categoría'),('en','unassigned','Uncategorized'),
+                                         ('es',empty,'Empty'),('en',empty,'Empty')]:
+                with self.subTest(language=language,scope=scope):
+                    response=self.client.post('/api/query',headers=self.headers,
+                        json={'question':'Ingredientes para una tortilla','topic_id':scope,'language':language})
+                    self.assertEqual(response.status_code,202,response.text)
+                    reply=self.wait(response.json()['job_id'])
+                    self.assertTrue(reply['metrics']['empty_scope'])
+                    self.assertEqual(reply['metrics']['scope_documents'],0)
+                    self.assertEqual(reply['metrics']['topic_id'],scope)
+                    self.assertEqual(reply['sources'],[])
+                    self.assertIn(label,reply['answer'])
+                    self.assertIn('biblioteca' if language=='es' else 'library',reply['answer'])
+            embeddings.assert_not_called();generate.assert_not_called()
+        self.assertEqual([item['file'] for item in self.ask('Ingredientes tortilla',recipes)['sources']],['recipes.txt'])
+
+    def test_indexed_source_without_matches_does_not_claim_the_library_is_empty(self):
+        recipes=self.topic('Recetas');self.upload('recipes.txt','Ingredientes para una tortilla de patatas.',recipes)
+        with patch('retrieval_pipeline.retrieve',return_value=([],{})),patch.object(rag,'generate_ollama') as generate:
+            reply=self.ask('Una pregunta sin coincidencias',recipes)
+            self.assertTrue(reply['metrics']['no_matches'])
+            self.assertEqual(reply['metrics']['scope_documents'],1)
+            self.assertIn('fragmentos relevantes',reply['answer'])
+            self.assertEqual(reply['sources'],[])
+            generate.assert_not_called()
+
     def test_scope_precedes_vector_search_and_covers_drawers_and_catalog(self):
         cabinet=self.topic('Hardware');drawer=self.topic('MSI',cabinet);farm=self.topic('Agricultura');empty=self.topic('Empty')
         self.upload('board.txt','CPU compatible Intel Core socket LGA1700.',drawer)

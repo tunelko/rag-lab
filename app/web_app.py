@@ -487,6 +487,10 @@ class RagService(JobRuntime):
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
             return {'answer': answer, 'sources': [], 'metrics': {**metrics, **scope_metrics}}
         if not any(item.get('indexed') for item in documents):
+            if query.topic_id is not None:
+                label = localized('library.unassigned', query.language) if query.topic_id == 'unassigned' else scope_label
+                return {'answer': localized('answer.empty_scope', query.language, name=label), 'sources': [],
+                        'metrics': {**scope_metrics, 'empty_scope': True}}
             return {'answer': localized('answer.empty', query.language), 'sources': [], 'metrics': scope_metrics}
         if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
             raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
@@ -512,7 +516,8 @@ class RagService(JobRuntime):
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
-            return {"answer": localized('answer.empty',query.language), "sources": [], "metrics": timings}
+            return {"answer": localized('answer.no_matches',query.language), "sources": [],
+                    "metrics": {**timings, 'no_matches': True}}
         stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, parameters.context_chars, language=query.language)
         if intent.mode == 'global':

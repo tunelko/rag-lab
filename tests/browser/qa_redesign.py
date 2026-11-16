@@ -584,12 +584,40 @@ def run_browser(url):
         expect(page.locator(".chat-turn").last).to_have_attribute("aria-busy", "false", timeout=30000)
         expect(page.locator(".chat-turn .answer").last).to_contain_text("cada viernes")
         expect(page.locator("#context-panel")).not_to_be_visible()
-        page.locator(".chat-turn .citation").last.click()
-        expect(page.locator(".chat-sources").last.locator(".source").first).to_be_visible()
+        citation=page.locator(".chat-turn .citation").last
+        target=citation.get_attribute('href')[1:]
+        citation.click()
+        expect(page.locator('#'+target)).to_be_focused()
+        expect(page.locator('#'+target)).to_have_attribute('aria-current','true')
         assert page.locator(".chat-sources mark").count() > 0
         page.keyboard.press("Escape")
         expect(page.locator("#context-panel")).not_to_be_visible()
+        expect(citation).to_be_focused()
         expect(page.locator("#open-context")).to_have_attribute("aria-expanded", "false")
+        # A later source must be the actual target, even when other cards precede it.
+        chip=page.locator('.chat-turn .source-chip').last
+        target=chip.get_attribute('href')[1:]
+        assert page.locator('.chat-turn .source-chip').count()>1
+        theme=page.evaluate('document.documentElement.dataset.theme')
+        for selected_theme in ('dark','light'):
+            if page.evaluate('document.documentElement.dataset.theme')!=selected_theme:page.locator('#theme-toggle').click()
+            chip.click()
+            selected=page.locator('#'+target)
+            expect(selected).to_be_focused()
+            expect(selected).to_have_class(re.compile(r'\bis-selected\b'))
+            expect(selected).to_have_class(re.compile(r'\bis-expanded\b'))
+            expect(selected).to_have_attribute('aria-current','true')
+            assert selected.bounding_box()['y']>=page.locator('#close-context').bounding_box()['y']
+            backdrop=page.locator('#context-panel').evaluate("e=>getComputedStyle(e,'::backdrop').backgroundColor")
+            assert backdrop!='rgba(0, 0, 0, 0)',backdrop
+            page.keyboard.press('Tab')
+            assert page.evaluate("document.querySelector('#context-panel').contains(document.activeElement)")
+            page.screenshot(path=str(reports/f'redesign-reference-{selected_theme}.png'),full_page=True)
+            page.mouse.click(8,200)
+            expect(page.locator('#context-panel')).not_to_be_visible()
+            expect(chip).to_be_focused()
+        if page.evaluate('document.documentElement.dataset.theme')!=theme:page.locator('#theme-toggle').click()
+        check('Citation focus: exact later source, expanded excerpt, dark/light backdrop, keyboard containment and focus restoration on Escape/outside click')
         page.evaluate("() => {window.__sourceIdentity=document.querySelector('#sources .source');}")
         for _ in range(3):
             page.locator('#system-button').click()
@@ -967,6 +995,44 @@ def run_browser(url):
         page.locator('#chat-scope').select_option('')
         page.locator('#nav-admin').click();page.locator('#topic-filters [data-topic=""]').click()
         check('Categories/subcategories, bulk move without reindexing, contextual upload destination, scoped chat history, persistent selection and accessible full-width chat drawer')
+
+        # Reproduce a saved "Uncategorized" filter after all documents were categorized.
+        # Use a second tab and restore assignments so the rest of QA retains its corpus.
+        scope_documents=page.request.get(url+'/api/status').json()['documents']
+        token=page.request.get(url+'/api/session').json()['token']
+        scope_headers={'X-RAG-Token':token,'Origin':url}
+        moved=page.request.post(url+'/api/admin/library/assign',headers=scope_headers,
+            data={'names':[item['name'] for item in scope_documents],'topic_id':cabinet})
+        assert moved.ok,moved.text()
+        scope_page=context.new_page();scope_page.on('pageerror',lambda error:errors.append(str(error)))
+        scope_page.goto(url,wait_until='networkidle')
+        scope_page.locator('#chat-scope').select_option('unassigned')
+        scope_page.reload(wait_until='networkidle')
+        expect(scope_page.locator('#chat-scope')).to_have_value('unassigned')
+        expect(scope_page.locator('#chat-scope option:checked')).to_have_text('Sin categoría · 0')
+        expect(scope_page.locator('#scope-empty-banner')).to_be_visible()
+        expect(scope_page.locator('#scope-empty-message')).to_contain_text('Sin categoría')
+        expect(scope_page.locator('#empty-banner')).not_to_be_visible()
+        before_queries=len(queries)
+        scope_page.locator('#question').fill('Conserva mi pregunta')
+        scope_page.locator('#language-selection').select_option('en')
+        expect(scope_page.locator('#scope-empty-message')).to_contain_text('Uncategorized')
+        scope_page.set_viewport_size({'width':390,'height':844})
+        assert scope_page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        scope_page.screenshot(path=str(reports/'redesign-empty-scope-mobile.png'),full_page=True)
+        scope_page.locator('#scope-use-all').click()
+        expect(scope_page.locator('#chat-scope')).to_have_value('')
+        expect(scope_page.locator('#scope-empty-banner')).not_to_be_visible()
+        expect(scope_page.locator('#question')).to_have_value('Conserva mi pregunta')
+        expect(scope_page.locator('#question')).to_be_focused()
+        assert len(queries)==before_queries,'Changing source must not submit a question automatically'
+        assert scope_page.evaluate("localStorage.getItem('rag-local-source-topic')")==''
+        scope_page.locator('#language-selection').select_option('es');scope_page.close()
+        for original_topic in {item['topic_id'] for item in scope_documents}:
+            restored=page.request.post(url+'/api/admin/library/assign',headers=scope_headers,
+                data={'names':[item['name'] for item in scope_documents if item['topic_id']==original_topic],'topic_id':original_topic})
+            assert restored.ok,restored.text()
+        check('Empty saved source: accurate counts/warning after reload, ES/EN and mobile, explicit whole-library action preserves draft without auto-query')
 
         # Shared server jobs must not become another tab's conversation. A known
         # job may have finished while this tab was closed and must still be read.

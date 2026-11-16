@@ -1,4 +1,5 @@
 import {$} from './ui.js';
+import {t} from './i18n.js';
 
 // A native modal keeps keyboard focus inside the drawer and supports Escape.
 export class ContextPanel {
@@ -10,6 +11,7 @@ export class ContextPanel {
     this.panel.addEventListener('close', () => {
       this.toggle.setAttribute('aria-expanded', 'false');
       document.body.classList.remove('context-open');
+      for(const source of $('sources').children){source.classList.remove('is-selected');source.removeAttribute('aria-current');}
       const target = this.returnFocus?.isConnected && this.returnFocus.getClientRects().length ? this.returnFocus : this.toggle;
       target.focus({preventScroll: true});
     });
@@ -19,9 +21,9 @@ export class ContextPanel {
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) this.close();
     });
   }
-  open(citation) {
+  open(citation, trigger) {
     if (!this.panel.open) {
-      this.returnFocus = document.activeElement;
+      this.returnFocus = trigger || document.activeElement;
       document.body.classList.add('context-open');
       this.panel.showModal();
       this.toggle.setAttribute('aria-expanded', 'true');
@@ -30,9 +32,14 @@ export class ContextPanel {
     if (citation) {
       const source = [...$('sources').children].find(item => item.id.endsWith(`-${citation}`));
       if (source) {
+        for(const item of $('sources').children){item.classList.toggle('is-selected',item===source);item.removeAttribute('aria-current');}
+        source.setAttribute('aria-current','true');
+        source.classList.add('is-expanded');
+        const expand=source.querySelector('.source-expand');
+        if(expand){expand.textContent=t('sentinel.collapse_source');expand.setAttribute('aria-expanded','true');}
         source.tabIndex = -1;
         source.focus({preventScroll: true});
-        source.scrollIntoView({block: 'nearest'});
+        source.scrollIntoView({block: 'start'});
       }
     }
   }

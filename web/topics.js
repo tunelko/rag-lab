@@ -32,7 +32,7 @@ export class LibraryTopics {
   }
   render() {
     const destinations=[['',text('unassigned')],...this.choices().map(item=>[item.id,this.path(item)])];for(const id of ['move-topic','upload-topic'])this.fillSelect(id,destinations);
-    this.fillSelect('chat-scope',[['',text('all')],['unassigned',text('unassigned')],...this.choices().map(item=>[item.id,this.path(item)+' · '+number(item.document_count)])],$('chat-scope').dataset.choice||'');
+    this.fillSelect('chat-scope',[['',text('all')+' · '+number(this.documents?.length||0)],['unassigned',text('unassigned')+' · '+number(this.unassigned||0)],...this.choices().map(item=>[item.id,this.path(item)+' · '+number(item.document_count)])],$('chat-scope').dataset.choice||'');
     if(!$('topic-form').hidden&&!this.editId)this.fillSelect('topic-parent',[['',text('root')],...this.topics.filter(item=>!item.parent_id).map(item=>[item.id,item.name])]);
     this.destination();
     const signature=JSON.stringify([this.topics,this.unassigned,this.filter,text('all'),$('category-search').value,[...this.collapsed]]);if(this.signature===signature){this.selection();return;}this.signature=signature;

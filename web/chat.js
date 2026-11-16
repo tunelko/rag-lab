@@ -3,6 +3,7 @@ import {$,node,button,iconButton,icon,renderText,renderSources,copyText,toast,an
 import {t,getLanguage,serverText} from './i18n.js';
 import {createMusa} from './musa.js';
 import {ContextPanel} from './context-panel.js';
+import {sourceScope} from './source-scope.js';
 
 const STORE='rag-local-chat-v3',s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
@@ -30,9 +31,14 @@ export class Chat{
     $('new-chat').addEventListener('click',()=>{if(this.active||this.submitting)return;this.turns=[];this.turnImages.clear();this.contextTurnId=null;this.save();this.render();$('question').focus();});
     $('attach-image').addEventListener('click',()=>$('query-image-input').click());
     $('query-image-input').addEventListener('change',()=>this.addImages([...$('query-image-input').files]));
-    window.addEventListener('rag:source',event=>{const turn=this.turns.find(turn=>`turn-${turn.id}`===event.detail.prefix);if(turn)this.selectContext(turn,event.detail.number);});
-    window.addEventListener('rag:scope',()=>this.suggestions());
-    window.addEventListener('rag:languagechange',()=>this.suggestions());
+    window.addEventListener('rag:source',event=>{const turn=this.turns.find(turn=>`turn-${turn.id}`===event.detail.prefix);if(turn)this.selectContext(turn,event.detail.number,event.detail.trigger);});
+    window.addEventListener('rag:scope',()=>{this.suggestions();this.scopeWarning();});
+    window.addEventListener('rag:languagechange',()=>{this.suggestions();this.scopeWarning();});
+    $('scope-use-all').addEventListener('click',()=>{
+      const scope=$('chat-scope'),previous=scope.value,last=this.turns.at(-1);
+      if(!$('question').value.trim()&&last?.topic_id===previous&&last.metrics?.scope_documents===0)$('question').value=last.question;
+      scope.value='';scope.dispatchEvent(new Event('change',{bubbles:true}));this.controls();$('question').focus();
+    });
   }
   save(){this.turns=this.turns.slice(-30);try{sessionStorage.setItem(STORE,JSON.stringify(this.turns));}catch{toast(s('history_full'));}}
   controls(){
@@ -41,9 +47,19 @@ export class Chat{
     $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));$('question-help').textContent=t('ui.chat_keyboard_hint');$('conversation-count').textContent=s('question_count',{count:this.turns.length});
   }
   setStatus(status){
-    this.status=status;this.controls();this.suggestions();this.context();
+    this.status=status;this.controls();this.suggestions();this.context();this.scopeWarning();
     const empty=$('chat-empty').querySelector('.musa');empty.dataset.state=status.ollama.connected?'idle':'offline';empty.classList.toggle('is-static',Boolean(this.turns.length));
     let banner=$('ollama-offline');if(!banner){banner=node('div','banner banner--err');banner.id='ollama-offline';$('query-view').querySelector('.page-head').after(banner);}banner.hidden=status.ollama.connected;banner.textContent=s('ollama_start');
+  }
+  scopeWarning(){
+    const id=$('chat-scope').value,scope=sourceScope(this.status,id);
+    const visible=Boolean(this.status&&id&&scope.exists&&!scope.indexed&&scope.elsewhere);
+    $('scope-empty-banner').hidden=!visible;
+    if(visible){
+      const name=$('chat-scope').selectedOptions[0]?.textContent.replace(/ · [\d.,]+$/,'')||t('library.missing_scope');
+      const message=t('library.empty_scope',{name});
+      if($('scope-empty-message').textContent!==message)$('scope-empty-message').textContent=message;
+    }
   }
   suggestions(){
     const container=$('chat-suggestions');container.replaceChildren();
@@ -100,7 +116,7 @@ export class Chat{
     e.copy.disabled=busy||!turn.answer;e.retry.hidden=!['error','cancelled'].includes(turn.status);e.retry.disabled=Boolean(this.active||this.submitting);e.view.hidden=!turn.job_id;e.view.href='/estadisticas?query='+encodeURIComponent(turn.job_id||'');e.article.setAttribute('aria-busy',String(busy));
     if(this.contextTurnId===turn.id)this.context();if(atBottom)thread.scrollTop=thread.scrollHeight;
   }
-  selectContext(turn,citation){this.contextTurnId=turn.id;this.context();this.contextPanel.open(citation);}
+  selectContext(turn,citation,trigger){this.contextTurnId=turn.id;this.context();this.contextPanel.open(citation,trigger);}
   context(){
     const turn=this.turns.find(turn=>turn.id===this.contextTurnId),sources=turn?.sources||[];
     const signature=JSON.stringify([getLanguage(),turn?.id,turn?.question,sources]);

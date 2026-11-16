@@ -902,5 +902,9 @@
   "ingestion.phase_indexing": "Creating the index",
   "ingestion.phase_done": "Ingestion completed",
   "ingestion.phase_error": "Ingestion interrupted by an error",
-  "ingestion.phase_cancelled": "Ingestion cancelled"
+  "ingestion.phase_cancelled": "Ingestion cancelled",
+  "library.empty_scope": "The source “{name}” has no indexed documents. Content is available in other sources.",
+  "library.use_all": "Use the whole library",
+  "answer.empty_scope": "The source “{name}” has no indexed documents. Select another source or the whole library to search.",
+  "answer.no_matches": "No relevant passages were found for this question in the selected sources."
 }

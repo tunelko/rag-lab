@@ -902,5 +902,9 @@
   "ingestion.phase_indexing": "Creando el índice",
   "ingestion.phase_done": "Ingesta completada",
   "ingestion.phase_error": "Ingesta interrumpida por un error",
-  "ingestion.phase_cancelled": "Ingesta cancelada"
+  "ingestion.phase_cancelled": "Ingesta cancelada",
+  "library.empty_scope": "La fuente «{name}» no contiene documentos indexados. Hay contenido disponible en otras fuentes.",
+  "library.use_all": "Usar toda la biblioteca",
+  "answer.empty_scope": "La fuente «{name}» no contiene documentos indexados. Selecciona otra fuente o Toda la biblioteca para buscar.",
+  "answer.no_matches": "No se han encontrado fragmentos relevantes para esta pregunta en las fuentes seleccionadas."
 }

@@ -5,6 +5,11 @@
 .context-drawer .context-aside{display:flex;flex-direction:column;gap:16px;padding:16px;min-width:0}
 .context-drawer .card__head{flex-wrap:wrap;gap:8px}.context-drawer #close-context{margin-left:auto;flex:none}.context-drawer .card-title{min-width:0;flex:1}
 .context-open{overflow:hidden}
+.context-drawer::backdrop{background:rgb(0 0 0 / .62);backdrop-filter:blur(2px)}
+:root[data-theme="light"] .context-drawer::backdrop{background:rgb(18 24 20 / .4)}
+.context-drawer .source.is-selected{border-color:var(--accent-text);box-shadow:0 0 0 1px var(--accent-text);background:var(--surface-raised);scroll-margin-block:80px}
+.context-drawer .card__head{position:sticky;top:0;z-index:2;background:var(--surface)}
+.scope-warning{flex-wrap:wrap}.scope-warning p{flex:1 1 240px;margin:0}.scope-warning .btn{flex:none}
 .console-toolbar .tabs{max-width:100%;flex:0 1 auto}.console-card{overflow:hidden}.log{min-width:0;max-width:100%}
 .conversation-card:has(.chat-empty:not([hidden])){height:auto;min-height:max(620px,calc(100dvh - 178px))}.chat-empty{flex:1 0 auto}
 .resource-summary{display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;font-size:10px;border-top:1px solid var(--border);padding-top:8px;margin:10px 0 0}.resource-summary>div{display:flex;gap:5px;align-items:baseline}.resource-summary dt{color:var(--text-muted)}.resource-summary dd{margin:0;color:var(--text)}.dialog-document>span:first-child{display:flex;gap:8px;align-items:center;min-width:0;overflow-wrap:anywhere}
