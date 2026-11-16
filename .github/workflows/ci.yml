@@ -1,8 +1,12 @@
 name: CI
 
+# The pipeline runs for main only: on every push to it and on pull requests into it.
+# Day-to-day work goes to dev, which does not start it; run it there by hand when needed.
 on:
   push:
+    branches: [main]
   pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
