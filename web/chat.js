@@ -1,10 +1,10 @@
 import {randomId} from './ids.js';
-import {$,node,iconButton,icon,renderText,renderSources,highlighted,toast,announce,number} from './ui.js';
+import {$,node,iconButton,icon,renderText,renderSources,toast,announce,number} from './ui.js';
 import {t,getLanguage,intlLocale,serverText} from './i18n.js';
 import {createMusa} from './musa.js';
 import {ContextPanel} from './context-panel.js';
 import {sourceScope} from './source-scope.js';
-import {groupSources,fragmentPosition,relevance} from './chat-sources.js';
+import {groupSources,relevance} from './chat-sources.js';
 
 const STORE='rag-local-chat-v3',VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
@@ -12,18 +12,11 @@ const clock=value=>new Intl.DateTimeFormat(intlLocale(),{hour:'2-digit',minute:'
 const plural=(key,count)=>s(`${key}_${count===1?'one':'other'}`,{count:number(count)});
 // A plain control with an optional icon; the shared .btn look does not apply inside an answer.
 function control(tag,className,label,iconName){const element=node(tag,className);if(tag==='button')element.type='button';if(iconName)element.append(icon(iconName));element.append(node('span','',label));return element;}
-// Same link rule as the Context panel: a PDF opens at the page of the fragment.
-function documentTarget(source){
-  if(!source?.url||!source.url.startsWith('/api/source?'))return null;
-  const page=Number(source.page),hasPage=Number.isSafeInteger(page)&&page>0;
-  return {url:/\.pdf$/i.test(source.file)&&hasPage?`${source.url.split('#')[0]}#page=${page}`:source.url,file:source.file,page:hasPage?page:1};
-}
 
 export class Chat{
   constructor(api,changed,beforeSend=async()=>{},patchSettings=()=>{}){
-    this.api=api;this.changed=changed;this.beforeSend=beforeSend;this.patchSettings=patchSettings;this.turns=[];this.active=null;this.submitting=false;this.stopping=false;this.contextTurnId=null;this.attachments=[];this.turnImages=new Map();this.elements=new Map();this.cited=null;this.settings=null;
+    this.api=api;this.changed=changed;this.beforeSend=beforeSend;this.patchSettings=patchSettings;this.turns=[];this.active=null;this.submitting=false;this.stopping=false;this.contextTurnId=null;this.attachments=[];this.turnImages=new Map();this.elements=new Map();this.settings=null;
     try{this.turns=JSON.parse(sessionStorage.getItem(STORE)||'[]').slice(-30);}catch{sessionStorage.removeItem(STORE);}
-    this.pop=node('div','cite-pop');this.pop.hidden=true;this.pop.tabIndex=-1;this.pop.setAttribute('role','dialog');
     this.contextPanel=new ContextPanel();this.render();
     const question=$('question'),thread=$('chat-thread'),box=$('composer-box');
     question.addEventListener('input',()=>{this.autosize();this.controls();});
@@ -53,10 +46,7 @@ export class Chat{
     // Reading earlier text is never interrupted: the view only follows while it is at the end.
     thread.addEventListener('scroll',()=>this.jump(),{passive:true});
     $('chat-jump').addEventListener('click',()=>{thread.scrollTop=thread.scrollHeight;this.jump();});
-    window.addEventListener('rag:source',event=>{const turn=this.turns.find(turn=>`turn-${turn.id}`===event.detail.prefix);if(turn)this.openCitation(turn,Number(event.detail.number),event.detail.trigger);});
-    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&this.cited&&!document.querySelector('dialog[open]')){event.preventDefault();this.closeCitation(true);}});
-    document.addEventListener('pointerdown',event=>{if(this.cited&&!this.pop.contains(event.target)&&!event.target.closest?.('.citation'))this.closeCitation();});
-    window.addEventListener('resize',()=>{if(this.cited)this.place();});
+    window.addEventListener('rag:source',event=>{const turn=this.turns.find(turn=>`turn-${turn.id}`===event.detail.prefix);if(turn)this.selectContext(turn,Number(event.detail.number),event.detail.trigger);});
     window.addEventListener('rag:scope',()=>{this.suggestions();this.scopeWarning();this.controls();});
     window.addEventListener('rag:languagechange',()=>{this.suggestions();this.scopeWarning();});
     $('scope-use-all').addEventListener('click',()=>{
@@ -178,11 +168,6 @@ export class Chat{
     e.trace.textContent=busy?'':facts.join(' · ');
     e.copy.hidden=busy||!turn.answer;e.retry.hidden=busy;e.retry.disabled=Boolean(this.active||this.submitting);e.retry.querySelector('span').textContent=s(turn.status==='error'?'retry':'regenerate');
     e.view.hidden=busy||!turn.job_id;e.view.href='/estadisticas?query='+encodeURIComponent(turn.job_id||'');e.article.setAttribute('aria-busy',String(busy));
-    // A streamed answer is rebuilt on every chunk; keep an open preview on the same citation.
-    if(this.cited?.turn===turn.id&&!this.cited.trigger.isConnected){
-      const again=e.answer.querySelector(`.citation[data-citation="${this.cited.citation}"]`);
-      if(again){this.cited.trigger=again;again.setAttribute('aria-expanded','true');this.place();}else this.closeCitation();
-    }
     if(this.contextTurnId===turn.id)this.context();if(atEnd)thread.scrollTop=thread.scrollHeight;this.jump();
   }
   // One row per document: its citation numbers, a readable title and its best relevance.
@@ -193,7 +178,6 @@ export class Chat{
     for(const group of groups){
       const row=node('li','src-row'),numbers=node('span','src-row__nums'),text=node('span','src-row__text'),file=node('span','src-row__file');row.dataset.file=group.file;
       for(const citation of group.citations){const chip=node('button','src-num',citation);chip.type='button';chip.setAttribute('aria-label',s('show_in_context',{number:citation}));chip.addEventListener('click',()=>this.selectContext(turn,citation,chip));numbers.append(chip);}
-      // The document opens the Context panel on its best fragment, lit against the darkened rest.
       const best=group.fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top),title=node('button','src-row__title',group.title);title.type='button';title.title=group.file;
       title.addEventListener('click',()=>this.selectContext(turn,best.citation,title));
       file.append(node('span','src-row__name',group.file),node('span','',' · '+plural('fragments',group.fragments.length)));text.append(title,file);
@@ -208,35 +192,7 @@ export class Chat{
       toggle.addEventListener('click',()=>{box.classList.toggle('is-expanded');caption();});caption();more.append(toggle);box.append(more);
     }
   }
-  // The cited fragment, shown next to its number without leaving the conversation.
-  openCitation(turn,citation,trigger){
-    const same=this.cited?.turn===turn.id&&this.cited.citation===citation;this.closeCitation(same);if(same)return;
-    const found=fragmentPosition(turn.sources||[],citation);if(!found)return;
-    const {source,index,total}=found,group=groupSources(turn.sources).find(item=>item.file===source.file),target=documentTarget(source),page=Number(source.page);
-    const head=node('div','cite-pop__head'),meta=node('p','cite-pop__meta'),snippet=node('p','cite-pop__snippet'),actions=node('div','cite-pop__actions');
-    head.append(node('span','src-num src-num--on',citation),node('strong','cite-pop__title',group.title));
-    meta.textContent=[s('fragment_of',{index:number(index),total:number(total)}),s('relevance_value',{value:number(relevance(source),2)}),page>0?s('page_short')+' '+number(page):''].filter(Boolean).join(' · ');
-    highlighted(snippet,source.text||'',turn.question);
-    if(target){const open=node('a','cite-pop__open',s('open_document'));open.href=target.url;open.addEventListener('click',event=>{event.preventDefault();this.closeCitation();window.dispatchEvent(new CustomEvent('rag:document',{detail:{...target,trigger}}));});actions.append(open);}
-    const inContext=node('button','cite-pop__link',s('see_in_context'));inContext.type='button';inContext.addEventListener('click',()=>{this.closeCitation();this.selectContext(turn,citation,trigger);});actions.append(inContext);
-    this.pop.replaceChildren(head,meta,snippet,actions);this.pop.setAttribute('aria-label',s('source_preview',{number:citation}));
-    this.cited={turn:turn.id,citation,trigger};trigger.setAttribute('aria-expanded','true');
-    for(const row of this.elements.get(turn.id)?.sources.querySelectorAll('.src-row')||[])row.classList.toggle('is-cited-active',row.dataset.file===source.file);
-    this.pop.hidden=false;this.place();this.pop.focus({preventScroll:true});this.pop.scrollIntoView({block:'nearest'});
-  }
-  closeCitation(restoreFocus=false){
-    if(!this.cited)return;const {turn,citation,trigger}=this.cited,elements=this.elements.get(turn);this.cited=null;this.pop.hidden=true;this.pop.replaceChildren();
-    for(const item of elements?.answer.querySelectorAll(`.citation[data-citation="${citation}"]`)||[])item.setAttribute('aria-expanded','false');
-    for(const row of elements?.sources.querySelectorAll('.is-cited-active')||[])row.classList.remove('is-cited-active');
-    if(restoreFocus&&trigger.isConnected)trigger.focus({preventScroll:true});
-  }
-  // Under the citation, kept inside the conversation column; narrow screens dock it at the bottom in CSS.
-  place(){
-    const trigger=this.cited?.trigger,thread=$('chat-thread');if(!trigger?.isConnected){this.closeCitation();return;}
-    const anchor=trigger.getBoundingClientRect(),frame=thread.getBoundingClientRect(),width=Math.min(380,thread.clientWidth-32);
-    const left=Math.max(16,Math.min(anchor.left-frame.left-14,thread.clientWidth-width-16));
-    this.pop.style.setProperty('--pop-left',left+'px');this.pop.style.setProperty('--pop-top',anchor.bottom-frame.top+thread.scrollTop+8+'px');this.pop.style.setProperty('--pop-width',width+'px');
-  }
+  // A citation or a document opens the Context panel on that fragment, lit against the darkened rest.
   selectContext(turn,citation,trigger){this.contextTurnId=turn.id;this.context();this.contextPanel.open(citation,trigger);}
   context(){
     const turn=this.turns.find(turn=>turn.id===this.contextTurnId),sources=turn?.sources||[];
@@ -246,8 +202,8 @@ export class Chat{
     const model=this.status?.embedding_model?.split('/').at(-1),dimensions=this.status?.embedding_dimensions,info=model?model+' · '+s('dimension_count',{count:dimensions==null?'—':number(dimensions)}):'—';if($('query-vector-info').textContent!==info)$('query-vector-info').textContent=info;
   }
   render(){
-    const thread=$('chat-thread');this.closeCitation();thread.replaceChildren();this.elements.clear();if(!this.turns.some(turn=>turn.id===this.contextTurnId))this.contextTurnId=this.turns.at(-1)?.id||null;
-    for(const turn of this.turns)this.update(turn);thread.append(this.pop);thread.hidden=!this.turns.length;$('chat-empty').hidden=Boolean(this.turns.length);this.context();this.controls();this.renderAttachments();this.jump();
+    const thread=$('chat-thread');thread.replaceChildren();this.elements.clear();if(!this.turns.some(turn=>turn.id===this.contextTurnId))this.contextTurnId=this.turns.at(-1)?.id||null;
+    for(const turn of this.turns)this.update(turn);thread.hidden=!this.turns.length;$('chat-empty').hidden=Boolean(this.turns.length);this.context();this.controls();this.renderAttachments();this.jump();
   }
   history(before,topicId){return this.turns.slice(0,before).filter(turn=>turn.status==='done'&&(turn.topic_id||null)===(topicId||null)).slice(-3).flatMap(turn=>[{role:'user',content:turn.question.slice(0,3000)},{role:'assistant',content:(turn.answer||'').slice(0,3000)}]);}
   async send(question=$('question').value.trim(),retryId=null){

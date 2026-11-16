@@ -29,11 +29,3 @@ export function groupSources(sources = []) {
     .map(group => ({...group, title: documentTitle(group.file, group.fragments)}))
     .sort((a, b) => b.relevance - a.relevance || a.citations[0] - b.citations[0]);
 }
-
-// Where a cited fragment sits among the fragments retrieved from its document.
-export function fragmentPosition(sources = [], citation) {
-  const source = sources.find(item => Number(item.citation) === Number(citation));
-  if (!source) return null;
-  const siblings = sources.filter(item => item.file === source.file);
-  return {source, index: siblings.indexOf(source) + 1, total: siblings.length};
-}

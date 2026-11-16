@@ -18,15 +18,12 @@
   --bubble-user:       #25282d;
   --bubble-user-ink:   var(--ink);
   --row-hover:         var(--surface-raised);
-  --pop-bg:            var(--surface-raised);
-  --pop-border:        #3a3e45;
   --composer-bg:       var(--bg-app);
   --tool-bg:           var(--surface);
   --tool-scope-bg:     var(--surface-raised);
   --stop-bg:           var(--ink);
   --stop-ink:          #141518;
   --musa-ring:         transparent;
-  --shadow-popover:    0 12px 32px rgb(0 0 0 / .5);
   --shadow-composer:   0 1px 2px rgb(0 0 0 / .4), 0 8px 24px rgb(0 0 0 / .25);
 }
 :root[data-theme="light"] .conversation-card {
@@ -64,15 +61,12 @@
   --bubble-user:       #1f2017;
   --bubble-user-ink:   #f4f4f2;
   --row-hover:         #ffffff;
-  --pop-bg:            #ffffff;
-  --pop-border:        var(--border);
   --composer-bg:       #ffffff;
   --tool-bg:           #ffffff;
   --tool-scope-bg:     #f6f6f2;
   --stop-bg:           #16170f;
   --stop-ink:          #f4f4f2;
   --musa-ring:         rgb(20 26 0 / .18);
-  --shadow-popover:    0 12px 32px rgb(22 23 15 / .14);
   --shadow-composer:   0 1px 2px rgb(22 23 15 / .06), 0 8px 24px rgb(22 23 15 / .06);
 }
 
@@ -147,23 +141,7 @@
   background: var(--accent-soft); color: var(--accent-text); font: 600 11px/20px var(--font-mono); font-variant-numeric: tabular-nums; text-decoration: none; }
 .conversation-card .citation { margin-left: 4px; vertical-align: 1px; cursor: pointer; }
 button.src-num { cursor: pointer; }
-.conversation-card .citation:hover, .conversation-card .citation[aria-expanded="true"], button.src-num:hover, .src-num--on { background: var(--accent); color: var(--on-accent); }
-
-/* Preview of a cited fragment */
-.cite-pop { position: absolute; top: var(--pop-top, 0); left: var(--pop-left, 16px); z-index: 20; width: var(--pop-width, 380px); display: flex; flex-direction: column; gap: 10px;
-  padding: 14px 16px; background: var(--pop-bg); border: 1px solid var(--pop-border); border-radius: 10px; box-shadow: var(--shadow-popover); font-size: 12px; line-height: 18px; text-align: left; }
-.cite-pop:focus { outline: none; }
-.cite-pop:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.cite-pop__head { display: flex; align-items: center; gap: 8px; }
-.cite-pop__head .src-num { flex: none; }
-.cite-pop__title { min-width: 0; color: var(--ink); font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
-.cite-pop__meta { margin: 0; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.cite-pop__snippet { margin: 0; max-height: 180px; overflow-y: auto; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--border-soft); border-radius: 8px; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
-.cite-pop__snippet mark { padding: 0 2px; border-radius: 2px; background: var(--accent-soft); color: var(--ink); }
-.cite-pop__actions { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.cite-pop__open, .cite-pop__link { padding: 0; background: none; border: 0; color: var(--accent-text); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.cite-pop__open { font-weight: 600; }
-.cite-pop__open:hover, .cite-pop__link:hover { color: var(--accent-text-hover); }
+.conversation-card .citation:hover, button.src-num:hover { background: var(--accent); color: var(--on-accent); }
 
 /* Sources, one row per document */
 .sources { background: var(--surface-muted); border: 1px solid var(--border); border-radius: 10px; font-size: 13px; line-height: 20px; }
@@ -175,8 +153,6 @@ button.src-num { cursor: pointer; }
 .sources__list { list-style: none; margin: 0; padding: 4px 0; }
 .src-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 132px; gap: 12px; align-items: center; padding: 8px 14px; }
 .src-row:hover { background: var(--row-hover); }
-.src-row.is-cited-active { background: var(--accent-soft); }    /* the document of the open citation */
-.src-row.is-cited-active .src-num { background: var(--pop-bg); }
 .sources:not(.is-expanded) .src-row:nth-child(n+5) { display: none; }
 .src-row__nums { display: flex; flex-wrap: wrap; gap: 4px; }
 .src-row__text { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; }
@@ -256,7 +232,6 @@ button.src-num { cursor: pointer; }
   .conversation-card > .composer { padding: 12px var(--chat-edge); }
   .tool--scope .tool__label { display: none; }
   .tool__select { max-width: 150px; }
-  .cite-pop { position: fixed; left: 16px; right: 16px; top: auto; bottom: 16px; width: auto; max-height: 70dvh; overflow-y: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
