@@ -592,6 +592,8 @@
   "sentinel.unlock_store": "Desbloquear",
   "sentinel.store_locked": "Bloqueado",
   "sentinel.key_configured": "Configurada",
+  "sentinel.key_unreadable": "Guardada, pero no se puede leer",
+  "sentinel.credential_recovery": "No se puede descifrar la clave guardada. Inicia el servidor con la cuenta y el equipo donde la guardaste. Si has cambiado de cuenta, equipo o sistema operativo, introduce de nuevo la clave y pulsa Guardar cifrada.",
   "sentinel.key_missing": "Sin configurar",
   "sentinel.external": "NUBE",
   "sentinel.decrease_images": "Reducir imágenes por consulta",

@@ -50,6 +50,8 @@ export class SettingsController {
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
   set(result){this.resetCatalog();this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);this.loadProviderModels();}
   resetCatalog(){this.catalogVersion++;this.externalModels=[];this.externalVisionModels=[];this.imageLimits={};this.modelsLoading=false;this.modelsLoaded=false;this.modelsError=null;this.pricing=null;this.pricingLoading=false;this.pricingError=null;}
+  credentialIssue(){return this.credentials?.errors?.[this.value?.response_provider]||null;}
+  credentialAvailable(){const provider=this.value?.response_provider;return !this.credentials?.locked&&!this.credentialIssue()&&Boolean(this.credentials?.available?.[provider]??this.credentials?.configured?.[provider]);}
   async saveCredential(){
     const provider=this.value?.response_provider,key=$('provider-api-key').value;if(!provider||provider==='ollama'||!key)return;
     try{const result=await this.api(`/api/credentials/${provider}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({api_key:key})});this.credentials=result.credentials;$('provider-api-key').value='';this.error=null;this.flash();if(this.value?.response_provider===provider){this.resetCatalog();await this.loadProviderModels();}}
@@ -66,7 +68,7 @@ export class SettingsController {
     catch(error){this.error=error;}this.render();
   }
   async loadProviderModels(){
-    const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading||this.credentials?.locked||!this.credentials?.configured?.[provider])return;
+    const provider=this.value?.response_provider;if(!provider||provider==='ollama'||this.modelsLoading||!this.credentialAvailable())return;
     const version=++this.catalogVersion,current=()=>this.catalogVersion===version&&this.value?.response_provider===provider;
     this.modelsLoading=true;this.modelsError=null;this.render();
     const pricing=this.loadProviderPricing(provider,version);
@@ -102,8 +104,8 @@ export class SettingsController {
     $('model-pricing-source').hidden=!this.pricing?.supported||this.value.response_provider!=='scaleway';
   }
   renderExternalModels(){
-    const select=$('external-model'),selected=this.value.external_model||'',configured=Boolean(this.credentials?.configured?.[this.value.response_provider]);
-    const state=this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!this.externalModels.length?'no_models':this.modelsLoaded?'choose_external_model':'refresh_models';
+    const select=$('external-model'),selected=this.value.external_model||'',configured=Boolean(this.credentials?.configured?.[this.value.response_provider]),issue=this.credentialIssue();
+    const state=issue?'key_unreadable':this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!this.externalModels.length?'no_models':this.modelsLoaded?'choose_external_model':'refresh_models';
     const signature=JSON.stringify([this.externalModels,selected,state,s(state),s('model_not_in_catalog'),this.modelsLoaded]);
     if(select.dataset.options!==signature){
       select.dataset.options=signature;
@@ -112,24 +114,24 @@ export class SettingsController {
       for(const model of this.externalModels){const option=node('option','',model);option.value=model;select.append(option);}
       select.value=selected;
     }
-    select.disabled=this.modelsLoading||!configured||Boolean(this.credentials?.locked)||!this.externalModels.length;
+    select.disabled=this.modelsLoading||!this.credentialAvailable()||!this.externalModels.length;
     select.setAttribute('aria-busy',String(this.modelsLoading));
-    const catalogState=$('provider-models-state');catalogState.textContent=this.modelsError?serverText(this.modelsError.message):this.modelsLoaded&&!this.modelsLoading?s('models_found',{count:this.externalModels.length}):s(state);catalogState.classList.toggle('error',Boolean(this.modelsError));
+    const catalogState=$('provider-models-state');catalogState.textContent=issue?s('credential_recovery'):this.modelsError?serverText(this.modelsError.message):this.modelsLoaded&&!this.modelsLoading?s('models_found',{count:this.externalModels.length}):s(state);catalogState.classList.toggle('error',Boolean(issue||this.modelsError));
   }
   setStatus(status){this.status=status;this.warning();}
   renderExternalVision(){
-    const select=$('vision-model'),selected=this.value.external_vision_model||'',models=this.externalVisionModels||[],configured=Boolean(this.credentials?.configured?.[this.value.response_provider]);
-    const state=this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!models.length?'no_vision_models':'choose_vision_model';
+    const select=$('vision-model'),selected=this.value.external_vision_model||'',models=this.externalVisionModels||[],configured=Boolean(this.credentials?.configured?.[this.value.response_provider]),issue=this.credentialIssue();
+    const state=issue?'key_unreadable':this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!models.length?'no_vision_models':'choose_vision_model';
     const signature=JSON.stringify([models,selected,state,s(state),this.modelsLoaded]);
     if(select.dataset.options!==signature){
       select.dataset.options=signature;const placeholder=node('option','',s(state));placeholder.value='';select.replaceChildren(placeholder);
       if(selected&&!models.includes(selected)){const option=node('option','',selected+' · '+s('model_not_in_catalog'));option.value=selected;option.disabled=true;select.append(option);}
       for(const model of models){const option=node('option','',model);option.value=model;select.append(option);}select.value=selected;
     }
-    select.disabled=this.modelsLoading||!configured||Boolean(this.credentials?.locked)||!models.length;
+    select.disabled=this.modelsLoading||!this.credentialAvailable()||!models.length;
     select.setAttribute('aria-busy',String(this.modelsLoading));
-    const hint=$('vision-model-hint');hint.textContent=this.modelsError?serverText(this.modelsError.message):s('cloud_vision_hint')+(selected&&this.imageLimits?.[selected]?' '+s('vision_image_limit',{count:this.imageLimits[selected]}):'');
-    hint.classList.toggle('error',Boolean(this.modelsError));
+    const hint=$('vision-model-hint');hint.textContent=issue?s('credential_recovery'):this.modelsError?serverText(this.modelsError.message):s('cloud_vision_hint')+(selected&&this.imageLimits?.[selected]?' '+s('vision_image_limit',{count:this.imageLimits[selected]}):'');
+    hint.classList.toggle('error',Boolean(issue||this.modelsError));
   }
   warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
   patch(patch){
@@ -181,7 +183,7 @@ export class SettingsController {
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));
     $('response-mode').textContent=external?s('router_cloud'):s(value.response_mode==='automatic'?'router_auto':'router_manual');
     $('credential-panel').hidden=!external;$('credential-unlock').hidden=!external||!this.credentials?.locked;
-    if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]);$('credential-state').textContent=s(this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',configured&&!this.credentials?.locked);$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);$('refresh-provider-models').disabled=!configured||this.credentials?.locked||this.modelsLoading;const hint={scaleway:'scaleway_secret_hint',groq:'groq_key_hint'}[value.response_provider];$('provider-credential-hint').hidden=!hint;$('provider-credential-hint').textContent=hint?s(hint):'';}
+    if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]),issue=this.credentialIssue();$('credential-state').textContent=s(issue?'key_unreadable':this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',this.credentialAvailable());$('credential-state').classList.toggle('error',Boolean(issue));$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);$('refresh-provider-models').disabled=!this.credentialAvailable()||this.modelsLoading;const hint={scaleway:'scaleway_secret_hint',groq:'groq_key_hint'}[value.response_provider];$('provider-credential-hint').hidden=!hint&&!issue;$('provider-credential-hint').textContent=issue?s('credential_recovery'):hint?s(hint):'';$('provider-credential-hint').classList.toggle('error',Boolean(issue));}
     // Visual limits only apply while multimodal processing is on.
     for(const id of ['max-images','max-visuals']){
       const input=$(id),current=Number(input.value);input.disabled=!value.multimodal;

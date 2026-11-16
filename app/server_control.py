@@ -197,6 +197,25 @@ def python_executable(root):
     return python
 
 
+def check_credentials_access(root, *, restarting=False):
+    """Probe existing ciphertext before stopping a working server; never alter it."""
+    from credential_store import CredentialStore
+
+    store = CredentialStore(root / 'data' / 'credentials.sqlite3')
+    try:
+        errors = store.status()['errors']
+    finally:
+        store.close()
+    if not errors:
+        return
+    detail = ' '.join(f'{provider}: {message}' for provider, message in sorted(errors.items()))
+    if restarting:
+        raise RuntimeError(f'Reinicio cancelado antes de detener el servidor. {detail}')
+    # Keep Configuration available for replacing an unreadable credential on a
+    # new computer/account. The UI reports it as unavailable, never as ready.
+    print(f'Aviso: hay credenciales que esta cuenta no puede leer. {detail}', file=sys.stderr)
+
+
 def start(root, port, timeout=30,host='127.0.0.1'):
     host=validate_host(host)
     processes = matching_processes(root, port)
@@ -216,6 +235,7 @@ def start(root, port, timeout=30,host='127.0.0.1'):
         raise ValueError(f'La IP {host} no pertenece a ninguna interfaz de este equipo.')
     if port_in_use(port,host):
         raise RuntimeError(f'El puerto {port} esta ocupado por otro proceso; no se ha detenido ni sustituido.')
+    check_credentials_access(root)
     python = python_executable(root)
     state_path, stop_path = paths(root, port)
     state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -294,6 +314,8 @@ def main(argv=None):
             raise ValueError('El puerto debe estar entre 1024 y 65535.')
         if arguments.when_idle and arguments.action not in ('stop','restart'):
             raise ValueError('--when-idle solo se usa con stop/restart.')
+        if arguments.action == 'restart':
+            check_credentials_access(root, restarting=True)
         if arguments.when_idle and not wait_for_idle(root,port):
             return 0
         if arguments.action == '_run':

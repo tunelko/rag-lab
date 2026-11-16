@@ -1,9 +1,10 @@
 """Exercise server lifecycle with a real, isolated Uvicorn app; no RAG models."""
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import closing, redirect_stdout, redirect_stderr
 import io
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import sys
 import tempfile
 import threading
@@ -13,6 +14,7 @@ import unittest
 from unittest.mock import patch
 
 import server_control as control
+from credential_store import CredentialStore
 
 
 FIXTURE = '''from contextlib import asynccontextmanager
@@ -118,6 +120,39 @@ class ServerControlTests(unittest.TestCase):
         self.assertEqual(control.main(['restart', '--root', str(self.root), '--port', str(self.port)]), 1)
         self.assertEqual(control.matching_processes(self.root, self.port)[0][0].pid, original)
         self.assertFalse((self.root / 'shutdown.txt').exists())
+
+    @unittest.skipUnless(os.name == 'nt', 'Requires real Windows DPAPI')
+    def test_unreadable_credential_cancels_restart_before_stopping_worker(self):
+        control.start(self.root, self.port, timeout=10)
+        original = control.matching_processes(self.root, self.port)[0][0].pid
+        path = self.root / 'data' / 'credentials.sqlite3'
+        store = CredentialStore(path)
+        store.set('groq', 'windows-test-credential')
+        store.close()
+        with closing(sqlite3.connect(path)) as db, db:
+            payload = db.execute("SELECT payload FROM credentials WHERE provider='groq'").fetchone()[0]
+            db.execute("UPDATE credentials SET payload=? WHERE provider='groq'", (bytes(payload)[:-1],))
+        self.assertEqual(control.main(['restart', '--root', str(self.root), '--port', str(self.port)]), 1)
+        self.assertEqual(control.matching_processes(self.root, self.port)[0][0].pid, original)
+        self.assertTrue(control.port_in_use(self.port))
+        self.assertFalse((self.root / 'shutdown.txt').exists())
+        self.assertIn('Reinicio cancelado antes de detener el servidor', self.output.getvalue())
+
+    def test_locked_linux_store_can_start_for_unlocking_in_configuration(self):
+        path = self.root / 'data' / 'credentials.sqlite3'
+        store = CredentialStore(path, system='linux')
+        store.unlock('correct horse battery staple')
+        store.set('groq', 'linux-test-credential')
+        store.close()
+        if os.name == 'nt':
+            # An imported store needs reconfiguration; a fresh start must still
+            # expose Configuration so the user can replace the unreadable key.
+            control.start(self.root, self.port, timeout=10)
+            self.assertIn('Aviso:', self.output.getvalue())
+        else:
+            control.check_credentials_access(self.root, restarting=True)
+            control.start(self.root, self.port, timeout=10)
+        self.assertTrue(control.port_in_use(self.port))
 
     def test_foreign_listener_is_preserved_and_pid_files_are_not_trusted(self):
         with socket.socket() as foreign:

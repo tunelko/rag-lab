@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 import ctypes
 from ctypes import wintypes
 from datetime import datetime, timezone
@@ -152,7 +153,13 @@ class CredentialStore:
         # Keep backing buffers alive until the Win32 call has returned.
         del entropy_buffer, source_buffer
         if not ok:
-            raise CredentialError(f"Windows no pudo {'cifrar' if plaintext is not None else 'descifrar'} la credencial.")
+            if plaintext is None:
+                raise CredentialError(
+                    "Windows no puede descifrar la credencial con la cuenta actual. "
+                    "Inicia el servidor desde la sesión de Windows que guardó la clave. "
+                    "Si has cambiado de cuenta o equipo, vuelve a guardar la clave en Configuración."
+                )
+            raise CredentialError("Windows no pudo cifrar la credencial.")
         try:
             return ctypes.string_at(output.pbData, output.cbData)
         finally:
@@ -168,7 +175,10 @@ class CredentialStore:
 
     def _decrypt(self, provider: str, scheme: str, payload: bytes):
         if scheme != self.scheme:
-            raise CredentialError("La credencial fue cifrada para otro sistema operativo o usuario.")
+            raise CredentialError(
+                "La credencial fue cifrada para otro sistema operativo o usuario. "
+                "Vuelve a guardar la clave en Configuración."
+            )
         if scheme == "dpapi-user-v1":
             return self._dpapi(payload=payload).decode("utf-8")
         if self._key is None:
@@ -214,12 +224,34 @@ class CredentialStore:
 
     def status(self):
         with self.lock:
-            rows = self._connect().execute("SELECT provider,updated_at FROM credentials").fetchall()
-        configured = {provider: updated for provider, updated in rows}
+            statement = "SELECT provider,scheme,payload,updated_at FROM credentials"
+            if self.db is not None:
+                rows = self.db.execute(statement).fetchall()
+            elif self.path.is_file():
+                with closing(sqlite3.connect(self.path.absolute().as_uri() + "?mode=ro", uri=True)) as db:
+                    rows = db.execute(statement).fetchall()
+            else:
+                rows = []
+            configured = {provider: updated for provider, _, _, updated in rows}
+            available = {provider: False for provider in sorted(PROVIDERS)}
+            errors = {}
+            for provider, scheme, payload, _ in rows:
+                if provider not in PROVIDERS:
+                    continue
+                if self.locked and scheme == self.scheme:
+                    continue
+                try:
+                    available[provider] = bool(self._decrypt(provider, scheme, bytes(payload)))
+                except (CredentialError, UnicodeError) as exc:
+                    errors[provider] = str(exc) if isinstance(exc, CredentialError) else (
+                        "La credencial cifrada está dañada. Vuelve a guardarla en Configuración."
+                    )
         return {
             "scheme": self.scheme,
             "locked": self.locked,
             "configured": {provider: provider in configured for provider in sorted(PROVIDERS)},
+            "available": available,
+            "errors": errors,
             "updated_at": configured,
         }
 

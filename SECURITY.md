@@ -61,6 +61,9 @@ conflicting or unsupported declarations rather than omitting them silently.
   protected by user-bound Windows DPAPI or Linux AES-GCM/Scrypt. Credential
   mutation is restricted to requests originating on the server host (loopback or
   its configured bind address), and plaintext values are never returned or logged.
+  A restart checks existing credentials before stopping the worker and refuses
+  if they cannot be decrypted. A fresh start keeps Configuration accessible for
+  recovery; unreadable keys are marked unavailable and can be replaced there.
 - The web server defaults to 127.0.0.1. Explicit host selection permits only
   loopback or an assigned RFC1918 IPv4 address. Do not expose the personal UI
   through a public proxy.

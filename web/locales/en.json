@@ -592,6 +592,8 @@
   "sentinel.unlock_store": "Unlock",
   "sentinel.store_locked": "Locked",
   "sentinel.key_configured": "Configured",
+  "sentinel.key_unreadable": "Saved, but unreadable",
+  "sentinel.credential_recovery": "The saved key cannot be decrypted. Start the server with the account and computer where you saved it. If you changed accounts, computers or operating systems, enter the key again and select Save encrypted.",
   "sentinel.key_missing": "Not configured",
   "sentinel.external": "CLOUD",
   "sentinel.decrease_images": "Decrease images per query",
