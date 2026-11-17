@@ -186,6 +186,24 @@ class GraphEngineTests(unittest.TestCase):
         jobs = self.client.get('/api/jobs?active=1&all_collections=1').json()['jobs']
         self.assertFalse(any(job.get('graph_task') == task for job in jobs))
 
+    def test_shared_queue_shutdown_closes_default_collection_producers_first(self):
+        self.client.post('/api/collections', headers=self.headers, json={'id': 'other', 'name': 'Other'})
+        self.client.get('/api/graph?collection=other')
+        store = graph_store(self.service)
+        task = store.task_create({'files': ['blank.md'], 'provider': 'ollama', 'model': 'not-invoked'})
+        observed = []
+        shutdown = self.service.executor.shutdown
+
+        def observe_shutdown(*args, **kwargs):
+            observed.append((self.service.closed, self.service.graph_continuation.closed))
+            return shutdown(*args, **kwargs)
+
+        self.service.executor.shutdown = observe_shutdown
+        self.service.collection_pool.close()
+        self.assertTrue(observed)
+        self.assertTrue(all(closed and producer_closed for closed, producer_closed in observed))
+        self.assertEqual(store.tasks(task)['status'], 'interrupted')
+
     def test_empty_selection_pauses_with_preserved_error_without_model_or_timer_leak(self):
         (self.service.documents / 'blank.md').write_text('   \n', 'utf-8')
         response = self.client.post('/api/graph/continuous', headers=self.headers, json={

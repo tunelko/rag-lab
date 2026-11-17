@@ -109,11 +109,16 @@ class CollectionPool:
     def close(self):
         with self.lock:
             children = [service for key, service in self.services.items() if key != 'default']
-        for service in children:
+        # Freeze every producer before shutting down the shared executor,
+        # including the default collection's between-passage timer.
+        for service in [self.default, *children]:
             with service.lock:
                 service.closed = True
                 for cancel in service.cancels.values():
                     cancel.set()
+            continuation = getattr(service, 'graph_continuation', None)
+            if continuation is not None:
+                continuation.close()
         if children:
             self.default.executor.shutdown(wait=True, cancel_futures=True)
         for service in children:
