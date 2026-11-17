@@ -28,6 +28,8 @@ def audit(service, job, services):
         key = getattr(selected, 'collection_key', 'default')
         state = rag.load_state(selected.config)
         documents, duplicate = {}, defaultdict(list)
+        # Both sides resolved: a folder reached through a link or a Windows short name is still the collection.
+        base = selected.documents.resolve()
         pdf_texts = {}
         def issue(file, message):
             report['issues'].append({'collection': key, 'file': file, 'message': message})
@@ -40,7 +42,7 @@ def audit(service, job, services):
             name = path.relative_to(selected.documents).as_posix()
             item = {'collection': key, 'file': name, 'status': 'valid', 'issues': [], 'pages': None}
             try:
-                if not path.resolve().is_relative_to(selected.documents):
+                if not path.resolve().is_relative_to(base):
                     raise ValueError('La ruta sale de la colección.')
                 digest = sha256_file(path)
                 item['sha256'] = digest
