@@ -6,18 +6,18 @@ import {ingestionState,selectIngestionJob} from './ingestion-state.js';
 import {PipelineScene} from './pipeline-scene.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
-const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
+const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[3,4,5]};
 // Where each stage of the explained scene is set: a card of the Settings view.
 const card=(anchor,key,note)=>({anchor,key,note,element:()=>document.getElementById(anchor).closest('section')});
 const index=()=>card('settings-index-title','scene.go_index','scene.note_fixed');
 const place=(anchor,key)=>({anchor,key,element:()=>document.getElementById(anchor).closest('section')}),settings=()=>({href:'/configuracion',key:'scene.go_configuration'});
-const sceneTargets={library:{1:place('upload-card-head','scene.go_upload'),2:settings(),3:settings(),4:place('library-location','scene.go_documents'),5:settings(),6:settings()},settings:{1:card('settings-multimodal-title','scene.go_settings'),2:index(),3:index(),4:index(),5:card('settings-retrieval-title','scene.go_settings'),6:card('settings-generation-title','scene.go_settings')}};
+const sceneTargets={laboratory:{1:settings(),2:settings(),3:settings(),4:settings(),5:settings()},library:{1:place('upload-card-head','scene.go_upload'),2:settings(),3:settings(),4:place('library-location','scene.go_documents'),5:settings(),6:settings()},settings:{1:card('settings-multimodal-title','scene.go_settings'),2:index(),3:index(),4:index(),5:card('settings-retrieval-title','scene.go_settings'),6:card('settings-generation-title','scene.go_settings')}};
 export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
     this.palette=new CommandPalette(()=>this.status);
     // Light theme: the isometric scene replaces the pipeline row and shows the same states and values.
-    this.scenes=[...document.querySelectorAll('[data-pipeline-scene]')].map(host=>{const targets=sceneTargets[host.dataset.pipelineScene];return new PipelineScene(host,targets?{explain:{targets}}:{});});
+    this.scenes=[...document.querySelectorAll('[data-pipeline-scene]')].map(host=>{const targets=sceneTargets[host.dataset.pipelineScene];const scene=new PipelineScene(host,targets?{explain:{targets}}:{});scene.kind=host.dataset.pipelineScene;return scene;});
     // Closing with ×, Esc or a click on empty space returns focus to the icon; a click on another control keeps it there.
     $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
     $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
@@ -114,7 +114,11 @@ export class Shell {
     if(job?.kind==='query'&&(job.model||job.metrics?.model))$('pipeline-llm').textContent=(job.model||job.metrics.model)+(job.metrics?.generation_tok_s?' · '+number(job.metrics.generation_tok_s,1)+' tok/s':'');
     if(job?.kind==='index'&&job.progress!=null){const label=number(job.progress)+' %';for(const index of [2,3])if(states[index]==='run')document.querySelectorAll('.pstep__value')[index].textContent=label;}
     for(const [index,element]of [...document.querySelectorAll('.pstep')].entries()){element.dataset.state=states[index];const value=element.querySelector('.pstep__value');value.title=index===2?this.status.embedding_model+' · '+this.status.embedding_device:value.textContent;const label=element.querySelector('.pstep__name').textContent+' · '+value.title;element.querySelector('a').setAttribute('aria-label',label);}
-    const shown=[...document.querySelectorAll('.pstep__value')].map(value=>value.textContent);for(const scene of this.scenes)scene.set(states,shown);
+    const shown=[...document.querySelectorAll('.pstep__value')].map(value=>value.textContent);for(const scene of this.scenes){
+      // The Laboratory measures retrieval only: its scene says so on the model stage.
+      if(scene.kind!=='laboratory'){scene.set(states,shown);continue;}
+      const own=[...shown];own[4]='top-k '+(this.settings?.k??4)+(this.status.reranker?.model?' · '+t('lab.reranked'):'');own[5]=t('lab.model_unused');scene.set(states.map((state,index)=>index===5?'idle':state),own);
+    }
     $('pipeline-state').textContent=caption;$('pipeline-status').classList.toggle('is-busy',states.includes('run'));$('pipeline-live').setAttribute('aria-label',h('pipeline')+' · '+caption);
   }
   schedule(delay=2000){clearTimeout(this.timer);if(!document.hidden)this.timer=setTimeout(()=>this.poll(),delay);}

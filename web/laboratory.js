@@ -11,7 +11,15 @@ export class Laboratory {
     Object.assign(this, {api, beforeRun, changed, active: false, busy: false, revision: 0,
       meta: null, run: null, job: null, validation: null, questionNodes: new Map(), notified: new Set()});
     $('lab-file').addEventListener('change', () => this.readFile());
-    $('lab-content').addEventListener('input', () => this.invalidate());
+    $('lab-choose').addEventListener('click', () => $('lab-file').click());
+    // A dataset arrives as a file (chosen or dropped) or as pasted text; the way in use is the one left bright.
+    const drop = $('lab-drop'), carriesFiles = event => [...(event.dataTransfer?.types || [])].includes('Files');
+    let depth = 0;
+    drop.addEventListener('dragenter', event => {if (!carriesFiles(event)) return; event.preventDefault(); depth++; drop.classList.add('dragging');});
+    drop.addEventListener('dragover', event => {if (carriesFiles(event)) event.preventDefault();});
+    drop.addEventListener('dragleave', () => {depth = Math.max(0, depth - 1); if (!depth) drop.classList.remove('dragging');});
+    drop.addEventListener('drop', event => {if (!carriesFiles(event)) return; event.preventDefault(); depth = 0; drop.classList.remove('dragging'); if (!$('lab-file').disabled) this.readFile(event.dataTransfer.files[0]);});
+    $('lab-content').addEventListener('input', () => {this.fileName = ''; $('lab-file').value = ''; this.invalidate();});
     $('lab-validate').addEventListener('click', () => this.validate());
     $('lab-form').addEventListener('submit', event => {event.preventDefault(); this.start();});
     for (const id of ['lab-cancel', 'lab-banner-cancel', 'empty-lab-cancel']) $(id).addEventListener('click', () => this.cancel());
@@ -48,6 +56,16 @@ export class Laboratory {
     $('lab-run').disabled = this.busy || working || !indexed || !this.validation;
     $('lab-form').setAttribute('aria-busy', String(this.busy));
     $('lab-no-index').hidden = indexed || !this.meta;
+    const content = Boolean($('lab-content').value.trim()), valid = Boolean(this.validation), fromFile = Boolean(this.fileName);
+    $('lab-choose').disabled = this.busy || working;
+    $('lab-file-name').textContent = this.fileName || label('no_file');
+    $('lab-source-file').classList.toggle('is-dim', content && !fromFile);
+    $('lab-source-paste').classList.toggle('is-dim', fromFile);
+    // Evaluating is the main action only once the dataset is valid.
+    $('lab-run').classList.toggle('btn--primary', valid); $('lab-run').classList.toggle('btn--secondary', !valid);
+    const step = working || valid ? 3 : content ? 2 : 1;
+    [...$('lab-flow').children].forEach((item, index) => {const current = index + 1 === step; item.classList.toggle('is-current', current); item.classList.toggle('is-done', index + 1 < step); if (current) item.setAttribute('aria-current', 'step'); else item.removeAttribute('aria-current');});
+    $('lab-reason').textContent = !this.meta ? '' : !indexed ? label('no_index') : working ? label('reason_running') : !content ? label('reason_empty') : !valid ? label('reason_validate') : '';
   }
 
   formatError(error) {
@@ -63,10 +81,9 @@ export class Laboratory {
 
   error(error) {$('lab-error').textContent = this.formatError(error); $('lab-error').hidden = false;}
 
-  async readFile() {
-    const file = $('lab-file').files[0];
+  async readFile(file = $('lab-file').files[0]) {
     if (!file) return;
-    this.invalidate(); $('lab-error').hidden = true;
+    this.fileName = ''; this.invalidate(); $('lab-error').hidden = true;
     const revision = this.revision;
     if (file.size > (this.meta?.limits.bytes || 1048576)) return this.error({lab_error: {code: 'size'}});
     try {
@@ -74,6 +91,7 @@ export class Laboratory {
       if (revision !== this.revision) return;
       $('lab-content').value = content;
       $('lab-name').value = file.name.slice(0, 80);
+      this.fileName = file.name;
     } catch {this.error({lab_error: {code: 'utf8'}});}
     this.controls();
   }
@@ -188,6 +206,7 @@ export class Laboratory {
         [label('library'), label('corpus_size', {documents: number(corpus.documents), chunks: number(corpus.published_chunks)})],
       ]);
       $('lab-estimate').textContent = label('estimate', {size: size(this.meta.snapshot_bytes)});
+      $('lab-limit').textContent = label('limit_pill', {count: number(this.meta.limits.questions)});
       $('lab-gpu-note').hidden = !config.reranker || config.rerank_device === 'cpu';
     }
     const run = this.run;

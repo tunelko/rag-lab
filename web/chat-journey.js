@@ -11,14 +11,6 @@ export function citedCount(answer, sources = []) {
   return found.size;
 }
 
-// Fragments indexed in the selected source (a category includes its subcategories).
-export function scopeChunks(status, topicId) {
-  const topics = status?.library?.topics || [], documents = status?.documents || [];
-  const ids = new Set([topicId, ...topics.filter(item => item.parent_id === topicId).map(item => item.id)]);
-  return documents.filter(item => !topicId || (topicId === 'unassigned' ? !item.topic_id : ids.has(item.topic_id)))
-    .reduce((total, item) => total + (item.chunks || 0), 0);
-}
-
 /* phase: empty | queued | retrieving | generating | done | retrieved (search only) | catalog | stopped | error
    scene: six header-style states for the pipeline scene (stages 5 and 6 are the chat's own)
    checks: vector, fragments, route, answer, cited → todo | run | done */

@@ -41,7 +41,7 @@ function navigate(path,replace=false){
   if(state.view!=='statistics'&&$('resource-dialog').open)$('resource-dialog').close();
   if(location.pathname+location.search!==path)history[replace?'replaceState':'pushState']({},'',path);
   for(const id of ['query-view','admin-view','settings-view','statistics-view','console-view','laboratory-view','graph-view'])$(id).hidden=id!==target[1];
-  document.querySelectorAll('.nav-item').forEach(link=>link.removeAttribute('aria-current'));$(target[2]).setAttribute('aria-current','page');if(target[2]==='nav-settings')$('nav-settings-tab').setAttribute('aria-current','page');
+  document.querySelectorAll('.nav-item').forEach(link=>link.removeAttribute('aria-current'));$(target[2]).setAttribute('aria-current','page');
   document.title=target[3]+' · RAG Local';
   if(state.view==='library'&&state.lastResult)$('queue-result-button').hidden=false;
   state.statisticsFilter=state.view==='statistics'?route.searchParams.get('query'):null;shell?.setView(state.view);if(state.view==='statistics')refreshStatistics();

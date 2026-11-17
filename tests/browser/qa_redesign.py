@@ -261,7 +261,7 @@ def run_browser(url):
         expect(english_page.locator('#language-selection')).to_have_value('en')
         english_page.locator('#language-selection').select_option('auto')
         expect(english_page.locator('html')).to_have_attribute('lang','en')
-        for control,heading in [('#nav-statistics','Statistics'),('#nav-console','Console'),('#nav-admin','Library')]:
+        for control,heading in [('#nav-statistics','Statistics'),('#nav-console','What happens inside'),('#nav-admin','Your library, on this computer')]:
             english_page.locator(control).click();expect(english_page.locator('h1:visible')).to_have_text(heading,use_inner_text=True,ignore_case=True)
             assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),heading
         assert len(locale_mutations)==before_locale
@@ -300,10 +300,10 @@ def run_browser(url):
         expect(page.locator("#system-ollama")).to_have_text("Conectado")
         expect(page.locator("#ask-button")).to_be_disabled()
         expect(page.locator("#empty-banner")).to_be_visible()
-        assert page.evaluate("document.fonts.check('16px \\\"Orbitron\\\"')")
+        assert page.evaluate("document.fonts.check('16px JetBrains Mono')")
         page.screenshot(path=str(reports / "redesign-consulta.png"), full_page=True)
         page.locator("#nav-admin").click()
-        expect(page.locator("#admin-view h1 .only-dark")).to_have_text("Biblioteca")
+        expect(page.locator("#admin-view h1")).to_have_text("Tu biblioteca, en local",use_inner_text=True)
         check("Empty states, local fonts and client-side navigation")
 
         for width in [1440,1280,1024,800,640,390,320]:
@@ -314,7 +314,7 @@ def run_browser(url):
                 return items.every((a,i)=>items.every((b,j)=>i===j||a.right<=b.left+1||b.right<=a.left+1||a.bottom<=b.top+1||b.bottom<=a.top+1));
             }'''),f'Overlapping header at {width}px'
             if width>=1024:
-                assert page.locator('.topbar__bar').bounding_box()['height']==52
+                assert page.locator('.topbar__bar').bounding_box()['height']<=60,width
                 assert page.locator('.topnav').evaluate('e=>e.scrollWidth<=e.clientWidth+1'),width
         page.set_viewport_size({'width':1440,'height':1100})
         page.locator('#command-open').focus();page.keyboard.press('Control+k')
@@ -1077,7 +1077,9 @@ def run_browser(url):
         expect(page.locator('.chat-turn .answer').last).to_contain_text('manual.txt')
         page.reload(wait_until='networkidle');expect(page.locator('#chat-scope')).to_have_value(cabinet)
         expect(page.locator('#context-panel')).not_to_be_visible()
-        assert page.locator('.conversation-card').bounding_box()['width']>1300
+        # The conversation and its side column share the row; the Context drawer stays closed until asked for.
+        card=page.locator('.conversation-card').bounding_box();side=page.locator('.chat-aside').bounding_box()
+        assert card['width']>900 and side['x']>=card['x']+card['width'] and card['width']+side['width']>1300,(card,side)
         page.locator('#open-context').click();expect(page.locator('#context-panel')).to_be_visible()
         page.keyboard.press('Escape');expect(page.locator('#open-context')).to_be_focused()
         page.locator('#chat-scope').select_option('')
@@ -1279,7 +1281,7 @@ def run_browser(url):
             time.sleep(.05)
         assert uploaded_job['status']=='done',uploaded_job
         page.goto(url+'/laboratorio',wait_until='networkidle')
-        expect(page.locator('#lab-title')).to_have_text('Laboratorio')
+        expect(page.locator('#lab-title')).to_have_text('¿Llega la evidencia correcta?')
         expect(page.locator('#lab-content')).to_be_enabled()
         expect(page.locator('#lab-cleanup-warning')).not_to_be_visible()
         page.locator('#lab-content').fill('\n{broken}')
@@ -1336,7 +1338,7 @@ def run_browser(url):
         expect(page.locator('#lab-run-state')).to_contain_text('Cancelado')
         assert page.request.get(url+'/api/laboratory').json()['latest']['report']['summary']==partial['report']['summary']
         page.locator('#language-selection').select_option('en')
-        expect(page.locator('#lab-title')).to_have_text('Laboratory')
+        expect(page.locator('#lab-title')).to_have_text('Does the right evidence arrive?')
         expect(page.locator('#lab-run-state')).to_contain_text('Cancelled')
         if page.evaluate('document.documentElement.dataset.theme')!='light':page.locator('#theme-toggle').click()
         page.set_viewport_size({'width':390,'height':844})

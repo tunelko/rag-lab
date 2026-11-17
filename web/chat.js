@@ -7,7 +7,7 @@ import {sourceScope} from './source-scope.js';
 import {groupSources,relevance} from './chat-sources.js';
 import {sessionKey} from './collection-scope.js';
 import {PipelineScene} from './pipeline-scene.js';
-import {journey,scopeChunks} from './chat-journey.js';
+import {journey} from './chat-journey.js';
 
 const STORE=sessionKey('rag-local-chat-v3'),VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
@@ -78,7 +78,6 @@ export class Chat{
     $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));
     $('conversation-count').textContent=count?[plural('question_count',count),first?s('started_at',{time:clock(first)}):''].filter(Boolean).join(' · '):'';
     put($('chat-crumb'),s('chat')+' / '+(name||t('library.all')));$('chat-pill-questions').hidden=!count;put($('chat-pill-questions'),count?plural('question_count',count):'');
-    $('chat-pill-fragments').hidden=!this.status;put($('chat-pill-fragments'),this.status?plural('fragments',scopeChunks(this.status,$('chat-scope').value)):'');
   }
   // The composer shows the same top-k as Settings and writes it through the same store.
   setSettings(value){

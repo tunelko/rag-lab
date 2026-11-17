@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {citedCount, journey, scopeChunks} from '../../web/chat-journey.js';
+import {citedCount, journey} from '../../web/chat-journey.js';
 
 const sources = [
   {citation: 1, file: 'a.md', cosine_distance: 0.13},
@@ -65,13 +65,4 @@ test('a failure marks the stage that was working', () => {
 test('only citations of retrieved fragments count, once each', () => {
   assert.equal(citedCount('[1] [1] [2] [7]', sources), 2);
   assert.equal(citedCount('', sources), 0);
-});
-
-test('fragments of the selected source include its subcategories', () => {
-  const status = {library: {topics: [{id: 'recipes'}, {id: 'cakes', parent_id: 'recipes'}]},
-    documents: [{topic_id: 'recipes', chunks: 4}, {topic_id: 'cakes', chunks: 6}, {chunks: 10}]};
-  assert.equal(scopeChunks(status, ''), 20);
-  assert.equal(scopeChunks(status, 'recipes'), 10);
-  assert.equal(scopeChunks(status, 'cakes'), 6);
-  assert.equal(scopeChunks(status, 'unassigned'), 10);
 });

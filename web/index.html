@@ -209,6 +209,7 @@
     <path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z">
     </path>
    </symbol>
+   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.5"></path></symbol>
    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></symbol>
    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"></path></symbol>
    <symbol id="i-more" viewbox="0 0 24 24">
@@ -278,7 +279,7 @@
         0
        </span>
       </a>
-      <a class="nav-item nav-settings-tab" href="/configuracion" id="nav-settings-tab"><svg aria-hidden="true" class="icon"><use href="#i-settings"></use></svg><span data-i18n="sentinel.nav_settings">Configuración</span></a>
+      <a class="nav-item nav-settings-tab" href="/configuracion" id="nav-settings"><svg aria-hidden="true" class="icon"><use href="#i-settings"></use></svg><span data-i18n="sentinel.nav_settings">Configuración</span></a>
       <a class="nav-item" href="/estadisticas" id="nav-statistics">
        <svg aria-hidden="true" class="icon">
         <use href="#i-cpu">
@@ -331,12 +332,6 @@
        </use>
       </svg>
      </button>
-     <a aria-label="Configuración" class="nav-item topbar-settings" data-i18n-aria-label="sentinel.nav_settings" data-i18n-title="sentinel.nav_settings" href="/configuracion" id="nav-settings" title="Configuración">
-      <svg aria-hidden="true" class="icon">
-       <use href="#i-gear">
-       </use>
-      </svg>
-     </a>
      <label class="topbar-language" data-i18n-title="language.label" title="Idioma">
       <img alt="" aria-hidden="true" id="language-flag" src="/assets/icons/flags/es.svg"/>
       <select aria-label="Idioma" class="langbtn" data-i18n-aria-label="language.label" id="language-selection">
@@ -617,7 +612,6 @@
         </div>
         <div class="chat-pills">
          <span class="pill pill--butter num" hidden id="chat-pill-questions"></span>
-         <span class="pill pill--mint num" hidden id="chat-pill-fragments"></span>
         </div>
         <div class="chat-actions">
          <button aria-controls="context-panel" aria-expanded="false" aria-label="Contexto recuperado" data-i18n-aria-label="sentinel.context" data-i18n-title="sentinel.context" class="btn btn--secondary context-toggle" id="open-context" type="button">
@@ -2429,10 +2423,19 @@
      </details>
     </section>
     <section class="page lab-view" hidden id="laboratory-view" aria-labelledby="lab-title">
-     <header class="lab-heading">
-      <h1 id="lab-title" data-i18n="lab.title">Laboratorio</h1>
-      <p class="meta" data-i18n="lab.intro">Comprueba si la evidencia correcta llega al contexto del chat. Esta prueba no genera respuestas.</p>
-     </header>
+     <div class="hero">
+      <header class="page-head">
+       <div class="page-head__text">
+        <p class="hero-crumb" data-i18n="lab.crumb">Laboratorio / evaluación de la recuperación</p>
+        <h1 class="page-title" id="lab-title" data-i18n="lab.hero_title">¿Llega la evidencia correcta?</h1>
+        <p class="meta" data-i18n="lab.intro">Comprueba si la evidencia correcta llega al contexto del chat. Esta prueba no genera respuestas.</p>
+       </div>
+       <span class="page-head__spacer"></span>
+       <span class="pill pill--butter num" id="lab-limit"></span>
+       <span class="pill pill--sky" data-i18n="lab.no_generation">sin generación</span>
+      </header>
+      <div data-pipeline-scene="laboratory" id="lab-scene"></div>
+     </div>
      <p class="lab-notice" id="lab-no-index" hidden>
       <span data-i18n="lab.no_index">Primero sube e indexa documentos.</span>
       <a href="/admin" data-i18n="lab.open_library">Abrir Biblioteca</a>
@@ -2440,18 +2443,31 @@
      <p class="lab-notice" id="lab-cleanup-warning" hidden data-i18n="lab.cleanup_pending">Queda una copia temporal pendiente de borrado. Los resultados se conservan; se reintentará la limpieza al arrancar.</p>
      <div class="lab-layout">
       <form class="card lab-input" id="lab-form">
+       <ol class="flow" id="lab-flow">
+        <li><span class="step-no">1</span><span data-i18n="lab.step_load">Carga el conjunto</span></li>
+        <li><span class="step-no">2</span><span data-i18n="lab.step_validate">Valídalo</span></li>
+        <li><span class="step-no">3</span><span data-i18n="lab.step_run">Evalúa</span></li>
+       </ol>
        <h2 class="card-title" data-i18n="lab.dataset">Conjunto de evaluación</h2>
        <p class="help-text" data-i18n="lab.limits">JSONL UTF-8 · máximo 1 MiB y 100 preguntas. Solo preguntas concretas, sin historial ni imágenes adjuntas.</p>
-       <label class="field" for="lab-file">
-        <span data-i18n="lab.file">Cargar archivo JSONL</span>
-        <input class="input" type="file" id="lab-file" accept=".jsonl,application/x-ndjson,application/jsonl,text/plain"/>
-       </label>
-       <label class="field" for="lab-name"><span data-i18n="lab.name">Nombre del conjunto</span><input class="input" id="lab-name" maxlength="80" autocomplete="off"/></label>
-       <label class="field" for="lab-content">
-        <span data-i18n="lab.content">O pega aquí el JSONL</span>
-        <textarea class="input" id="lab-content" rows="7" spellcheck="false" maxlength="1048576" aria-describedby="lab-format"></textarea>
-       </label>
-       <details class="lab-format" id="lab-format">
+       <div class="lab-sources">
+        <div class="field lab-source" id="lab-source-file">
+         <span class="field-label" data-i18n="lab.file_label">Archivo JSONL</span>
+         <div class="dropzone" id="lab-drop">
+          <svg aria-hidden="true" class="iso dropzone__iso" viewBox="-34 -40 68 58"><polygon class="li2" points="-30,-5 0,10 0,15 -30,0"></polygon><polygon class="li3" points="0,10 30,-5 30,0 0,15"></polygon><polygon class="li1" points="0,-20 30,-5 0,10 -30,-5"></polygon><polygon class="pa2" points="-30,-13 0,2 0,7 -30,-8"></polygon><polygon class="pa3" points="0,2 30,-13 30,-8 0,7"></polygon><polygon class="pa1" points="0,-28 30,-13 0,2 -30,-13"></polygon><polygon class="pa2" points="-30,-21 0,-6 0,-1 -30,-16"></polygon><polygon class="pa3" points="0,-6 30,-21 30,-16 0,-1"></polygon><polygon class="pa1" points="0,-36 30,-21 0,-6 -30,-21"></polygon></svg>
+          <strong data-i18n="lab.drop">Arrastra tu .jsonl aquí</strong>
+          <button class="btn btn--secondary" id="lab-choose" type="button" data-i18n="lab.choose">Elegir archivo</button>
+          <input class="sr-only" type="file" id="lab-file" tabindex="-1" aria-label="Cargar archivo JSONL" data-i18n-aria-label="lab.file" accept=".jsonl,application/x-ndjson,application/jsonl,text/plain"/>
+          <span class="meta" id="lab-file-name" role="status"></span>
+         </div>
+        </div>
+        <label class="field lab-source" for="lab-content" id="lab-source-paste">
+         <span class="field-label" data-i18n="lab.content">O pega aquí el JSONL</span>
+         <textarea class="input textarea" id="lab-content" rows="7" spellcheck="false" maxlength="1048576" aria-describedby="lab-format" placeholder="Una pregunta por línea, en JSON…" data-i18n-placeholder="lab.content_placeholder"></textarea>
+        </label>
+       </div>
+       <label class="field lab-name" for="lab-name"><span class="field-label" data-i18n="lab.name">Nombre del conjunto</span><input class="input" id="lab-name" maxlength="80" autocomplete="off" placeholder="Por ejemplo: placas base · noviembre" data-i18n-placeholder="lab.name_placeholder"/></label>
+       <details class="lab-format disclosure" id="lab-format">
         <summary data-i18n="lab.format">Formato y ejemplo</summary>
         <p class="help-text" data-i18n="lab.format_help">Una pregunta por línea. Copia el nombre exacto del documento de Biblioteca y usa la página física del PDF, empezando por 1. La evidencia es un texto literal de la respuesta; si no se anota, se contabiliza aparte.</p>
         <pre><code id="lab-example"></code></pre>
@@ -2460,16 +2476,26 @@
        <p id="lab-error" class="error-reason" role="alert" hidden></p>
        <div class="lab-actions">
         <button class="btn btn--secondary" id="lab-validate" type="button" data-i18n="lab.validate">Validar conjunto</button>
-        <button class="btn btn--primary" id="lab-run" type="submit" disabled data-i18n="lab.run">Evaluar configuración del chat</button>
+        <button class="btn btn--secondary" id="lab-run" type="submit" disabled aria-describedby="lab-reason" data-i18n="lab.run">Evaluar configuración del chat</button>
        </div>
+       <p class="help-text" id="lab-reason"></p>
       </form>
-      <aside class="card lab-configuration" aria-labelledby="lab-config-title">
-       <h2 class="card-title" id="lab-config-title" data-i18n="lab.configuration">Configuración que se medirá</h2>
-       <p class="help-text" data-i18n="lab.config_help">Se captura al enviar y se mantiene durante el experimento. El Laboratorio no cambia los ajustes del chat.</p>
-       <dl id="lab-configuration"></dl>
-       <p class="help-text" id="lab-estimate"></p>
-       <p class="help-text" id="lab-gpu-note" hidden data-i18n="lab.gpu_note">El reordenador configurado puede usar GPU y compartir VRAM con Ollama. No se descargan modelos.</p>
-       <a href="/configuracion" data-i18n="lab.open_settings">Ver Configuración</a>
+      <aside class="lab-side">
+       <section class="card lab-configuration" aria-labelledby="lab-config-title">
+        <div class="journey__top"><span class="eyebrow" data-i18n="lab.measured">Se medirá</span><span class="pill pill--sm" data-i18n="settings.read_only">Solo lectura</span></div>
+        <h2 class="card-title" id="lab-config-title" data-i18n="lab.configuration">Configuración que se medirá</h2>
+        <p class="help-text" data-i18n="lab.config_help">Se captura al enviar y se mantiene durante el experimento. El Laboratorio no cambia los ajustes del chat.</p>
+        <dl id="lab-configuration"></dl>
+        <a href="/configuracion" data-i18n="lab.open_settings">Ver Configuración</a>
+       </section>
+       <div class="callout">
+        <svg aria-hidden="true" class="icon"><use href="#i-info"></use></svg>
+        <span><strong data-i18n="lab.what_title">Qué hace la prueba</strong><span id="lab-estimate"></span></span>
+       </div>
+       <div class="callout callout--warn" id="lab-gpu-note" hidden>
+        <svg aria-hidden="true" class="icon"><use href="#i-alert"></use></svg>
+        <span><strong data-i18n="lab.vram_title">VRAM compartida</strong><span data-i18n="lab.gpu_note">El reordenador configurado puede usar GPU y compartir VRAM con Ollama. No se descargan modelos.</span></span>
+       </div>
       </aside>
      </div>
      <section class="card lab-results" id="lab-results" hidden aria-labelledby="lab-result-title">
