@@ -101,6 +101,10 @@ def documents(service, *, provider='ollama', model='', offset=0, limit=100, elig
                                 not_required=bool(total and extracted == total and not claims)),
             'publication': check(published, total, current=not source_changed, known=bool(model)),
         }
+        # Reviewed claims from the first passage are not a verified whole
+        # document while other passages have not even been extracted yet.
+        if checks['assessment']['checked'] and assessed_units != total:
+            checks['assessment'].update(state='partial', checked=False)
         status = ('in_use' if in_use else 'complete' if complete else 'stale' if source_changed else
                   'partial' if extracted else 'prepared' if current else 'available')
         entries.append({'file': name, 'status': status, 'eligible': not in_use and not complete,

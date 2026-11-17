@@ -103,6 +103,18 @@ class DocumentCheckpointTests(unittest.TestCase):
         self.assertEqual(claim['quote'], text[claim['start']:claim['end']])
         self.assertEqual(claim['quote'], 'Board Alpha supports DDR4 memory.')
 
+    def test_assessed_first_passage_does_not_mark_an_unfinished_document_verified(self):
+        text = 'Board Alpha supports DDR4 memory.\n' + ('More source text. ' * 190)
+        (self.service.documents / 'long.md').write_text(text, 'utf-8')
+        self.prepare(['long.md'])
+        self.stage('long.md', quote='Board Alpha supports DDR4 memory.', assessed=True, publish=True)
+        row = self.status()['documents'][0]
+        self.assertGreater(row['units_total'], 1)
+        self.assertEqual(row['units_assessed'], 1)
+        self.assertFalse(row['checks']['assessment']['checked'])
+        self.assertEqual(row['checks']['assessment']['state'], 'partial')
+        self.assertEqual(self.status()['selection_checks']['assessment']['done'], 0)
+
     def test_model_change_and_source_change_cannot_keep_unrelated_green_checks(self):
         file = 'board.md'
         (self.service.documents / file).write_text('Board Alpha supports DDR4 memory.', 'utf-8')
@@ -231,6 +243,37 @@ class DocumentCheckpointTests(unittest.TestCase):
         row = self.status()['documents'][0]
         self.assertFalse(row['checks']['assessment']['checked'])
         self.assertFalse(row['checks']['publication']['checked'])
+
+    def test_continuation_groups_connections_without_repeating_saved_unit_work(self):
+        from graph_continuation import ContinuousRequest
+        import time
+
+        for name in ('a.md', 'b.md'):
+            (self.service.documents / name).write_text('Board Alpha supports DDR4 memory.', 'utf-8')
+        self.prepare(['a.md', 'b.md'])
+        self.stage('a.md', model='not-an-installed-model', assessed=True)
+        self.stage('b.md', model='not-an-installed-model', assessed=True)
+        # Availability metadata only; extraction and assessment are actual saved
+        # checkpoints. No generated model response is stubbed or sent to Ollama.
+        self.service.ollama_status = lambda: {'connected': False, 'loaded': []}
+        body = ContinuousRequest(files=['a.md', 'b.md'], provider='ollama', model='not-an-installed-model',
+                                 max_total_units=2, pause_seconds=60, reconcile_every_units=5)
+        controller = self.service.graph_continuation
+        task = controller.start(body)['task_id']
+        try:
+            for _ in range(200):
+                jobs = [row for row in self.service.list_jobs()['jobs'] if row.get('graph_task') == task]
+                if jobs and jobs[0]['status'] not in {'queued', 'running'}:
+                    break
+                time.sleep(.01)
+            result = jobs[0]
+            self.assertEqual(result['status'], 'done', result)
+            self.assertTrue(result['reconciliation']['deferred'])
+            self.assertFalse(result['reconciliation']['checked'])
+            self.assertIsNone(result.get('graph_generation'))
+            self.assertEqual(graph_store(self.service).tasks(task)['processed'], 1)
+        finally:
+            controller.pause(task)
 
 
 if __name__ == '__main__':

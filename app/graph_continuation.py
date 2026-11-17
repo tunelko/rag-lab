@@ -12,6 +12,7 @@ class ContinuousRequest(ExtractRequest):
     max_seconds: int = Field(default=600, ge=10, le=7200)
     pause_seconds: float = Field(default=2, ge=.1, le=60)
     max_rss_mb: int = Field(default=8192, ge=512, le=65536)
+    reconcile_every_units: int = Field(default=5, ge=1, le=20)
 
 
 class GraphContinuation:
@@ -118,7 +119,17 @@ class GraphContinuation:
             # Cancel/pause is possible again once the unit's atomic publication ends.
             service.update(job, stage='graph', cancellable=True)
             self.check_active(task, job)
-            result['reconciliation'] = reconcile(service, job, config, self.key(body.provider))
+            processed = store.tasks(task)['processed']
+            # Identity work uses its own two model calls. Group it across units
+            # while keeping the real source assessments and publication per unit.
+            if (len(pending) <= 1 or processed >= body.max_total_units
+                    or processed % body.reconcile_every_units == 0):
+                result['reconciliation'] = reconcile(service, job, config, self.key(body.provider))
+            else:
+                result['reconciliation'] = {'deferred': True, 'checked': False,
+                    'next_after_units': body.reconcile_every_units - processed % body.reconcile_every_units}
+                service.update(job, graph_reconciliation_deferred=True,
+                    phase='Pasaje verificado; conexiones pendientes del siguiente grupo')
             return {**result, 'graph_task': task, 'task': store.tasks(task)}
         except InterruptedError:
             if store.tasks(task)['status'] in {'queued', 'running'}:

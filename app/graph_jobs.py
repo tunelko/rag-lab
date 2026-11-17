@@ -162,6 +162,8 @@ def generate_passage(service, job, messages, config, key, arguments):
     if config['provider'] == 'ollama':
         try:
             return rag.generate_ollama(messages, config['model'], **arguments)
+        except InterruptedError:
+            raise
         except urllib.error.HTTPError as error:
             try:
                 detail = str(json.loads(error.read(4096).decode('utf-8', 'replace')).get('error', str(error)))

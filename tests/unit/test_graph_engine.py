@@ -294,6 +294,46 @@ class GraphEngineTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=1)
 
+    def test_cancellation_during_real_http_is_not_reported_as_an_ollama_failure(self):
+        service, ready, submitted = self.service, threading.Event(), {}
+
+        class CancelHeartbeat(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get('Content-Length', '0')))
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/x-ndjson')
+                self.send_header('Content-Length', '1')
+                self.end_headers()
+                if ready.wait(2):
+                    service.cancel(submitted['job_id'])
+                self.wfile.write(b'\n')  # Heartbeat only: no generated model content.
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(('127.0.0.1', 0), CancelHeartbeat)
+        worker = threading.Thread(target=lambda: server.serve_forever(poll_interval=.01), daemon=True)
+        previous = os.environ.get('RAG_OLLAMA_URL')
+        try:
+            worker.start()
+            os.environ['RAG_OLLAMA_URL'] = f'http://127.0.0.1:{server.server_port}'
+            submitted.update(service.start('graph', lambda job: generate_passage(service, job,
+                [{'role': 'user', 'content': 'Transport cancellation check only.'}],
+                {'provider': 'ollama', 'model': 'not-invoked'}, None, {'on_chunk': lambda _piece: None})))
+            ready.set()
+            state = wait_job(self.client, submitted['job_id'])
+            self.assertEqual(state['status'], 'cancelled', state)
+            self.assertNotIn('error_info', state)
+        finally:
+            ready.set()
+            if previous is None:
+                os.environ.pop('RAG_OLLAMA_URL', None)
+            else:
+                os.environ['RAG_OLLAMA_URL'] = previous
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=1)
+
 
 if __name__ == '__main__':
     unittest.main()
