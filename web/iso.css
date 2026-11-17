@@ -193,8 +193,8 @@
 :root[data-theme] .topbar { background: var(--card); border-bottom: 1px solid var(--line); }
 :root[data-theme] .topbar.is-compact,
 :root[data-theme] .topbar.is-compact .topbar__bar { transform: none; }
-:root[data-theme] .topbar__bar { height: auto; min-height: 56px; padding: 6px 20px; gap: 12px; background: var(--card); }
-:root[data-theme] .topbar__brand { gap: 10px; font: 800 16px/1 var(--font); letter-spacing: 0; text-transform: none; white-space: nowrap; }
+:root[data-theme] .topbar__bar { height: auto; min-height: 56px; padding: 6px 16px; gap: 8px; background: var(--card); }
+:root[data-theme] .topbar__brand { gap: 8px; font: 800 15px/1 var(--font); letter-spacing: 0; text-transform: none; white-space: nowrap; }
 :root[data-theme] .topbar__brand .icon { display: none; }
 :root[data-theme] .brand-cube { display: block; flex: none; width: 28px; height: 28px; stroke: var(--edge); stroke-width: 2; stroke-linejoin: round; }
 :root[data-theme] .brand-cube__top { fill: var(--lima); }
@@ -203,10 +203,10 @@
 :root[data-theme] .topbar__spacer { display: none; }
 
 /* The row scrolls sideways when the tabs do not fit; the padding leaves room for the hard shadow. */
-:root[data-theme] .topnav { flex: 1 1 auto; align-self: center; gap: 6px; padding: 4px 2px 6px; }
+:root[data-theme] .topnav { flex: 1 1 auto; align-self: center; gap: 2px; padding: 4px 2px 6px; }
 :root[data-theme] .topnav::before,
 :root[data-theme] .topnav::after { content: ""; flex: 1 1 0; }          /* centred, and still scrollable from the first tab */
-:root[data-theme] .topnav a { flex: none; height: 36px; padding: 0 14px; gap: 8px; border: var(--bw) solid transparent; border-radius: var(--r-ctl);
+:root[data-theme] .topnav a { flex: none; height: 36px; padding: 0 8px; gap: 5px; border: var(--bw) solid transparent; border-radius: var(--r-ctl);
   color: var(--ink); font-size: 13px; font-weight: 500; }
 :root[data-theme] .topnav a svg,
 :root[data-theme] .topnav a[aria-current="page"] svg { color: var(--ink); }
@@ -217,18 +217,18 @@
 :root[data-theme] .topnav__badge { padding: 0 7px; border: var(--bw) solid var(--edge); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-size: 10px; font-weight: 800; }
 :root[data-theme] .topnav__badge--error { color: var(--err); }
 
-:root[data-theme] .cmdk { flex: 0 1 250px; min-width: 100px; height: 36px; padding: 0 8px 0 12px; background: var(--card); color: var(--muted);
+:root[data-theme] .cmdk { flex: none; width: auto; min-width: 0; height: 36px; padding: 0 8px 0 10px; gap: 8px; background: var(--card); color: var(--muted);
   border: var(--bw) solid var(--edge); border-radius: var(--r-ctl); }
 :root[data-theme] .cmdk:hover { background: var(--hover); border-color: var(--edge); }
 :root[data-theme] .cmdk .icon { width: 14px; height: 14px; color: var(--ink); }
 :root[data-theme] .kbd { padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
 
 /* Status: Ollama · VRAM · network exposure. It opens the same popover. */
-:root[data-theme] .sysbtn { flex: none; width: auto; height: 36px; padding: 0 12px; gap: 8px; background: var(--card); color: var(--ink);
+:root[data-theme] .sysbtn { flex: none; width: auto; height: 36px; padding: 0 10px; gap: 8px; background: var(--card); color: var(--ink);
   border: var(--bw) solid var(--edge); border-radius: var(--r-ctl); font-size: 12px; white-space: nowrap; }
 :root[data-theme] .sysbtn:hover,
 :root[data-theme] .sysbtn[aria-expanded="true"] { background: var(--hover); border-color: var(--edge); }
-:root[data-theme] .sysbtn > .icon { display: none; }
+:root[data-theme] .sysbtn > .icon { display: block; width: 16px; height: 16px; color: var(--lv, var(--ink)); }
 :root[data-theme] .sysbtn__pill { display: flex; align-items: center; gap: 8px; }
 :root[data-theme] .sysbtn__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 :root[data-theme] .sysbtn__dot[data-level="crit"] { background: var(--err); }
@@ -856,47 +856,40 @@
 }
 
 /* ---------- 11. Widths ---------- */
-/* The launcher becomes an icon before anything else gives way; then the status and the mark shorten; the tabs go last. */
-:root[data-theme] .topbar-language, :root[data-theme] .topbar-language .langbtn { width: 86px; }
-@media (max-width: 1799px) {
-  :root[data-theme] .cmdk__label, :root[data-theme] .cmdk .kbd { display: none; }
-  :root[data-theme] .cmdk { flex: 0 0 36px; width: 36px; min-width: 36px; padding: 0; justify-content: center; }
-}
-@media (max-width: 1599px) {
+/* The launcher is an icon with its shortcut and the language has no flag, so seven tabs fit in one row.
+   Below 1400 px the idle tabs lose their icon and the status keeps its pulse and the Ollama dot (the detail
+   stays in its popover); the tab labels are the last thing to give way. */
+:root[data-theme] .cmdk__label { display: none; }
+:root[data-theme] .topbar-language img { display: none; }
+:root[data-theme] .topbar-language, :root[data-theme] .topbar-language .langbtn { width: 60px; }
+:root[data-theme] .topbar-language .langbtn { padding: 0 2px 0 8px; }
+@media (max-width: 1479px) {
   :root[data-theme] .sysbtn__name { display: none; }
   :root[data-theme] .sysbtn__vram, :root[data-theme] .sysbtn__vram[hidden] + .sysbtn__net { margin-left: 0; }
   :root[data-theme] .sysbtn__vram::before, :root[data-theme] .sysbtn__vram[hidden] + .sysbtn__net::before { content: none; }
 }
-@media (max-width: 1519px) {
-  :root[data-theme] .topbar__brand { font-size: 0; gap: 0; }
-}
 @media (max-width: 1399px) {
-  :root[data-theme] .topnav a { padding: 0 10px; }
+  :root[data-theme] .topnav a:not([aria-current="page"]) svg { display: none; }
+  :root[data-theme] .sysbtn__vram, :root[data-theme] .sysbtn__net { display: none; }
+}
+@media (max-width: 1099px) {
+  :root[data-theme] .topbar__brand { font-size: 0; gap: 0; }
+  :root[data-theme] .cmdk .kbd { display: none; }
+  :root[data-theme] .cmdk { width: 36px; padding: 0; justify-content: center; }
   :root[data-theme] .lab-nav-long { display: none; }
   :root[data-theme] .lab-nav-short { display: inline; }
 }
-@media (max-width: 1199px) {
-  :root[data-theme] .topnav a svg { display: none; }
-  :root[data-theme] .topbar__bar { gap: 8px; padding: 6px 12px; }
-  :root[data-theme] .topnav { gap: 4px; }
-  :root[data-theme] .topnav a { padding: 0 8px; }
-  :root[data-theme] .topbar-language img { display: none; }
-  :root[data-theme] .topbar-language, :root[data-theme] .topbar-language .langbtn { width: 64px; }
-  :root[data-theme] .topbar-language .langbtn { padding-left: 8px; }
-}
 @media (max-width: 720px) {
-  :root[data-theme] .topbar__bar { flex-wrap: wrap; row-gap: 0; }
+  :root[data-theme] .topbar__bar { flex-wrap: wrap; row-gap: 0; padding: 6px 12px; }
   :root[data-theme] .topbar__brand { height: 48px; margin-right: auto; }
   :root[data-theme] .topnav { order: 3; flex: 1 0 100%; width: auto; height: auto; margin: 0 -12px; padding: 4px 12px 8px; border-top: 1px solid var(--line); }
   :root[data-theme] .topnav::before, :root[data-theme] .topnav::after { content: none; }
+  :root[data-theme] .topnav a svg { display: none; }
   :root[data-theme] .cmdk, :root[data-theme] .themebtn { flex: 0 0 40px; width: 40px; height: 40px; border: var(--bw) solid var(--edge); }
   :root[data-theme] .sysbtn { height: 40px; border: var(--bw) solid var(--edge); }
+  /* On a phone the row has room for the network exposure, which is what matters there. */
+  :root[data-theme] .sysbtn__net { display: inline; margin-left: 0; }
+  :root[data-theme] .sysbtn__net::before { content: none; }
   :root[data-theme] .topbar-language .langbtn { height: 40px; }
   :root[data-theme] .scene__steps { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
-}
-@media (max-width: 480px) {
-  /* The network exposure stays; the VRAM figure shows only when it needs attention (always in the popover). */
-  :root[data-theme] .sysbtn__vram[data-level="info"] { display: none; }
-  :root[data-theme] .sysbtn__vram[data-level="info"] + .sysbtn__net { margin-left: 0; }
-  :root[data-theme] .sysbtn__vram[data-level="info"] + .sysbtn__net::before { content: none; }
 }
