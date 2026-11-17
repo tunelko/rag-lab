@@ -334,3 +334,12 @@
 .sys__process-role { color: var(--ink); font-weight: 600; }
 .sys__process-use { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sys__process-name { grid-column: 1 / -1; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The cards follow the pipeline order in the document; this theme keeps its own arrangement. */
+.cfg-card--model { order: 1; }
+.cfg-card--ingest { order: 2; }
+.cfg-card--retrieval { order: 3; }
+.cfg-card--index { order: 4; }
+/* Wrappers that group things only in the light theme. */
+.cfg-hero, .cfg-group { display: contents; }
+.cfg-hero > .banner { margin-bottom: var(--space-4); }

@@ -45,7 +45,7 @@ export class SettingsController {
   formats(){
     // The chips come from the same accept list that validates uploads.
     const labels=[];for(const extension of $('file-input').accept.split(',')){const label=formatLabels[extension]||extension.slice(1).toUpperCase();if(!labels.includes(label))labels.push(label);}
-    $('settings-formats').replaceChildren(...labels.map(label=>node('span','',label)));
+    $('settings-formats').replaceChildren(...labels.map(label=>{const item=node('span','',label);item.dataset.format=label.split(' ')[0].toLowerCase();return item;}));
   }
   flash(){const box=$('settings-save');box.classList.add('is-visible');clearTimeout(this.flashTimer);this.flashTimer=setTimeout(()=>box.classList.remove('is-visible'),1800);}
   set(result){this.resetCatalog();this.value={...result.settings};this.models=result.models||[];this.providers=result.providers||[];this.credentials=result.credentials||null;this.version=this.saved=0;this.error=null;this.confirmed=false;this.render();this.changed?.(this.value,false);this.loadProviderModels();}

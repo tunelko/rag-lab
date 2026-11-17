@@ -1363,21 +1363,25 @@
      </div>
     </section>
     <section class="page cfg" hidden="" id="settings-view">
+     <div class="cfg-hero">
      <header class="page-head cfg__head">
       <svg aria-hidden="true" class="icon">
        <use href="#i-settings">
        </use>
       </svg>
       <div class="page-head__text">
+       <p class="hero-crumb only-light" data-i18n="settings.crumb">Configuración / pipeline</p>
        <h1 class="page-title">
-        <span data-i18n="sentinel.settings">
+        <span class="only-dark" data-i18n="sentinel.settings">
          Configuración
         </span>
+        <span class="only-light" data-i18n="settings.hero_title">Ajusta cada etapa</span>
        </h1>
        <p class="meta">
-        <span data-i18n="sentinel.settings_sub">
+        <span class="only-dark" data-i18n="sentinel.settings_sub">
          Modelos, recuperación e índice
         </span>
+        <span class="only-light" data-i18n="settings.hero_sub">Cada tarjeta lleva el número de su etapa. Se guarda al instante en este equipo.</span>
        </p>
       </div>
       <span aria-live="polite" class="cfg__save" id="settings-save" role="status">
@@ -1409,143 +1413,18 @@
        </span>
       </button>
      </div>
+     </div>
      <form class="cfg__grid" id="settings-form">
-      <section aria-labelledby="settings-generation-title" class="card cfg-card">
+      <section aria-labelledby="settings-multimodal-title" class="card cfg-card cfg-card--ingest">
        <header class="cfg-card__head">
-        <h2 class="card-title" id="settings-generation-title">
-         <span data-i18n="sentinel.generation">
-          Generación
-         </span>
-        </h2>
-       </header>
-       <div class="cfg-card__body">
-        <label class="cfg-field" for="response-provider">
-         <span class="cfg-field__label" data-i18n="sentinel.response_provider">
-          Proveedor de respuesta
-         </span>
-         <span class="cfg-select">
-          <select class="select" id="response-provider">
-          </select>
-         </span>
-        </label>
-        <input id="model-selection" type="hidden" value="automatic"/>
-        <div aria-label="Modo de generación" class="segmented cfg-seg" data-i18n-aria-label="sentinel.generation_mode" id="response-mode-control" role="radiogroup">
-         <button aria-checked="true" data-response-mode="automatic" role="radio" type="button">
-          <span data-i18n="sentinel.auto">
-           Automática
-          </span>
-         </button>
-         <button aria-checked="false" data-response-mode="manual" role="radio" tabindex="-1" type="button">
-          <span data-i18n="sentinel.manual">
-           Manual
-          </span>
-         </button>
-        </div>
-        <label class="cfg-field" for="model" id="local-model-field">
-         <span class="cfg-field__label" data-i18n="sentinel.text_model">
-          Modelo de texto
-         </span>
-         <span class="cfg-select">
-          <select class="select" id="model">
-           <option data-i18n="ui.connecting_to_ollama_4410a1" value="">
-            Conectando con Ollama…
-           </option>
-          </select>
-         </span>
-        </label>
-        <label class="cfg-field" for="external-model" hidden="" id="external-model-field">
-         <span class="cfg-field__label" data-i18n="sentinel.external_model">
-          Modelo externo
-         </span>
-         <span class="cfg-select">
-          <select class="select" id="external-model" aria-describedby="provider-models-state" disabled="">
-           <option value="" data-i18n="sentinel.choose_external_model">Selecciona un modelo</option>
-          </select>
-         </span>
-         <span class="cfg-inline-action">
-          <button class="btn btn--secondary btn--sm" id="refresh-provider-models" type="button"><span data-i18n="sentinel.refresh_models">Actualizar modelos</span></button>
-          <span class="cfg-field__hint" id="provider-models-state" role="status" aria-live="polite"></span>
-         </span>
-        </label>
-        <section class="cfg-model-pricing" hidden="" id="model-pricing" aria-label="Precios del modelo" data-i18n-aria-label="sentinel.model_pricing">
-         <p class="cfg-field__hint" id="model-pricing-state" role="status"></p>
-         <dl id="model-pricing-rates">
-          <div><dt data-i18n="sentinel.price_input">Entrada</dt><dd id="model-price-input">—</dd></div>
-          <div><dt data-i18n="sentinel.price_output">Salida</dt><dd id="model-price-output">—</dd></div>
-          <div id="model-price-cache-field" hidden=""><dt data-i18n="sentinel.price_cached_input">Entrada en caché</dt><dd id="model-price-cache">—</dd></div>
-         </dl>
-         <p class="cfg-field__hint" id="model-pricing-note" data-i18n="sentinel.price_public_note">Tarifa pública sin impuestos; no incluye descuentos ni tramo gratuito. Entrada: pregunta, historial y fuentes; salida: tokens generados.</p>
-         <p class="cfg-field__hint" id="model-pricing-updated"></p>
-         <a class="cfg-field__hint" id="model-pricing-source" href="https://www.scaleway.com/en/developers/api/product-catalog/public-catalog" target="_blank" rel="noopener noreferrer" data-i18n="sentinel.price_source">API oficial de tarifas</a>
-        </section>
-        <section class="cfg-credential" hidden="" id="credential-panel">
-         <div class="cfg-credential__head">
-          <span class="cfg-field__label" data-i18n="sentinel.api_credential">Credencial API cifrada</span>
-          <span class="status-pill" id="credential-state"></span>
-         </div>
-         <label class="cfg-field" for="provider-api-key">
-          <span class="cfg-field__label" data-i18n="sentinel.api_key">Clave API</span>
-          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.api_key_placeholder" id="provider-api-key" maxlength="8192" placeholder="No se mostrará ni se conservará en el navegador" type="password"/>
-         </label>
-         <p class="cfg-field__hint" hidden="" id="provider-credential-hint"></p>
-         <div class="cfg-credential__actions">
-          <button class="btn btn--secondary btn--sm" id="save-api-key" type="button"><span data-i18n="sentinel.save_key">Guardar cifrada</span></button>
-          <button class="btn btn--ghost btn--sm" id="delete-api-key" type="button"><span data-i18n="sentinel.delete_key">Eliminar clave</span></button>
-         </div>
-         <p class="cfg-field__hint" data-i18n="sentinel.cloud_disclosure">
-          Solo las consultas usan este proveedor: recibe la pregunta, los fragmentos y las imágenes necesarias para responder. La indexación se realiza localmente con Ollama y CPU.
-         </p>
-        </section>
-        <section class="cfg-credential" hidden="" id="credential-unlock">
-         <label class="cfg-field" for="credential-passphrase">
-          <span class="cfg-field__label" data-i18n="sentinel.master_passphrase">Contraseña maestra del almacén</span>
-          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.master_passphrase_placeholder" id="credential-passphrase" minlength="12" placeholder="Se mantiene solo en memoria hasta reiniciar" type="password"/>
-         </label>
-         <button class="btn btn--secondary btn--sm" id="unlock-credentials" type="button"><span data-i18n="sentinel.unlock_store">Desbloquear</span></button>
-        </section>
-        <label class="cfg-field" for="vision-model">
-         <span class="cfg-field__label" data-i18n="sentinel.vision_model">
-          Modelo visual para respuestas
-         </span>
-         <span class="cfg-select">
-          <select class="select" id="vision-model" aria-describedby="vision-model-hint">
-          </select>
-         </span>
-        </label>
-        <p class="cfg-field__hint" id="vision-model-hint"></p>
-        <div class="cfg-field">
-         <label class="cfg-field__label" for="max-images">
-          <span data-i18n="sentinel.max_images">
-           Imágenes por consulta
-          </span>
-         </label>
-         <div class="cfg-stepper">
-          <button aria-label="Reducir imágenes por consulta" data-i18n-aria-label="sentinel.decrease_images" data-step="-1" type="button">
-           <svg aria-hidden="true" class="icon">
-            <use href="#i-minus">
-            </use>
-           </svg>
-          </button>
-          <input id="max-images" inputmode="numeric" max="4" min="1" step="1" type="number" value="3"/>
-          <button aria-label="Aumentar imágenes por consulta" data-i18n-aria-label="sentinel.increase_images" data-step="1" type="button">
-           <svg aria-hidden="true" class="icon">
-            <use href="#i-plus">
-            </use>
-           </svg>
-          </button>
-         </div>
-        </div>
-        <p class="cfg-field__hint" id="response-mode">
-        </p>
-       </div>
-      </section>
-      <section aria-labelledby="settings-multimodal-title" class="card cfg-card">
-       <header class="cfg-card__head">
+        <span class="step-no only-light">1</span>
         <h2 class="card-title" id="settings-multimodal-title">
-         <span data-i18n="sentinel.multimodal">
+         <span class="only-dark" data-i18n="sentinel.multimodal">
           Indexación local
          </span>
+         <span class="only-light" data-i18n="settings.card_ingest">Documentos multimodales</span>
         </h2>
+        <span class="cfg-card__sub only-light" data-i18n="settings.card_ingest_sub">Texto y tablas en CPU · imágenes descritas con Ollama</span>
        </header>
        <div class="cfg-card__body">
         <label class="toggle-field" for="multimodal">
@@ -1589,12 +1468,93 @@
         </div>
        </footer>
       </section>
-      <section aria-labelledby="settings-retrieval-title" class="card cfg-card">
+      <section aria-labelledby="settings-index-title" class="card cfg-card cfg-card--index">
        <header class="cfg-card__head">
+        <span class="step-no step-no--wide only-light">2 · 3 · 4</span>
+        <h2 class="card-title" id="settings-index-title">
+         <span class="only-dark" data-i18n="sentinel.index">
+          Índice
+         </span>
+         <span class="only-light" data-i18n="sentinel.index">Índice</span>
+        </h2>
+        <span class="pill pill--sm only-light" data-i18n="settings.read_only">Solo lectura</span>
+       </header>
+       <div class="cfg-card__body">
+        <dl class="cfg-kv">
+         <div>
+          <dt>
+           <span data-i18n="sentinel.collection">
+            Colección
+           </span>
+          </dt>
+          <dd id="config-collection">
+           —
+          </dd>
+         </div>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.dimensions">
+            Dimensiones
+           </span>
+          </dt>
+          <dd id="config-dimensions">
+           —
+          </dd>
+         </div>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.device">
+            Dispositivo
+           </span>
+          </dt>
+          <dd id="config-device">
+           —
+          </dd>
+         </div>
+         <div>
+          <dt>
+           <span data-i18n="sentinel.chunk_overlap">
+            Fragmento / solape
+           </span>
+          </dt>
+          <dd id="config-chunk">
+           —
+          </dd>
+         </div>
+         <div class="is-wide">
+          <dt>
+           <span data-i18n="sentinel.embeddings">
+            Embeddings
+           </span>
+          </dt>
+          <dd id="config-embeddings">
+           —
+          </dd>
+         </div>
+        </dl>
+        <div aria-hidden="true" class="overlap only-light"><i></i><i></i><i></i></div>
+        <p class="cfg-field__hint only-light" id="overlap-note"></p>
+       </div>
+       <footer class="cfg-card__foot">
+        <button class="btn btn--secondary" id="prepare-button" type="button">
+         <svg aria-hidden="true" class="icon">
+          <use href="#i-cpu">
+          </use>
+         </svg>
+         <span data-i18n="sentinel.prepare">
+          Preparar modelo de búsqueda
+         </span>
+        </button>
+       </footer>
+      </section>
+      <section aria-labelledby="settings-retrieval-title" class="card cfg-card cfg-card--retrieval">
+       <header class="cfg-card__head">
+        <span class="step-no only-light">5</span>
         <h2 class="card-title" id="settings-retrieval-title">
-         <span data-i18n="sentinel.retrieval">
+         <span class="only-dark" data-i18n="sentinel.retrieval">
           Recuperación
          </span>
+         <span class="only-light" data-i18n="settings.card_retrieval">Retrieval</span>
         </h2>
        </header>
        <div class="cfg-card__body">
@@ -1662,79 +1622,142 @@
         </dl>
        </div>
       </section>
-      <section aria-labelledby="settings-index-title" class="card cfg-card">
+      <section aria-labelledby="settings-generation-title" class="card cfg-card cfg-card--model">
        <header class="cfg-card__head">
-        <h2 class="card-title" id="settings-index-title">
-         <span data-i18n="sentinel.index">
-          Índice
+        <span class="step-no only-light">6</span>
+        <h2 class="card-title" id="settings-generation-title">
+         <span class="only-dark" data-i18n="sentinel.generation">
+          Generación
          </span>
+         <span class="only-light" data-i18n="settings.card_model">Modelo</span>
         </h2>
        </header>
        <div class="cfg-card__body">
-        <dl class="cfg-kv">
-         <div>
-          <dt>
-           <span data-i18n="sentinel.collection">
-            Colección
-           </span>
-          </dt>
-          <dd id="config-collection">
-           —
-          </dd>
-         </div>
-         <div>
-          <dt>
-           <span data-i18n="sentinel.dimensions">
-            Dimensiones
-           </span>
-          </dt>
-          <dd id="config-dimensions">
-           —
-          </dd>
-         </div>
-         <div>
-          <dt>
-           <span data-i18n="sentinel.device">
-            Dispositivo
-           </span>
-          </dt>
-          <dd id="config-device">
-           —
-          </dd>
-         </div>
-         <div>
-          <dt>
-           <span data-i18n="sentinel.chunk_overlap">
-            Fragmento / solape
-           </span>
-          </dt>
-          <dd id="config-chunk">
-           —
-          </dd>
-         </div>
-         <div class="is-wide">
-          <dt>
-           <span data-i18n="sentinel.embeddings">
-            Embeddings
-           </span>
-          </dt>
-          <dd id="config-embeddings">
-           —
-          </dd>
-         </div>
-        </dl>
-       </div>
-       <footer class="cfg-card__foot">
-        <button class="btn btn--secondary" id="prepare-button" type="button">
-         <svg aria-hidden="true" class="icon">
-          <use href="#i-cpu">
-          </use>
-         </svg>
-         <span data-i18n="sentinel.prepare">
-          Preparar modelo de búsqueda
+        <div class="cfg-group">
+        <label class="cfg-field" for="response-provider">
+         <span class="cfg-field__label" data-i18n="sentinel.response_provider">
+          Proveedor de respuesta
          </span>
-        </button>
-       </footer>
+         <span class="cfg-select">
+          <select class="select" id="response-provider">
+          </select>
+         </span>
+        </label>
+        <input id="model-selection" type="hidden" value="automatic"/>
+        <div aria-label="Modo de generación" class="segmented cfg-seg" data-i18n-aria-label="sentinel.generation_mode" id="response-mode-control" role="radiogroup">
+         <button aria-checked="true" data-response-mode="automatic" role="radio" type="button">
+          <span data-i18n="sentinel.auto">
+           Automática
+          </span>
+         </button>
+         <button aria-checked="false" data-response-mode="manual" role="radio" tabindex="-1" type="button">
+          <span data-i18n="sentinel.manual">
+           Manual
+          </span>
+         </button>
+        </div>
+        <label class="cfg-field" for="model" id="local-model-field">
+         <span class="cfg-field__label" data-i18n="sentinel.text_model">
+          Modelo de texto
+         </span>
+         <span class="cfg-select">
+          <select class="select" id="model">
+           <option data-i18n="ui.connecting_to_ollama_4410a1" value="">
+            Conectando con Ollama…
+           </option>
+          </select>
+         </span>
+        </label>
+        <label class="cfg-field" for="external-model" hidden="" id="external-model-field">
+         <span class="cfg-field__label" data-i18n="sentinel.external_model">
+          Modelo externo
+         </span>
+         <span class="cfg-select">
+          <select class="select" id="external-model" aria-describedby="provider-models-state" disabled="">
+           <option value="" data-i18n="sentinel.choose_external_model">Selecciona un modelo</option>
+          </select>
+         </span>
+         <span class="cfg-inline-action">
+          <button class="btn btn--secondary btn--sm" id="refresh-provider-models" type="button"><span data-i18n="sentinel.refresh_models">Actualizar modelos</span></button>
+          <span class="cfg-field__hint" id="provider-models-state" role="status" aria-live="polite"></span>
+         </span>
+        </label>
+        <section class="cfg-model-pricing" hidden="" id="model-pricing" aria-label="Precios del modelo" data-i18n-aria-label="sentinel.model_pricing">
+         <p class="cfg-field__hint" id="model-pricing-state" role="status"></p>
+         <dl id="model-pricing-rates">
+          <div><dt data-i18n="sentinel.price_input">Entrada</dt><dd id="model-price-input">—</dd></div>
+          <div><dt data-i18n="sentinel.price_output">Salida</dt><dd id="model-price-output">—</dd></div>
+          <div id="model-price-cache-field" hidden=""><dt data-i18n="sentinel.price_cached_input">Entrada en caché</dt><dd id="model-price-cache">—</dd></div>
+         </dl>
+         <p class="cfg-field__hint" id="model-pricing-note" data-i18n="sentinel.price_public_note">Tarifa pública sin impuestos; no incluye descuentos ni tramo gratuito. Entrada: pregunta, historial y fuentes; salida: tokens generados.</p>
+         <p class="cfg-field__hint" id="model-pricing-updated"></p>
+         <a class="cfg-field__hint" id="model-pricing-source" href="https://www.scaleway.com/en/developers/api/product-catalog/public-catalog" target="_blank" rel="noopener noreferrer" data-i18n="sentinel.price_source">API oficial de tarifas</a>
+        </section>
+        </div>
+        <div class="cfg-group cfg-group--key">
+        <section class="cfg-credential" hidden="" id="credential-panel">
+         <div class="cfg-credential__head">
+          <span class="cfg-field__label" data-i18n="sentinel.api_credential">Credencial API cifrada</span>
+          <span class="status-pill" id="credential-state"></span>
+         </div>
+         <label class="cfg-field" for="provider-api-key">
+          <span class="cfg-field__label" data-i18n="sentinel.api_key">Clave API</span>
+          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.api_key_placeholder" id="provider-api-key" maxlength="8192" placeholder="No se mostrará ni se conservará en el navegador" type="password"/>
+         </label>
+         <p class="cfg-field__hint" hidden="" id="provider-credential-hint"></p>
+         <div class="cfg-credential__actions">
+          <button class="btn btn--secondary btn--sm" id="save-api-key" type="button"><span data-i18n="sentinel.save_key">Guardar cifrada</span></button>
+          <button class="btn btn--ghost btn--sm" id="delete-api-key" type="button"><span data-i18n="sentinel.delete_key">Eliminar clave</span></button>
+         </div>
+         <p class="cfg-field__hint" data-i18n="sentinel.cloud_disclosure">
+          Solo las consultas usan este proveedor: recibe la pregunta, los fragmentos y las imágenes necesarias para responder. La indexación se realiza localmente con Ollama y CPU.
+         </p>
+        </section>
+        <section class="cfg-credential" hidden="" id="credential-unlock">
+         <label class="cfg-field" for="credential-passphrase">
+          <span class="cfg-field__label" data-i18n="sentinel.master_passphrase">Contraseña maestra del almacén</span>
+          <input autocomplete="new-password" class="input" data-i18n-placeholder="sentinel.master_passphrase_placeholder" id="credential-passphrase" minlength="12" placeholder="Se mantiene solo en memoria hasta reiniciar" type="password"/>
+         </label>
+         <button class="btn btn--secondary btn--sm" id="unlock-credentials" type="button"><span data-i18n="sentinel.unlock_store">Desbloquear</span></button>
+        </section>
+        </div>
+        <div class="cfg-group">
+        <label class="cfg-field" for="vision-model">
+         <span class="cfg-field__label" data-i18n="sentinel.vision_model">
+          Modelo visual para respuestas
+         </span>
+         <span class="cfg-select">
+          <select class="select" id="vision-model" aria-describedby="vision-model-hint">
+          </select>
+         </span>
+        </label>
+        <p class="cfg-field__hint" id="vision-model-hint"></p>
+        <div class="cfg-field">
+         <label class="cfg-field__label" for="max-images">
+          <span data-i18n="sentinel.max_images">
+           Imágenes por consulta
+          </span>
+         </label>
+         <div class="cfg-stepper">
+          <button aria-label="Reducir imágenes por consulta" data-i18n-aria-label="sentinel.decrease_images" data-step="-1" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-minus">
+            </use>
+           </svg>
+          </button>
+          <input id="max-images" inputmode="numeric" max="4" min="1" step="1" type="number" value="3"/>
+          <button aria-label="Aumentar imágenes por consulta" data-i18n-aria-label="sentinel.increase_images" data-step="1" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-plus">
+            </use>
+           </svg>
+          </button>
+         </div>
+        </div>
+        </div>
+        <p class="cfg-field__hint" id="response-mode">
+        </p>
+       </div>
       </section>
      </form>
     </section>

@@ -1109,5 +1109,14 @@
   "library.stage_indexing": "Indexado",
   "scene.go_upload": "Añadir documentos",
   "scene.go_documents": "Ver documentos",
-  "scene.go_configuration": "Ajustar en Configuración"
+  "scene.go_configuration": "Ajustar en Configuración",
+  "settings.crumb": "Configuración / pipeline",
+  "settings.hero_title": "Ajusta cada etapa",
+  "settings.hero_sub": "Cada tarjeta lleva el número de su etapa. Se guarda al instante en este equipo.",
+  "settings.card_ingest": "Documentos multimodales",
+  "settings.card_ingest_sub": "Texto y tablas en CPU · imágenes descritas con Ollama",
+  "settings.card_retrieval": "Retrieval",
+  "settings.card_model": "Modelo",
+  "settings.read_only": "Solo lectura",
+  "settings.overlap_note": "Cada fragmento repite los últimos {overlap} caracteres del anterior para no cortar ideas."
 }
