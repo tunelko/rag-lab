@@ -1188,7 +1188,7 @@
   "graph.continuous_title": "State of the process",
   "graph.pause": "Pause",
   "graph.task_queued": "Queued",
-  "graph.task_running": "Running",
+  "graph.task_running": "Processing",
   "graph.task_paused": "Paused",
   "graph.task_paused_budget": "Limit reached",
   "graph.task_paused_resources": "Stopped by memory",
