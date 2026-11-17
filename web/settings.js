@@ -2,7 +2,7 @@ import {$, node} from './ui.js';
 import {t, serverText, intlLocale} from './i18n.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
-const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'query_vision_model','index-vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal'};
+const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'query_vision_model','index-vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal','graph-retrieval':'graph_retrieval'};
 const formatLabels={'.markdown':'MD','.jpeg':'JPG','.zip':'ZIP MinerU'};
 
 export class SettingsController {
@@ -20,6 +20,7 @@ export class SettingsController {
     });
     $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(control)this.patch({response_mode:control.dataset.responseMode});});
     $('top-k').addEventListener('click',event=>{const control=event.target.closest('[data-k]');if(control)this.patch({k:Number(control.dataset.k)});});
+    $('graph-hops').addEventListener('click',event=>{const control=event.target.closest('[data-hops]');if(control)this.patch({graph_hops:Number(control.dataset.hops)});});
     for(const group of $('settings-form').querySelectorAll('[role=radiogroup]'))group.addEventListener('keydown',event=>this.arrows(group,event));
     for(const stepper of $('settings-form').querySelectorAll('.cfg-stepper'))stepper.addEventListener('click',event=>this.step(stepper,event));
     $('settings-form').addEventListener('submit',event=>{event.preventDefault();this.flush().catch(()=>{});});
@@ -180,6 +181,8 @@ export class SettingsController {
     for(const control of $('response-mode-control').querySelectorAll('button'))control.disabled=false;
     this.radios('#response-mode-control [data-response-mode]',control=>control.dataset.responseMode===value.response_mode);
     this.radios('#top-k [data-k]',control=>Number(control.dataset.k)===value.k);
+    // Graph retrieval in the chat exists only on servers that report the setting.
+    $('graph-settings').hidden=value.graph_retrieval===undefined;this.radios('#graph-hops [data-hops]',control=>Number(control.dataset.hops)===value.graph_hops);for(const control of $('graph-hops').querySelectorAll('button'))control.disabled=!value.graph_retrieval;
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));
     $('response-mode').textContent=external?s('router_cloud'):s(value.response_mode==='automatic'?'router_auto':'router_manual');
     $('credential-panel').hidden=!external;$('credential-unlock').hidden=!external||!this.credentials?.locked;

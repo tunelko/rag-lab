@@ -814,7 +814,9 @@
 :root[data-theme] .lab-name { max-width: 520px; gap: 8px; }
 :root[data-theme] .disclosure { padding: 0; background: var(--stage); border: 1px solid var(--line); border-radius: 12px; }
 :root[data-theme] .disclosure > summary { padding: 10px 14px; color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
-:root[data-theme] .disclosure > :not(summary) { margin: 0 14px 12px; }
+:root[data-theme] .disclosure > :not(summary),
+:root[data-theme] .lab-view .disclosure > :not(summary),
+:root[data-theme] .graph-view .disclosure > :not(summary) { margin: 0 14px 12px; }
 :root[data-theme] .lab-actions { gap: 12px; padding-top: 16px; border-top: 1px solid var(--line); }
 
 /* Read-only side column */
@@ -945,7 +947,7 @@
 :root[data-theme] .graph-card__head--next { padding-top: 16px; border-top: 1px solid var(--line); }
 :root[data-theme] .graph-card__head .step-no { width: 26px; height: 26px; font-size: 12px; background: var(--butter); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .graph-card__head--next .step-no { background: var(--lilac); }
-:root[data-theme] .graph-card:last-child .graph-card__head .step-no { background: var(--mint); }
+:root[data-theme] .graph-card:nth-child(2) .graph-card__head .step-no { background: var(--mint); }
 :root[data-theme] .graph-card__head .meta { margin-left: auto; }
 :root[data-theme] .graph-card .field-label { margin: 0; text-transform: uppercase; }
 :root[data-theme] .graph-card .meta { margin: 0; }
@@ -980,6 +982,38 @@
 :root[data-theme] .graph-row-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 3px; }
 :root[data-theme] .graph-row-actions .btn { height: auto; min-height: 30px; padding: 4px 10px; font-size: 11px; white-space: normal; text-align: left; }
 :root[data-theme] .graph-verification { width: min(850px, 95vw); }
+
+/* Continuous runs, entities across passages and measurement */
+:root[data-theme] .graph-modern { display: flex; flex-direction: column; gap: 14px; }
+:root[data-theme] .graph-modern .field { gap: 8px; }
+:root[data-theme] .graph-limits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
+:root[data-theme] .graph-limits > .meta { grid-column: 1 / -1; }
+:root[data-theme] .graph-limits .input { height: 38px; }
+:root[data-theme] .graph-continuous { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--stage); border: 1px solid var(--line); border-radius: 12px; }
+:root[data-theme] .graph-continuous .pill { text-transform: uppercase; }
+:root[data-theme] .graph-card--wide { grid-column: 1 / -1; }
+:root[data-theme] .graph-card--wide .graph-card__head .step-no { background: var(--sky); }
+:root[data-theme] .graph-card__head .pill { margin-left: auto; }
+:root[data-theme] .graph-measure { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); align-items: start; gap: 14px 20px; }
+:root[data-theme] .graph-measure .field { gap: 8px; min-width: 0; }
+:root[data-theme] .graph-measure .textarea { min-height: 132px; }
+:root[data-theme] .graph-measure__options { display: flex; flex-direction: column; gap: 12px; }
+:root[data-theme] .graph-measure__options .select { height: 38px; }
+:root[data-theme] #graph-eval-report { border-top: var(--bw) solid var(--edge); }
+:root[data-theme] #graph-eval-report td:first-child { text-transform: capitalize; }
+:root[data-theme] #graph-eval-report .is-up { color: var(--ok); font-weight: 700; }
+:root[data-theme] #graph-eval-report .is-down { color: var(--err); font-weight: 700; }
+:root[data-theme] #graph-eval-note { padding: 10px 16px 0; }
+/* The same entity in two passages: a dashed bridge over the floor */
+:root[data-theme] .gbridge { cursor: pointer; outline: none; }
+:root[data-theme] .gbridge path { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 5; stroke-linecap: round; }
+:root[data-theme] .gbridge .graph-edge-hit { stroke: transparent; stroke-width: 14; stroke-dasharray: none; pointer-events: stroke; }
+:root[data-theme] .gbridge:hover path:not(.graph-edge-hit), :root[data-theme] .gbridge:focus-visible path:not(.graph-edge-hit), :root[data-theme] .gbridge.is-selected path:not(.graph-edge-hit) { stroke-width: 3; }
+/* Settings: the graph in the chat */
+:root[data-theme] .cfg-graph { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
+@media (max-width: 720px) {
+  :root[data-theme] .graph-limits, :root[data-theme] .graph-measure { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 1000px) {
   :root[data-theme] .graph-map-workspace, :root[data-theme] .graph-cards { grid-template-columns: minmax(0, 1fr); }
   :root[data-theme] .graph-evidence { max-height: none; }

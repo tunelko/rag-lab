@@ -125,9 +125,29 @@ export class GraphMap {
     this.home(); this.paint(); this.filter();
     // A refresh keeps what was selected, if it is still there.
     const kept = this.selection;
+    this.links = [];
     if (kept?.edge != null && this.data.edges.some(edge => edge.id === kept.edge)) this.select(kept);
     else if (kept?.node != null && this.positions.has(kept.node)) this.select(kept);
     else { this.selection = null; this.hint(); }
+  }
+
+  // The same entity mentioned in two passages: a dashed bridge between its two cubes, decided by the model and assessed.
+  bridges(data) {
+    this.drawing?.querySelector('.graph-bridges')?.remove(); this.links = [];
+    if (!this.drawing || !data?.identity_links?.length) return;
+    const key = entity => JSON.stringify([entity.unit, entity.kind || '', entity.label]), byId = new Map(data.entities.map(entity => [entity.id, entity]));
+    const layer = svg('g', {class: 'graph-bridges'});
+    for (const link of data.identity_links) {
+      const left = byId.get(link.left_entity), right = byId.get(link.right_entity), a = left && this.positions.get(key(left)), b = right && this.positions.get(key(right));
+      if (!a || !b) continue;
+      const control = svg('g', {class: 'gbridge', tabindex: 0, role: 'button', 'aria-pressed': 'false', 'aria-label': label('same_entity') + ': ' + left.label});
+      const path = svg('path'), hit = svg('path', {class: 'graph-edge-hit'}); control.append(hit, path, svg('title', {}, label('same_entity')));
+      const open = () => this.select({bridge: link.id});
+      control.addEventListener('click', open); control.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); } });
+      layer.append(control); this.links.push({link, left, right, a, b, control, path, hit});
+    }
+    // Above the floor and its lines, under the cubes.
+    this.drawing.insertBefore(layer, this.cards[0]?.control || null); this.paint();
   }
 
   // Search and source filter dim what does not match instead of removing it.
@@ -154,6 +174,8 @@ export class GraphMap {
       for (const [key, value] of Object.entries(ends)) { line.setAttribute(key, value); hit.setAttribute(key, value); }
       tag.setAttribute('transform', `translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - 12})`);
     }
+    // A bridge rises between its two cubes, so it reads as a link over the floor and not as a relation on it.
+    for (const {a, b, path, hit} of this.links || []) { const d = `M${a.x} ${a.y - H - 6} Q${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - H - 70} ${b.x} ${b.y - H - 6}`; path.setAttribute('d', d); hit.setAttribute('d', d); }
   }
 
   // Normal zoom is one pixel per unit; a map smaller than the canvas is centred, a larger one starts at its first islands.
@@ -170,12 +192,14 @@ export class GraphMap {
     this.selection = selection;
     for (const {edge, control, tag} of this.lines) { const on = selection.edge === edge.id; control.classList.toggle('is-selected', on); tag.classList.toggle('is-selected', on); control.setAttribute('aria-pressed', String(on)); }
     for (const {item, control} of this.cards) { const on = selection.node === item.id; control.classList.toggle('is-selected', on); control.setAttribute('aria-pressed', String(on)); }
+    for (const item of this.links || []) { const on = selection.bridge === item.link.id; item.control.classList.toggle('is-selected', on); item.control.setAttribute('aria-pressed', String(on)); }
     if (selection.edge != null) this.show(this.data.edges.find(edge => edge.id === selection.edge).row);
+    else if (selection.bridge != null) this.same((this.links || []).find(item => item.link.id === selection.bridge));
     else this.neighbors(this.positions.get(selection.node));
   }
   deselect() {
     this.selection = null;
-    for (const {control, tag} of [...this.lines, ...this.cards]) { control.classList.remove('is-selected'); tag?.classList.remove('is-selected'); control.setAttribute('aria-pressed', 'false'); }
+    for (const {control, tag} of [...this.lines, ...this.cards, ...(this.links || [])]) { control.classList.remove('is-selected'); tag?.classList.remove('is-selected'); control.setAttribute('aria-pressed', 'false'); }
     this.hint();
   }
 
@@ -188,6 +212,20 @@ export class GraphMap {
     const pane = $('graph-map-detail'); pane.replaceChildren();
     this.heading(pane, label('evidence'));
     pane.append(node('h3', 'graph-evidence__title', label('explore')), node('p', 'meta', label('explore_hint')));
+  }
+  // Why two mentions are one entity, and where each of them comes from.
+  same(item) {
+    const pane = $('graph-map-detail'); pane.replaceChildren();
+    if (!item) return this.hint();
+    this.heading(pane, label('same_entity'), label('accepted'), 'mint');
+    pane.append(node('h3', 'graph-evidence__title', item.left.label === item.right.label ? item.left.label : `${item.left.label} = ${item.right.label}`));
+    if (item.link.reason) pane.append(node('blockquote', 'evidence-quote', item.link.reason));
+    const facts = node('dl', 'graph-evidence__facts'), add = (key, value) => facts.append(node('dt', '', key), node('dd', '', value));
+    add(label('document'), item.left.file); add(label('document'), item.right.file);
+    if (item.link.model) add(label('decided_by'), [item.link.provider, item.link.model].filter(Boolean).join(' · '));
+    pane.append(facts);
+    if (item.link.verification_reason) pane.append(node('p', 'meta', item.link.verification_reason));
+    pane.append(node('p', 'meta', label('other_hint')));
   }
   neighbors(item) {
     const pane = $('graph-map-detail'); pane.replaceChildren();
