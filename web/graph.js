@@ -7,32 +7,48 @@ import {GraphMap} from './graph-map.js';
 const label=(key,values={})=>t(`graph.${key}`,values),STORE=sessionKey('musa-graph-job');
 const post=body=>({method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
 // The server takes at most this many sources in one request; newer servers report their own limit.
-const MAX_FILES=100,CHECKS=['preparation','extraction','assessment','publication'],SVG='http://www.w3.org/2000/svg';
+const MAX_FILES=100,PAGE=100,CHECKS=['preparation','extraction','assessment','publication'],SVG='http://www.w3.org/2000/svg';
+// The state of a document in the list, and the colour of its label.
+const TONE={complete:' pill--mint',in_use:' pill--lima',partial:' pill--butter',stale:' pill--coral',prepared:''};
 // A continuous run can be paused and resumed; when its budget is spent it needs a new run, with new limits.
 const RUNNING=['queued','running'],RESUMABLE=['paused','paused_error','paused_resources','interrupted'],clock=seconds=>{const total=Math.round(seconds||0);return Math.floor(total/60)+':'+String(total%60).padStart(2,'0');};
 // The stage a job reports, as its position in the row of stages.
 const STAGE={preparation:0,extraction:1,assessment:2,publication:3,reconciliation:4};
 export class Graph{
   constructor(api){
-    this.api=api;this.busy=false;this.active=false;this.audit_=null;this.task=null;this.max=MAX_FILES;this.modern=false;
+    this.api=api;this.busy=false;this.active=false;this.audit_=null;this.task=null;this.max=MAX_FILES;this.modern=false;this.selected=new Set();this.offset=0;this.documents=null;
     this.map=new GraphMap();
     // Choose every source (when the collection fits in one request), the next ones still pending, or none.
-    $('graph-select-all').addEventListener('click',()=>{for(const box of this.boxes())box.checked=true;this.sources();});
+    $('graph-select-all').addEventListener('click',()=>{
+      if(this.modern){for(const row of this.documents?.documents||[])if(row.eligible)this.selected.add(row.file);this.renderDocuments();}
+      else{for(const box of this.boxes())box.checked=true;this.sources();}
+    });
     $('graph-select-max').addEventListener('click',()=>this.selectMax());
-    $('graph-select-none').addEventListener('click',()=>{for(const box of this.boxes())box.checked=false;this.sources();});
-    $('graph-files').addEventListener('change',event=>{if(event.target.checked&&this.chosen().length>this.max){event.target.checked=false;toast(label('select_limit',{max:number(this.max)}));}this.sources();});
+    $('graph-select-none').addEventListener('click',()=>{if(this.modern){this.selected.clear();this.renderDocuments();}else{for(const box of this.boxes())box.checked=false;this.sources();}});
+    $('graph-files').addEventListener('change',event=>{
+      const box=event.target,full=box.checked&&(this.modern?this.selected.size>=this.max:this.chosen().length>this.max);
+      if(full){box.checked=false;toast(label('select_limit',{max:number(this.max)}));}
+      else if(this.modern){
+        if(box.checked)this.selected.add(box.value);
+        // A processed or busy document that is taken out cannot be put back.
+        else{this.selected.delete(box.value);box.disabled=box.closest('li').classList.contains('is-blocked');}
+      }
+      this.sources();
+    });
+    $('graph-page-prev').addEventListener('click',()=>this.loadDocuments(Math.max(0,this.offset-PAGE)));
+    $('graph-page-next').addEventListener('click',()=>this.loadDocuments(this.offset+PAGE));
     $('graph-prepare').addEventListener('click',()=>this.start('prepare'));
     // Processing is continuous wherever the server offers it; an older server processes the next batch.
     for(const id of ['graph-extract','graph-process'])$(id).addEventListener('click',()=>this.start(this.modern?'continuous':'process'));
     $('graph-continuous-again').addEventListener('click',()=>this.again());
     $('graph-audit').addEventListener('click',()=>this.audit());
-    $('graph-reconcile').addEventListener('click',()=>this.start('reconcile'));
+    $('graph-reconcile').addEventListener('click',()=>this.join());
     $('graph-evaluate').addEventListener('click',()=>this.evaluate());
     $('graph-continuous-pause').addEventListener('click',()=>this.continuous('pause'));
     $('graph-continuous-resume').addEventListener('click',()=>this.continuous('resume'));
     $('graph-cancel').addEventListener('click',async()=>{if(!this.job)return;try{await this.api('/api/jobs/'+this.job,{method:'DELETE'});}catch(error){toast(error.message);}});
     $('graph-provider').addEventListener('change',()=>{$('graph-remote-field').hidden=$('graph-provider').value==='ollama';$('graph-remote').checked=false;this.loadModels();});
-    $('graph-model').addEventListener('change',()=>{this.controls();this.check();});
+    $('graph-model').addEventListener('change',()=>{this.controls();if(this.modern)this.loadDocuments();else this.check();});
     $('graph-model-refresh').addEventListener('click',()=>this.loadModels());
     const limit=$('graph-unit-limit');
     limit.addEventListener('input',()=>this.batchHint());
@@ -45,25 +61,51 @@ export class Graph{
   }
   // The next sources still to process, as the server lists them; on an older server, the first ones of the list.
   async selectMax(){
-    let names=null;
-    if(this.modern)try{const data=await this.api('/api/graph/documents?'+new URLSearchParams({provider:$('graph-provider').value,model:$('graph-model').value.trim(),limit:'1',eligible_only:'true'}));this.max=data.max_batch_size||this.max;names=new Set(data.next_batch);}catch{names=null;}
-    let count=0,first=null;
-    for(const box of this.boxes()){box.checked=names?names.has(box.value):count<this.max;if(box.checked){count++;first=first||box;}}
-    if(names&&!count)toast(label('nothing_pending'));
-    if(first){const list=$('graph-files'),row=first.closest('li');list.scrollTop=row.offsetTop-list.offsetTop;}
+    if(this.modern){
+      try{const data=await this.api('/api/graph/documents?'+this.query({limit:'1',eligible_only:'true'}));this.max=data.max_batch_size||this.max;this.selected=new Set(data.next_batch);if(!data.next_batch.length)toast(label('nothing_pending'));await this.loadDocuments(0);}
+      catch(error){toast(error.message);}
+      return;
+    }
+    let count=0;for(const box of this.boxes()){box.checked=count<this.max;if(box.checked)count++;}
+    this.sources();
+  }
+  query(extra){return new URLSearchParams({provider:$('graph-provider').value,model:$('graph-model').value.trim(),...extra});}
+  // One page of the collection, with what the server knows of each document for the chosen model.
+  async loadDocuments(offset=this.offset){
+    if(!this.modern)return;
+    const ticket=this.pageTicket=(this.pageTicket||0)+1;
+    try{const data=await this.api('/api/graph/documents?'+this.query({offset:String(offset),limit:String(PAGE)}));if(ticket!==this.pageTicket)return;
+      this.documents=data;this.offset=offset;this.max=data.max_batch_size||this.max;this.renderDocuments();
+    }catch(error){if(ticket===this.pageTicket)toast(error.message);}
+  }
+  renderDocuments(){
+    const data=this.documents;if(!data)return;
+    $('graph-files').replaceChildren(...data.documents.map(row=>{
+      const item=node('li'),field=node('label'),box=node('input'),chosen=this.selected.has(row.file);
+      box.type='checkbox';box.value=row.file;box.checked=chosen;
+      // A processed or busy document is dimmed and cannot be added; one already chosen can still be taken out.
+      box.disabled=!row.eligible&&!chosen;item.classList.toggle('is-blocked',!row.eligible);
+      field.append(box,node('span','',row.file));field.title=row.file;
+      if(row.status in TONE)field.append(node('span','pill pill--sm'+TONE[row.status],label('doc_'+row.status)));
+      item.append(field);return item;
+    }));
+    const last=this.offset+data.documents.length;
+    $('graph-pager').hidden=data.total_documents<=PAGE;$('graph-page-prev').disabled=!this.offset;$('graph-page-next').disabled=last>=data.total_documents;
+    $('graph-page-range').textContent=label('page_range',{first:number(data.documents.length?this.offset+1:0),last:number(last),total:number(data.total_documents)});
     this.sources();
   }
   boxes(){return [...$('graph-files').querySelectorAll('input')];}
-  chosen(){return this.boxes().filter(box=>box.checked).map(box=>box.value);}
-  // The list of sources: one checkbox per document that can be modelled.
+  // On a newer server the list shows one page of the collection, so the selection is kept apart from it.
+  chosen(){return this.modern?[...this.selected]:this.boxes().filter(box=>box.checked).map(box=>box.value);}
+  total(){return this.modern?this.documents?.total_documents||0:$('graph-files').childElementCount;}
   sources(){
-    const boxes=this.boxes(),chosen=boxes.filter(box=>box.checked).length,limit=Math.min(this.max,boxes.length);
-    for(const box of boxes)box.closest('li').classList.toggle('is-chosen',box.checked);
-    $('graph-files-count').textContent=boxes.length?label('selected_count',{selected:number(chosen),total:number(boxes.length),max:number(limit)}):'';
+    const chosen=this.chosen().length,total=this.total(),limit=Math.min(this.max,total);
+    for(const box of this.boxes())box.closest('li').classList.toggle('is-chosen',box.checked);
+    $('graph-files-count').textContent=total?label('selected_count',{selected:number(chosen),total:number(total),max:number(limit)}):'';
     $('graph-select-max').textContent=label('select_max',{max:number(limit)});$('graph-select-none').hidden=!chosen;
     // A collection larger than one request cannot be chosen whole: the note says how to go through it.
-    const over=boxes.length>this.max;$('graph-select-note').hidden=!over;if(over)$('graph-select-note').textContent=label('select_all_note',{total:number(boxes.length),max:number(this.max)});
-    $('graph-files-empty').hidden=boxes.length>0;this.controls();this.check();
+    const over=total>this.max;$('graph-select-note').hidden=!over;if(over)$('graph-select-note').textContent=label('select_all_note',{total:number(total),max:number(this.max)});
+    $('graph-files-empty').hidden=total>0||(this.modern&&!this.documents);this.controls();this.check();
   }
   // What the server has verified for the chosen sources, stage by stage. Asked again whenever the selection or the model changes.
   check(){clearTimeout(this.checkTimer);this.checkTimer=setTimeout(()=>this.runCheck(),350);}
@@ -74,27 +116,34 @@ export class Graph{
     catch{if(ticket===this.checkTicket)this.renderChecks(null);}
   }
   renderChecks(data){
-    this.checks=data;$('graph-checks').hidden=!data;this.verified=[];
+    this.checks=data;$('graph-checks').hidden=!data;this.states=[];
     if(!data){this.stages();return;}
-    const rows=CHECKS.map(key=>({key,...data.selection_checks[key]})),published=data.selection_checks.publication.checked;
-    // Joining repeated entities only means something once the selection is published.
-    rows.push({key:'connection',state:published&&data.reconciliation_checked?'verified':'pending',waiting:published});
-    this.verified=rows.map(row=>row.state==='verified'||row.state==='not_required');
+    const rows=CHECKS.map(key=>({key,...data.selection_checks[key]}));
+    rows.push({key:'connection',state:data.reconciliation_state||(data.reconciliation_checked?'verified':'pending')});
+    // A step that does not apply is settled, but nothing was verified: it gets a dash, never a tick.
+    this.states=rows.map(row=>row.state==='verified'?'done':row.state==='not_required'?'skip':row.state==='partial'?'partial':'idle');
+    const settled=index=>['done','skip'].includes(this.states[index]);
     $('graph-checks-list').replaceChildren(...rows.map((row,index)=>{
-      const ok=this.verified[index],item=node('li'),mark=node('span','check'),icon=document.createElementNS(SVG,'svg'),use=document.createElementNS(SVG,'use'),text=node('span');
-      item.dataset.state=ok?'done':row.state==='partial'?'partial':'idle';icon.setAttribute('class','icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-check');icon.append(use);mark.append(icon);
-      const detail=row.state==='not_required'?label('check_not_required'):row.key==='connection'?label(ok?'check_connection_ok':row.waiting?'check_connection_left':'check_pending'):row.done?label('check_count',{done:number(row.done),total:number(row.total)}):label('check_pending');
-      text.append(node('strong','',label('check_'+row.key)),node('span','meta',' · '+detail));if(ok)text.append(node('span','sr-only',' '+label('check_ok')));
+      const state=this.states[index],item=node('li'),mark=node('span','check'),text=node('span');item.dataset.state=state;
+      if(state==='done'){const icon=document.createElementNS(SVG,'svg'),use=document.createElementNS(SVG,'use');icon.setAttribute('class','icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-check');icon.append(use);mark.append(icon);}
+      let detail;
+      if(row.key==='connection')detail=label(state==='done'?'check_connection_ok':state==='skip'?'check_connection_none':row.state==='model_required'?'check_model':settled(3)?'check_connection_left':'check_pending');
+      else if(state==='skip')detail=label(row.key==='assessment'?'check_assessment_none':'check_not_required');
+      else detail=row.done?label('check_count',{done:number(row.done),total:number(row.total)}):label('check_pending');
+      text.append(node('strong','',label('check_'+row.key)),node('span','meta',' · '+detail));if(state==='done')text.append(node('span','sr-only',' '+label('check_ok')));
       item.append(mark,text);return item;
     }));
-    const passed=this.verified.filter(Boolean).length,state=$('graph-checks-state');
-    state.textContent=passed===rows.length?label('checks_all'):label('checks_some',{done:passed,total:rows.length});state.className='pill pill--sm'+(passed===rows.length?' pill--mint':'');
+    const verified=this.states.filter(state=>state==='done').length,closed=rows.filter((row,index)=>settled(index)).length,pill=$('graph-checks-state');
+    pill.textContent=verified===rows.length?label('checks_all'):closed===rows.length?label('checks_settled',{verified}):label('checks_some',{done:closed,total:rows.length});
+    pill.className='pill pill--sm'+(verified===rows.length?' pill--mint':'');
     this.stages();
   }
   setStatus(status){
-    const chosen=new Set(this.chosen());
     const names=status.documents.filter(document=>/\.(pdf|md|txt|markdown)$/i.test(document.name)).map(document=>document.name);
     const signature=JSON.stringify(names);if(this.signature===signature)return;this.signature=signature;
+    // A newer server lists the documents itself, a page at a time and with their state.
+    if(this.modern){this.loadDocuments();return;}
+    const chosen=new Set(this.chosen());
     $('graph-files').replaceChildren(...names.map(name=>{const item=node('li'),field=node('label'),box=node('input');box.type='checkbox';box.value=name;box.checked=chosen.has(name);field.append(box,node('span','',name));field.title=name;item.append(field);return item;}));
     this.sources();
   }
@@ -104,7 +153,9 @@ export class Graph{
     // Newer servers also offer continuous runs, reconciliation and measurement: the screen shows them only then.
     const modern=this.modern=Array.isArray(this.snapshot.continuations);for(const part of document.querySelectorAll('[data-graph-modern]'))part.hidden=!modern;
     // With continuous processing the size of one job is not the user's concern.
-    $('graph-unit-field').hidden=modern;$('graph-batch-hint').hidden=modern;this.check();if(!modern)return;
+    $('graph-unit-field').hidden=modern;$('graph-batch-hint').hidden=modern;if(!modern){this.check();return;}
+    // The state of each document changes with every job: the page is read again.
+    this.loadDocuments();
     try{this.connections=await this.api('/api/graph/connections');}catch{this.connections=null;}
     this.identity();this.map.bridges(this.connections);
     const latest=this.snapshot.continuations[0];if(latest&&(RUNNING.includes(latest.status)||!this.task))this.watch(latest.id);
@@ -140,8 +191,8 @@ export class Graph{
     if(this.watching===id)return;this.watching=id;let seen=-1;
     try{while(this.watching===id){const task=await this.api('/api/graph/continuous/'+id);this.renderTask(task);
       // The map follows the run: redraw when another passage is finished.
-      if(seen>=0&&task.units_done!==seen){this.snapshot=await this.api('/api/graph');this.render(this.snapshot);this.check();}seen=task.units_done;
-      if(!RUNNING.includes(task.status)){if(seen>=0)this.check();break;}if(!this.active)break;await new Promise(resolve=>setTimeout(resolve,2000));}
+      if(seen>=0&&task.units_done!==seen){this.snapshot=await this.api('/api/graph');this.render(this.snapshot);this.loadDocuments();}seen=task.units_done;
+      if(!RUNNING.includes(task.status)){if(seen>=0)this.loadDocuments();break;}if(!this.active)break;await new Promise(resolve=>setTimeout(resolve,2000));}
     }catch(error){$('graph-continuous-error').textContent=error.message;$('graph-continuous-error').hidden=false;}finally{if(this.watching===id)this.watching=null;}
   }
   async continuous(action){
@@ -189,7 +240,7 @@ export class Graph{
       const names=data.models.map(row=>typeof row==='string'?row:row.name);$('graph-model').replaceChildren(node('option','',label('choose_model')),...names.map(name=>{const option=node('option','',name);option.value=name;return option;}));$('graph-model').firstElementChild.value='';
       if(names.includes(previous))$('graph-model').value=previous;else if(names.includes(this.snapshot?.extraction_settings?.model))$('graph-model').value=this.snapshot.extraction_settings.model;
     }catch(error){toast(error.message);}
-    this.controls();
+    this.controls();this.loadDocuments();
   }
   render(data){
     if(!this.modelInitialized){this.modelInitialized=true;if(data.extraction_settings?.provider)$('graph-provider').value=data.extraction_settings.provider;$('graph-remote-field').hidden=$('graph-provider').value==='ollama';this.loadModels();}
@@ -213,9 +264,15 @@ export class Graph{
       if(['error','interrupted','cancelled'].includes(run.status)){const button=node('button','btn btn--secondary btn--sm',label('resume'));button.type='button';button.disabled=this.busy;button.addEventListener('click',()=>this.resume(run.id));row.append(button);}return row;}));
     this.renderAudit();
   }
-  async start(action){
+  // Joining repeated entities works on the documents the server names, which may be processed ones that cannot be chosen in the list.
+  async join(){
     if(this.busy)return;
-    let files=this.chosen();if(!files.length&&action==='process')files=this.boxes().map(box=>box.value);if(!files.length){toast(label('select_files'));return;}
+    try{const data=await this.api('/api/graph/documents?'+this.query({limit:'1'}));if(!data.reconciliation_batch.length){toast(label('nothing_to_join'));return;}await this.start('reconcile',data.reconciliation_batch);}
+    catch(error){toast(error.message);}
+  }
+  async start(action,given){
+    if(this.busy)return;
+    let files=given||this.chosen();if(!files.length&&action==='process')files=this.boxes().map(box=>box.value);if(!files.length){toast(label('select_files'));return;}
     if(files.length>this.max){$('graph-options').scrollIntoView({block:'nearest'});toast(label('max_files'));return;}
     const body={files};if(['extract','process','continuous','reconcile'].includes(action)){
       if(!$('graph-unit-limit').reportValidity())return;
@@ -237,22 +294,23 @@ export class Graph{
   controls(){
     const missing=!$('graph-model').value,running=RUNNING.includes(this.task?.status),held=this.busy||running;
     for(const id of ['graph-prepare','graph-select-max','graph-select-none','graph-audit','graph-evaluate','graph-continuous-again'])$(id).disabled=held;
-    $('graph-select-all').disabled=held||$('graph-files').childElementCount>this.max;
+    $('graph-select-all').disabled=held||this.total()>this.max;
     for(const id of ['graph-extract','graph-process','graph-reconcile'])$(id).disabled=held||missing;
     $('graph-cancel').hidden=!this.busy;$('graph-model').classList.toggle('is-missing',missing);$('graph-model-reason').hidden=!missing;
   }
-  // A verified stage shows the same drawn tick as the checklist, centred in its circle; the others keep their number.
-  tick(badge,done,number){
-    if(!done){badge.textContent=String(number);return;}
-    if(badge.querySelector('svg'))return;
-    const icon=document.createElementNS(SVG,'svg'),use=document.createElementNS(SVG,'use');icon.setAttribute('class','icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-check');icon.append(use);badge.replaceChildren(icon);
+  // A verified stage shows the same drawn tick as the checklist; one that does not apply, a dash; the others their number.
+  tick(badge,mark,number){
+    if(badge.dataset.mark===mark)return;badge.dataset.mark=mark;
+    if(mark==='done'){const icon=document.createElementNS(SVG,'svg'),use=document.createElementNS(SVG,'use');icon.setAttribute('class','icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-check');icon.append(use);badge.replaceChildren(icon);}
+    else if(mark==='skip')badge.replaceChildren(node('span','dash'));
+    else badge.textContent=String(number);
   }
-  // The stages: the one working in lime; in mint, with a check, the ones the server has verified for the selection.
+  // The stages: the one working in lime; in mint, with a tick, the ones the server has verified for the selection.
   stages(current=this.stage){
     this.stage=current;
     [...$('graph-stages').children].forEach((item,index)=>{
-      const now=current===index,done=!now&&(Boolean(this.verified?.[index])||(current!=null&&index<current));
-      item.classList.toggle('is-current',now);item.classList.toggle('is-done',done);this.tick(item.querySelector('.step-no'),done,index+1);
+      const now=current===index,done=!now&&(this.states?.[index]==='done'||(current!=null&&index<current)),skip=!now&&!done&&this.states?.[index]==='skip';
+      item.classList.toggle('is-current',now);item.classList.toggle('is-done',done);item.classList.toggle('is-skipped',skip);this.tick(item.querySelector('.step-no'),done?'done':skip?'skip':'',index+1);
       if(now)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
     });
   }

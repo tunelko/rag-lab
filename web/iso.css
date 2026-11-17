@@ -977,6 +977,18 @@
 :root[data-theme] .graph-row-actions .btn { height: auto; min-height: 30px; padding: 4px 10px; font-size: 11px; white-space: normal; text-align: left; }
 :root[data-theme] .graph-verification { width: min(850px, 95vw); }
 
+/* The source list: the state of each document; processed and busy ones are dimmed and cannot be chosen again */
+:root[data-theme] .picklist label > .pill { flex: none; margin-left: auto; overflow: visible; }
+:root[data-theme] .picklist > li.is-blocked:not(.is-chosen) { background: var(--stage); }
+:root[data-theme] .picklist > li.is-blocked:not(.is-chosen) label { cursor: default; }
+:root[data-theme] .picklist > li.is-blocked:not(.is-chosen) label > span:not(.pill) { color: var(--muted); }
+:root[data-theme] .picklist input:disabled { opacity: .45; }
+:root[data-theme] .graph-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* A step that does not apply: a dash, not a tick */
+:root[data-theme] .graph-checks [data-state="skip"] > .check::after, :root[data-theme] .graph-stages .step-no .dash { content: ""; display: block; width: 8px; height: 2px; border-radius: 1px; background: currentColor; }
+:root[data-theme] .graph-checks [data-state="skip"] > .check { border-style: dashed; }
+:root[data-theme] .graph-stages > li.is-skipped { border-style: dashed; }
+:root[data-theme] .graph-stages > li.is-skipped:nth-child(n) .step-no { background: var(--card); color: var(--ink); }
 /* The checks of the selection: one row per stage, ticked when the server has verified it */
 :root[data-theme] .graph-checks { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--stage); border: var(--bw) solid var(--edge); border-radius: 12px; }
 :root[data-theme] .graph-checks .checks { gap: 8px; }
