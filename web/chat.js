@@ -6,11 +6,16 @@ import {ContextPanel} from './context-panel.js';
 import {sourceScope} from './source-scope.js';
 import {groupSources,relevance} from './chat-sources.js';
 import {sessionKey} from './collection-scope.js';
+import {PipelineScene} from './pipeline-scene.js';
+import {journey,scopeChunks} from './chat-journey.js';
 
 const STORE=sessionKey('rag-local-chat-v3'),VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
 const clock=value=>new Intl.DateTimeFormat(intlLocale(),{hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 const plural=(key,count)=>s(`${key}_${count===1?'one':'other'}`,{count:number(count)});
+const j=(key,values={})=>t(`journey.${key}`,values),CHECKS=['vector','fragments','route','answer','cited'];
+// Rewriting identical text would restart animations and drop a selection.
+const put=(element,text)=>{if(element.textContent!==text)element.textContent=text;};
 // A plain control with an optional icon; the shared .btn look does not apply inside an answer.
 function control(tag,className,label,iconName){const element=node(tag,className);if(tag==='button')element.type='button';if(iconName)element.append(icon(iconName));element.append(node('span','',label));return element;}
 
@@ -18,6 +23,9 @@ export class Chat{
   constructor(api,changed,beforeSend=async()=>{},patchSettings=()=>{}){
     this.api=api;this.changed=changed;this.beforeSend=beforeSend;this.patchSettings=patchSettings;this.turns=[];this.active=null;this.submitting=false;this.stopping=false;this.contextTurnId=null;this.attachments=[];this.turnImages=new Map();this.elements=new Map();this.settings=null;
     try{this.turns=JSON.parse(sessionStorage.getItem(STORE)||'[]').slice(-30);}catch{sessionStorage.removeItem(STORE);}
+    // Light theme side column: the scene of this question and its checklist, ticked as the job is polled.
+    this.scene=new PipelineScene($('journey-scene'),{mini:true});this.checks=new Map();
+    for(const key of CHECKS){const row=node('li'),box=node('span','check'),text=node('span','checks__text'),title=node('span','checks__title'),detail=node('span','checks__detail num'),state=node('span','sr-only');box.setAttribute('aria-hidden','true');box.append(icon('check'));text.append(title,detail);row.append(box,text,state);$('journey-checks').append(row);this.checks.set(key,{row,title,detail,state});}
     this.contextPanel=new ContextPanel();this.render();
     const question=$('question'),thread=$('chat-thread'),box=$('composer-box');
     question.addEventListener('input',()=>{this.autosize();this.controls();});
@@ -69,6 +77,8 @@ export class Chat{
     $('new-chat').disabled=busy;$('question').required=!busy;$('question').placeholder=name?s('ask_scope',{name}):t('ui.ask_your_documents_45c5ff');
     $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));
     $('conversation-count').textContent=count?[plural('question_count',count),first?s('started_at',{time:clock(first)}):''].filter(Boolean).join(' · '):'';
+    put($('chat-crumb'),s('chat')+' / '+(name||t('library.all')));$('chat-pill-questions').hidden=!count;put($('chat-pill-questions'),count?plural('question_count',count):'');
+    $('chat-pill-fragments').hidden=!this.status;put($('chat-pill-fragments'),this.status?plural('fragments',scopeChunks(this.status,$('chat-scope').value)):'');
   }
   // The composer shows the same top-k as Settings and writes it through the same store.
   setSettings(value){
@@ -115,8 +125,8 @@ export class Chat{
   }
   create(turn){
     const article=node('article','chat-turn');article.dataset.turn=turn.id;article.setAttribute('aria-label',s('answer_of_musa'));
-    const ask=node('div','q'),meta=node('span','q__meta');ask.append(node('div','q__bubble',turn.question));
-    if(turn.attachment_names?.length)ask.append(node('p','q__files',turn.attachment_names.join(' · ')));ask.append(meta);
+    const ask=node('div','q'),tag=node('span','q__meta'),meta=node('span');tag.append(icon('user'),meta);ask.append(node('div','q__bubble',turn.question));
+    if(turn.attachment_names?.length)ask.append(node('p','q__files',turn.attachment_names.join(' · ')));ask.append(tag);
     const reply=node('div','a'),avatarBox=node('div','a__avatar'),avatar=createMusa(),main=node('div','a__main');avatarBox.append(avatar);
     const head=node('div','a__head'),route=node('span','a__route'),state=node('span','a__state chat-state'),model=node('span','a__model');state.setAttribute('role','status');head.append(node('strong','a__name','Musa'),route,state,model);
     const steps=node('ol','steps2');steps.setAttribute('aria-label',s('query_progress'));
@@ -152,7 +162,7 @@ export class Chat{
     if(e.state.textContent!==label)e.state.textContent=label;e.state.hidden=!label;e.state.className='a__state chat-state'+(kind?' a__state--'+kind:'');
     const mode=busy?'':metrics.routing_mode||'',visual=metrics.visual_mode==='images';
     const routeKey=!mode?'':mode==='search_only'?'retrieval_only':mode==='catalog'?'catalog':visual?'route_visual':mode.startsWith('external')?'route_cloud':'route_text';
-    e.route.textContent=routeKey?s(routeKey):'';e.route.hidden=!routeKey;e.route.classList.toggle('a__route--visual',routeKey==='route_visual');
+    e.route.textContent=routeKey?s(routeKey):'';e.route.hidden=!routeKey;e.route.classList.toggle('a__route--visual',routeKey==='route_visual');e.route.dataset.route=routeKey;
     const finished=busy?[]:[turn.model||metrics.model,turn.elapsed_seconds!=null&&turn.status!=='error'?number(turn.elapsed_seconds,1)+' s':''].filter(Boolean);
     e.model.textContent=finished.join(' · ');e.model.hidden=!finished.length;
     e.steps.replaceChildren();e.steps.hidden=!busy;
@@ -203,6 +213,25 @@ export class Chat{
     if(signature!==this.contextSignature){this.contextSignature=signature;renderSources(sources,turn?.question||'',$('sources'),`turn-${turn?.id||'empty'}`);$('context-count').textContent=number(sources.length);$('context-empty').hidden=Boolean(sources.length);}
     const reason=serverText(turn?.metrics?.routing_reason)||s('route_empty');if($('context-route').textContent!==reason)$('context-route').textContent=reason;
     const model=this.status?.embedding_model?.split('/').at(-1),dimensions=this.status?.embedding_dimensions,info=model?model+' · '+s('dimension_count',{count:dimensions==null?'—':number(dimensions)}):'—';if($('query-vector-info').textContent!==info)$('query-vector-info').textContent=info;
+    this.insight(turn);
+  }
+  // «Así viajó tu pregunta» and «En esta consulta»: the same turn the Context panel shows, read from its polled job.
+  insight(turn){
+    const view=journey(turn),f=view.facts,live=['queued','retrieving','generating'].includes(view.phase),count=number(f.fragments||0);
+    this.scene.set(view.scene);put($('journey-step'),j('step',{step:view.step}));
+    const pill=$('journey-state');pill.hidden=view.phase==='empty';pill.dataset.phase=view.phase;put(pill,view.phase==='empty'?'':j('state_'+(view.phase==='catalog'?'done':view.phase)));
+    put($('journey-title'),j(view.phase==='empty'?'title_empty':live?'title_live':'title_done'));
+    const target=j(f.cloud?'target_cloud':f.visual?'target_visual':'target_text');
+    put($('journey-text'),{empty:j('text_empty'),queued:j('text_queued'),retrieving:j('text_retrieving'),generating:j('text_generating',{count}),done:j(f.fragments===1?'text_done_one':'text_done_other',{count,target}),retrieved:j('text_search_only',{count}),catalog:j('text_catalog'),stopped:j('text_stopped'),error:j('text_error')}[view.phase]);
+    const embedding=this.status?.embedding_model?this.status.embedding_model.split('/').at(-1)+' · '+this.status.embedding_device.toUpperCase():'—',join=parts=>parts.filter(Boolean).join(' · ')||'—';
+    const route=!f.mode?'check_route':f.catalog?'route_catalog':f.searchOnly?'route_search_only':f.cloud?'route_cloud':(f.mode==='automatic'?'route_auto_':'route_manual_')+(f.visual?'visual':'text');
+    const rows={
+      vector:[j('check_vector'),embedding],
+      fragments:[f.fragments?j(f.fragments===1?'check_fragments_one':'check_fragments_other',{count}):j('check_fragments'),f.fragments?join([f.similarity?j('check_cosine'):'',plural('documents',f.documents),f.similarity?j('check_best',{value:number(f.best,2)}):'']):'—'],
+      route:[j(route),join([serverText(f.reason),f.images!=null?s('image_count',{count:f.images}):''])],
+      answer:[j(view.phase==='retrieved'?'check_answer_none':'check_answer'),join([f.model,f.tokens!=null?number(f.tokens)+' tok':'',f.speed!=null?number(f.speed,2)+' tok/s':''])],
+      cited:[j('check_cited'),f.cited&&!live?j(f.cited===1?'check_cited_one':'check_cited_other',{count:number(f.cited)}):turn&&!live&&turn.answer&&!f.searchOnly?j('check_cited_none'):'—']};
+    for(const [key,[title,detail]] of Object.entries(rows)){const item=this.checks.get(key),state=view.checks[key];item.row.dataset.state=state;put(item.title,title);put(item.detail,detail);put(item.state,j('check_'+state));}
   }
   render(){
     const thread=$('chat-thread');thread.replaceChildren();this.elements.clear();if(!this.turns.some(turn=>turn.id===this.contextTurnId))this.contextTurnId=this.turns.at(-1)?.id||null;

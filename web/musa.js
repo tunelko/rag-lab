@@ -3,6 +3,8 @@ const SVG='http://www.w3.org/2000/svg';
 // Montera picona: [tag, class, attributes, children]. The same drawing as the static one in index.html.
 const HAT=[
   ['path','musa__hat-body',{d:'M8 96 C8 84 20 77 36 75 C42 55 50 28 57 5 Q60 0 63 5 C68 30 74 56 80 75 C88 78 92 86 92 96 Q50 106 8 96 Z'}],
+  // Light theme: low cap with the tall peak at the back (the dark theme keeps the pointed one above).
+  ['path','musa__hat-iso',{d:'M8 96 C8 80 22 70 40 70 L62 72 C68 50 74 28 80 6 Q82 2 84 7 C86 30 88 55 90 76 Q92 86 92 96 Q50 106 8 96 Z'}],
   ['path','musa__hat-seam',{d:'M60 7 C60 30 61 55 62 76'}],
   ['path','musa__hat-flap',{d:'M10 95 C20 86 34 82 48 84 L46 101 Q26 101 10 95 Z'}],
   ['path','musa__hat-trim',{d:'M10 95 C20 86 34 82 48 84'}],

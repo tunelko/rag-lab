@@ -6,7 +6,8 @@
    ========================================================================== */
 
 /* Pieces that exist only in the light theme. */
-.scene, .brand-cube, .topnav .nav-settings-tab, .sysbtn__pill { display: none; }
+.scene, .brand-cube, .topnav .nav-settings-tab, .sysbtn__pill,
+.chat-aside, .chat-crumb, .chat-title-long, .chat-pills, .q__meta .icon, .musa__hat-iso { display: none; }
 
 /* ---------- 1. Tokens ---------- */
 :root[data-theme="light"] {
@@ -281,7 +282,7 @@
 
 :root[data-theme="light"] .cfg > .scene { margin-bottom: 16px; }
 
-/* ---------- 6. Chat (colours only; its structure is phase 2) ---------- */
+/* ---------- 6. Chat ---------- */
 /* chat.css scopes its own light palette to the card: bring it to this theme's tokens. */
 :root[data-theme="light"] .conversation-card {
   --bg-app: var(--bg);              --surface: var(--card);          --surface-sunken: var(--card);
@@ -298,6 +299,169 @@
   --composer-bg: var(--card);       --tool-bg: var(--card);          --tool-scope-bg: var(--mint);
   --stop-bg: var(--ink);            --stop-ink: var(--card);         --musa-ring: var(--ink);
   --shadow-composer: var(--hard-l);
+}
+
+/* Card, heading and conversation */
+:root[data-theme="light"] .conversation-card { height: max(620px, calc(100dvh - 104px)); border-radius: var(--r-card); }
+:root[data-theme="light"] .conversation-card:has(.chat-empty:not([hidden])) { height: auto; min-height: max(620px, calc(100dvh - 104px)); }
+:root[data-theme="light"] .conversation-card > .chat-toolbar { align-items: flex-end; padding: 18px var(--chat-edge) 14px; background: var(--card); border-bottom: 0; }
+:root[data-theme="light"] .chat-heading { flex: 1 1 280px; flex-direction: column; align-items: flex-start; gap: 2px; }
+:root[data-theme="light"] .chat-crumb { display: block; margin: 0; font-size: 12px; line-height: 18px; color: var(--muted); }
+:root[data-theme="light"] .chat-heading .page-title { font: 800 26px/32px var(--font); letter-spacing: 0; text-transform: none; }
+:root[data-theme="light"] .chat-title-short, :root[data-theme="light"] .chat-summary { display: none; }
+:root[data-theme="light"] .chat-title-long { display: inline; }
+:root[data-theme="light"] .chat-pills { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 36px; }
+:root[data-theme="light"] .chat-actions .btn,
+:root[data-theme="light"] .chat-actions .btn:hover:not(:disabled) { height: 36px; min-height: 36px; padding: 0 14px; background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); font-weight: 700; }
+:root[data-theme="light"] .chat-thread,
+:root[data-theme="light"] .chat-empty { background: var(--stage); border-block: 1px solid var(--line); }
+
+/* Pills: categories in pastel, always with ink outline and ink text */
+:root[data-theme="light"] .pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill);
+  background: var(--card); color: var(--ink); font-size: 12px; line-height: 18px; font-weight: 700; white-space: nowrap; }
+:root[data-theme="light"] .pill--sm { padding: 0 10px; font-size: 11px; font-weight: 800; }
+:root[data-theme="light"] .pill--lima { background: var(--lima); }   :root[data-theme="light"] .pill--butter { background: var(--butter); }
+:root[data-theme="light"] .pill--mint { background: var(--mint); }   :root[data-theme="light"] .pill--lilac { background: var(--lilac); }
+:root[data-theme="light"] .pill--sky { background: var(--sky); }     :root[data-theme="light"] .pill--coral { background: var(--coral); }
+:root[data-theme="light"] .eyebrow { margin: 0; font-size: 12px; line-height: 18px; font-weight: 800; letter-spacing: .06em; color: var(--ink); text-transform: uppercase; }
+
+/* Question: a large pill with outline and hard shadow */
+:root[data-theme="light"] .q { gap: 10px; }
+:root[data-theme="light"] .q__bubble { padding: 10px 16px; background: var(--card); color: var(--ink); border: 2px solid var(--ink); border-radius: 14px; box-shadow: var(--hard); font-weight: 600; }
+:root[data-theme="light"] .q__meta { display: inline-flex; align-items: center; gap: 6px; padding: 1px 10px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill);
+  background: var(--card); color: var(--ink); font-size: 11px; font-weight: 700; text-align: left; }
+:root[data-theme="light"] .q__meta .icon { display: block; width: 12px; height: 12px; stroke-width: 2.4; }
+
+/* Answer: Musa on the left, the answer in a card */
+:root[data-theme="light"] .a__avatar { padding-top: 30px; }
+:root[data-theme="light"] .a__avatar .musa { --musa-size: 36px; }
+:root[data-theme="light"] .a__main { gap: 14px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); }
+:root[data-theme="light"] .a__name { font-size: 14px; font-weight: 800; }
+:root[data-theme="light"] .a__route { padding: 0 8px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+:root[data-theme="light"] .a__route[data-route="route_text"], :root[data-theme="light"] .a__route[data-route="route_cloud"] { background: var(--sky); }
+:root[data-theme="light"] .a__route[data-route="route_visual"] { background: var(--lilac); }
+:root[data-theme="light"] .a__state { padding: 0 8px; border: var(--bw) solid var(--ink); background: var(--card); color: var(--ink); font-weight: 700; }
+:root[data-theme="light"] .a__state--run { background: var(--lima-soft); }
+:root[data-theme="light"] .a__state--run::before { background: var(--ink); }
+:root[data-theme="light"] .a__state--error { padding: 4px 10px; border-radius: 8px; color: var(--err); }
+:root[data-theme="light"] .answer.a__body { line-height: 23px; }
+:root[data-theme="light"] .a__body strong { font-weight: 700; }
+:root[data-theme="light"] .a__body ul > li::before { top: 8px; width: 7px; height: 7px; border: var(--bw) solid var(--ink); border-radius: 0; background: var(--lima); }
+:root[data-theme="light"] .a__body ol > li::marker { color: var(--ink); font-weight: 700; }
+
+/* Square citations and the chips that repeat them */
+:root[data-theme="light"] .conversation-card .citation,
+:root[data-theme="light"] .src-num { min-width: 22px; height: 20px; padding: 0 5px; border: var(--bw) solid var(--ink); border-radius: 6px; background: var(--lima-soft); color: var(--ink); font: 700 11px/16px var(--font); }
+:root[data-theme="light"] .conversation-card .citation:hover,
+:root[data-theme="light"] button.src-num:hover { background: var(--lima); color: var(--ink); }
+
+/* Sources: one row per document, relevance as an outlined bar */
+:root[data-theme="light"] .sources { overflow: hidden; background: var(--card); border: var(--bw) solid var(--ink); border-radius: 12px; }
+:root[data-theme="light"] .sources__head { padding: 8px 12px; background: var(--bg); border-bottom: var(--bw) solid var(--ink); color: var(--muted); }
+:root[data-theme="light"] .sources__head .icon { display: none; }
+:root[data-theme="light"] .sources__title { font-size: 12px; font-weight: 800; letter-spacing: .06em; color: var(--ink); }
+:root[data-theme="light"] .sources__label { font-weight: 800; letter-spacing: .06em; color: var(--ink); }
+:root[data-theme="light"] .sources__list { padding: 0; }
+:root[data-theme="light"] .src-row { grid-template-columns: 60px minmax(0, 1fr) 128px; padding: 8px 12px; }
+:root[data-theme="light"] .src-row + .src-row { border-top: 1px solid var(--line); }
+:root[data-theme="light"] .src-row:hover { background: var(--bg); }
+:root[data-theme="light"] .src-row__title { font-weight: 700; }
+:root[data-theme="light"] .src-row__rel .bar { background: var(--card); }
+:root[data-theme="light"] .src-row__rel .bar > i { background: var(--lima); }
+:root[data-theme="light"] .sources__more { padding: 4px 8px; border-top: 1px solid var(--line); }
+
+/* Actions: quiet outlined buttons; the trace on the right */
+:root[data-theme="light"] .a__actions { gap: 6px; }
+:root[data-theme="light"] .act { height: 30px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font-weight: 600; }
+:root[data-theme="light"] .a__actions .act .icon { display: none; }
+:root[data-theme="light"] .act:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+:root[data-theme="light"] .act.is-done { color: var(--ok); }
+:root[data-theme="light"] .act--accent { border: 0; font-weight: 700; }
+:root[data-theme="light"] .steps2 > li { padding: 1px 10px; border: var(--bw) solid var(--ink); background: var(--card); color: var(--ink); font-weight: 600; }
+:root[data-theme="light"] .steps2 > li.is-run { background: var(--lima); }
+
+/* Composer: 2 px outline and hard shadow; collection and top-k as pastel pills inside */
+:root[data-theme="light"] .conversation-card > .composer { padding: 16px var(--chat-edge) 20px; background: var(--card); border-top: 0; }
+:root[data-theme="light"] .composer2,
+:root[data-theme="light"] .composer2:focus-within { background: var(--card); border: 2px solid var(--ink); border-radius: 14px; box-shadow: var(--hard-l); }
+:root[data-theme="light"] .composer2:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+:root[data-theme="light"] .composer2.is-drop { border-style: dashed; background: var(--lima-soft); }
+:root[data-theme="light"] .composer2__input { padding: 12px 16px 4px; }
+:root[data-theme="light"] .tool { height: 34px; padding: 0 12px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-weight: 600; }
+:root[data-theme="light"] .tool:hover { background: var(--card); box-shadow: var(--hard-s); }
+:root[data-theme="light"] .tool--icon { width: 34px; padding: 0; border-radius: var(--r-ctl); }
+:root[data-theme="light"] .tool--scope, :root[data-theme="light"] .tool--scope:hover { background: var(--mint); }
+:root[data-theme="light"] .tool[for="chat-top-k"], :root[data-theme="light"] .tool[for="chat-top-k"]:hover { background: var(--lilac); }
+:root[data-theme="light"] .tool__label, :root[data-theme="light"] .tool--scope .icon { color: var(--ink); }
+:root[data-theme="light"] .tool:has(.tool__select)::after { border-color: var(--ink); }
+:root[data-theme="light"] .send { height: 40px; padding: 0 16px; border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); box-shadow: var(--hard); font: 800 14px/1 var(--font); transition: transform .08s, box-shadow .08s; }
+:root[data-theme="light"] .send .icon { order: 2; width: 16px; height: 16px; }
+:root[data-theme="light"] .send--go, :root[data-theme="light"] .send--go:hover:not(:disabled) { background: var(--lima); color: var(--ink); }
+:root[data-theme="light"] .send:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--hard-l); }
+:root[data-theme="light"] .send:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+:root[data-theme="light"] .send--stop { background: var(--ink); color: var(--card); box-shadow: 0 3px 0 var(--line-2); }
+:root[data-theme="light"] .send:disabled { background: #e9dfcf; color: var(--muted); border-color: var(--line-2); box-shadow: none; }
+:root[data-theme="light"] .chat-jump { border: var(--bw) solid var(--ink); background: var(--card); color: var(--ink); box-shadow: var(--hard-s); font-weight: 700; }
+
+/* Empty state: the examples are buttons */
+:root[data-theme="light"] .chat-empty h2 { font: 800 18px/26px var(--font); }
+:root[data-theme="light"] .suggestions__title { color: var(--ink); font-weight: 800; letter-spacing: .06em; }
+:root[data-theme="light"] .suggestions__list { gap: 8px; padding-bottom: 3px; border: 0; }
+:root[data-theme="light"] .suggestion-prompt,
+:root[data-theme="light"] .suggestion-prompt:not(:last-child) { padding: 8px 12px; background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); box-shadow: var(--hard-s); transition: transform .08s, box-shadow .08s; }
+:root[data-theme="light"] .suggestion-prompt:hover,
+:root[data-theme="light"] .suggestion-prompt:focus-visible { background: var(--card); transform: translateY(-1px); box-shadow: var(--hard); }
+:root[data-theme="light"] .suggestion-prompt .icon { color: var(--ink); }
+
+/* Musa: flat, ink outline, low montera with the tall peak at the back */
+:root[data-theme="light"] .musa { --musa-eyes: var(--ink); background: var(--lima); border: var(--bw) solid var(--ink); }
+:root[data-theme="light"] .a__avatar .musa[data-state="idle"] { box-shadow: none; }
+:root[data-theme="light"] .musa[data-state="offline"] { background: #e9dfcf; box-shadow: none; }
+:root[data-theme="light"] .musa__orbit > i,
+:root[data-theme="light"] .conversation-card .musa__orbit > i { background: var(--ink); }
+:root[data-theme="light"] .musa__hat-body, :root[data-theme="light"] .musa__hat-seam, :root[data-theme="light"] .musa__hat-flap,
+:root[data-theme="light"] .musa__hat-trim:not(.musa__hat-trim--brim), :root[data-theme="light"] .musa__rosette { display: none; }
+:root[data-theme="light"] .musa__hat-iso { display: block; fill: var(--ink); stroke: var(--ink); stroke-width: 5; stroke-linejoin: round; }
+:root[data-theme="light"] .musa .musa__hat-trim--brim { display: block; stroke: #c4161c; stroke-width: 7; }
+
+/* Side column: how the question travelled, and what happened in this query */
+:root[data-theme="light"] .chat-split { display: flex; align-items: flex-start; }
+:root[data-theme="light"] .chat-aside { display: flex; flex: 1 1 360px; }
+:root[data-theme="light"] .journey { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+:root[data-theme="light"] .journey__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
+:root[data-theme="light"] .journey__title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
+:root[data-theme="light"] .journey__text { margin: 0; font-size: 12px; line-height: 20px; color: var(--text); }
+:root[data-theme="light"] #journey-state[data-phase="done"], :root[data-theme="light"] #journey-state[data-phase="retrieved"], :root[data-theme="light"] #journey-state[data-phase="catalog"] { background: var(--mint); }
+:root[data-theme="light"] #journey-state[data-phase="retrieving"], :root[data-theme="light"] #journey-state[data-phase="generating"] { background: var(--lima); }
+:root[data-theme="light"] #journey-state[data-phase="error"] { color: var(--err); }
+:root[data-theme="light"] .callout { display: flex; gap: 10px; padding: 12px; border: var(--bw) solid var(--ink); border-radius: 12px; background: var(--lilac); color: var(--ink); font-size: 12px; line-height: 18px; }
+:root[data-theme="light"] .callout--warn { background: var(--butter); }
+:root[data-theme="light"] .callout .icon { width: 18px; height: 18px; margin-top: 1px; }
+:root[data-theme="light"] .callout strong { display: block; font-size: 11px; font-weight: 800; letter-spacing: .06em; }
+:root[data-theme="light"] .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 20px; }
+:root[data-theme="light"] .checks li { display: flex; align-items: flex-start; gap: 10px; }
+:root[data-theme="light"] .check { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-top: 1px; border: var(--bw) solid var(--ink); border-radius: 5px; background: var(--card); color: var(--ink); }
+:root[data-theme="light"] .check .icon { width: 12px; height: 12px; stroke-width: 3.2; visibility: hidden; }
+:root[data-theme="light"] [data-state="done"] > .check { background: var(--lima); }
+:root[data-theme="light"] [data-state="done"] > .check .icon { visibility: visible; }
+:root[data-theme="light"] [data-state="run"] > .check { animation: iso-run-chip 1s ease-in-out infinite; }
+:root[data-theme="light"] .checks__text { min-width: 0; display: flex; flex-direction: column; }
+:root[data-theme="light"] .checks__title { color: var(--ink); font-weight: 600; }
+:root[data-theme="light"] [data-state="todo"] .checks__title { color: var(--muted); font-weight: 500; }
+:root[data-theme="light"] .checks__detail { font-size: 12px; line-height: 18px; color: var(--muted); overflow-wrap: anywhere; }
+
+@media (max-width: 720px) {
+  /* A phone gives the conversation the height: one-line title, pills and icon buttons share a row. */
+  :root[data-theme="light"] .conversation-card { height: max(620px, calc(100dvh - 32px)); }
+  :root[data-theme="light"] .conversation-card:has(.chat-empty:not([hidden])) { height: auto; min-height: max(620px, calc(100dvh - 32px)); }
+  :root[data-theme="light"] .conversation-card > .chat-toolbar { align-items: center; padding: 12px var(--chat-edge) 10px; }
+  :root[data-theme="light"] .chat-heading { flex-basis: 100%; }
+  :root[data-theme="light"] .chat-heading .page-title { font-size: 20px; line-height: 26px; }
+  :root[data-theme="light"] .chat-pills { flex: 1 1 auto; min-height: 0; gap: 6px; }
+  :root[data-theme="light"] .chat-actions .btn, :root[data-theme="light"] .chat-actions .btn:hover:not(:disabled) { width: 36px; padding: 0; }
+  :root[data-theme="light"] .chat-actions .btn span { display: none; }
+  :root[data-theme="light"] .src-row { grid-template-columns: 48px minmax(0, 1fr); }
+  :root[data-theme="light"] .a__main { padding: 12px; }
 }
 
 /* ---------- 7. Widths ---------- */
