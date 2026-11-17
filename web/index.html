@@ -937,21 +937,25 @@
       <button class="btn btn--secondary" id="cti-import" type="button"><span data-i18n="collections.import_cti">Añadir CTI · APTs</span></button>
      </div>
      <p class="meta" id="cti-summary" hidden></p>
+     <div class="library-hero">
      <header class="page-head">
       <svg aria-hidden="true" class="icon">
        <use href="#i-library">
        </use>
       </svg>
       <div class="page-head__text">
+       <p class="hero-crumb only-light" id="library-crumb"></p>
        <h1 class="page-title">
-        <span data-i18n="sentinel.library">
+        <span class="only-dark" data-i18n="sentinel.library">
          Biblioteca
         </span>
+        <span class="only-light" data-i18n="library.hero_title">Tu biblioteca, en local</span>
        </h1>
        <p class="meta">
-        <span data-i18n="sentinel.library_sub">
+        <span class="only-dark" data-i18n="sentinel.library_sub">
          Ingesta, documentos y estado del índice
         </span>
+        <span class="only-light" data-i18n="library.hero_sub">Cada documento recorre cuatro etapas antes de poder consultarse.</span>
        </p>
       </div>
       <span class="page-head__spacer">
@@ -971,7 +975,7 @@
        </span>
       </button>
      </header>
-     <div data-pipeline-scene id="library-scene"></div>
+     <div data-pipeline-scene="library" id="library-scene"></div>
      <dl class="stat-strip">
       <div>
        <dt class="label">
@@ -1034,6 +1038,7 @@
        </dd>
       </div>
      </dl>
+     </div>
      <div class="library-workspace">
       <section aria-labelledby="topics-title" class="card category-sidebar">
        <header class="card__head">
@@ -1193,7 +1198,9 @@
         </section>
         <aside class="split__aside">
          <section class="card">
-          <header class="card__head">
+          <header class="card__head" id="upload-card-head">
+           <span class="eyebrow only-light" data-i18n="library.step_ingest">PASO 1 / 4</span>
+           <span class="pill pill--sm pill--butter only-light" data-i18n="scene.ingestion">Ingesta</span>
            <h2 class="card-title" data-i18n="library.add_documents">
             Subir documentos
            </h2>
@@ -1221,10 +1228,11 @@
            </section>
            <div class="dropzone" id="drop-zone">
             <input accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.markdown,.zip" class="sr-only" id="file-input" multiple="" tabindex="-1" type="file"/>
-            <svg aria-hidden="true" class="icon">
+            <svg aria-hidden="true" class="icon only-dark">
              <use href="#i-upload">
              </use>
             </svg>
+            <svg aria-hidden="true" class="iso dropzone__iso only-light" viewBox="-34 -40 68 58"><polygon class="bu2" points="-30,-5 0,10 0,15 -30,0"></polygon><polygon class="bu3" points="0,10 30,-5 30,0 0,15"></polygon><polygon class="bu1" points="0,-20 30,-5 0,10 -30,-5"></polygon><polygon class="bu2" points="-30,-13 0,2 0,7 -30,-8"></polygon><polygon class="bu3" points="0,2 30,-13 30,-8 0,7"></polygon><polygon class="bu1" points="0,-28 30,-13 0,2 -30,-13"></polygon><polygon class="pa2" points="-30,-21 0,-6 0,-1 -30,-16"></polygon><polygon class="pa3" points="0,-6 30,-21 30,-16 0,-1"></polygon><polygon class="pa1" points="0,-36 30,-21 0,-6 -30,-21"></polygon><path class="thin" d="M-14 -22 4 -13M-8 -27 10 -18"></path></svg>
             <div>
              <strong id="drop-title">
               <span data-i18n="ui.drop_your_documents_here_403059">

@@ -1099,5 +1099,15 @@
   "scene.explain_embeddings": "Turns each fragment into a vector that stands for its meaning. It is computed on this computer and never leaves it.",
   "scene.explain_vectors": "Stores the vectors in SQLite on this computer. Search is exact: it compares your question with all of them by cosine.",
   "scene.explain_retrieval": "Turns your question into a vector and brings the most similar fragments. More fragments give more context, and also more noise and time.",
-  "scene.explain_model": "Takes your question and the retrieved fragments and writes the answer citing its sources. It is the local model or the provider you chose."
+  "scene.explain_model": "Takes your question and the retrieved fragments and writes the answer citing its sources. It is the local model or the provider you chose.",
+  "library.crumb": "Library / collection {name}",
+  "library.hero_title": "Your library, on this computer",
+  "library.hero_sub": "Every document goes through four stages before it can be queried.",
+  "library.step_ingest": "STEP 1 / 4",
+  "library.stage_upload": "Upload",
+  "library.stage_chunking": "Chunking",
+  "library.stage_indexing": "Indexing",
+  "scene.go_upload": "Add documents",
+  "scene.go_documents": "See documents",
+  "scene.go_configuration": "Set in Settings"
 }

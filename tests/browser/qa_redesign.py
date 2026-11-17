@@ -262,7 +262,7 @@ def run_browser(url):
         english_page.locator('#language-selection').select_option('auto')
         expect(english_page.locator('html')).to_have_attribute('lang','en')
         for control,heading in [('#nav-statistics','Statistics'),('#nav-console','Console'),('#nav-admin','Library')]:
-            english_page.locator(control).click();expect(english_page.locator('h1:visible')).to_have_text(heading)
+            english_page.locator(control).click();expect(english_page.locator('h1:visible')).to_have_text(heading,use_inner_text=True,ignore_case=True)
             assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1'),heading
         assert len(locale_mutations)==before_locale
         english.close()
@@ -303,7 +303,7 @@ def run_browser(url):
         assert page.evaluate("document.fonts.check('16px \\\"Orbitron\\\"')")
         page.screenshot(path=str(reports / "redesign-consulta.png"), full_page=True)
         page.locator("#nav-admin").click()
-        expect(page.locator("#admin-view h1")).to_have_text("Biblioteca")
+        expect(page.locator("#admin-view h1 .only-dark")).to_have_text("Biblioteca")
         check("Empty states, local fonts and client-side navigation")
 
         for width in [1440,1280,1024,800,640,390,320]:

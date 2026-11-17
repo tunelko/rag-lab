@@ -1099,5 +1099,15 @@
   "scene.explain_embeddings": "Convierte cada fragmento en un vector que representa su significado. Se calcula en este equipo y nunca sale de él.",
   "scene.explain_vectors": "Guarda los vectores en SQLite en este equipo. La búsqueda es exacta: compara tu pregunta con todos por coseno.",
   "scene.explain_retrieval": "Convierte tu pregunta en un vector y trae los fragmentos más parecidos. Más fragmentos dan más contexto, y también más ruido y tiempo.",
-  "scene.explain_model": "Recibe tu pregunta y los fragmentos recuperados y escribe la respuesta citando sus fuentes. Es el modelo local o el proveedor que hayas elegido."
+  "scene.explain_model": "Recibe tu pregunta y los fragmentos recuperados y escribe la respuesta citando sus fuentes. Es el modelo local o el proveedor que hayas elegido.",
+  "library.crumb": "Biblioteca / colección {name}",
+  "library.hero_title": "Tu biblioteca, en local",
+  "library.hero_sub": "Cada documento recorre cuatro etapas antes de poder consultarse.",
+  "library.step_ingest": "PASO 1 / 4",
+  "library.stage_upload": "Subida",
+  "library.stage_chunking": "Fragmentado",
+  "library.stage_indexing": "Indexado",
+  "scene.go_upload": "Añadir documentos",
+  "scene.go_documents": "Ver documentos",
+  "scene.go_configuration": "Ajustar en Configuración"
 }

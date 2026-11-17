@@ -74,7 +74,7 @@ function statusView(status){
   const indexed=status.documents.filter(doc=>doc.indexed).length,processing=status.documents.filter(doc=>doc.status==='processing').length,errors=status.documents.filter(doc=>doc.status==='error').length,pending=status.document_count-indexed-processing-errors;
   for(const id of ['stat-docs','statistics-docs'])$(id).textContent=number(status.document_count);
   for(const id of ['stat-chunks','statistics-chunks'])$(id).textContent=number(status.chunk_count);
-  $('library-collection').textContent=status.collection;$('library-visuals').textContent=number(status.visual_count||0);
+  $('library-collection').textContent=status.collection;$('library-crumb').textContent=t('library.crumb',{name:status.collection});$('library-visuals').textContent=number(status.visual_count||0);
   $('library-summary').textContent=s('library_summary',{indexed,processing,pending,errors});
   segments($('library-bar'),[100*indexed/(status.document_count||1),100*(pending+processing)/(status.document_count||1),100*errors/(status.document_count||1)]);
   $('library-bar').setAttribute('aria-label',$('library-summary').textContent);
