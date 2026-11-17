@@ -966,14 +966,25 @@
 :root[data-theme] .ratio > i { min-width: 6px; background: var(--card); }
 :root[data-theme] .ratio > .ratio__accepted { background: var(--mint); }
 :root[data-theme] .ratio > .ratio__rejected { background: var(--coral); }
-:root[data-theme] .graph-register > .meta { margin: 0 14px 10px; }
-:root[data-theme] #graph-results { margin: 0 14px 12px; }
-:root[data-theme] #graph-results article { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-:root[data-theme] #graph-results article:last-child { border-bottom: 0; }
+/* The register is the last box, as wide as the page: relations in columns, inside a bounded scroll area */
+:root[data-theme] #graph-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; gap: 12px; max-height: 460px; overflow-y: auto; padding: 2px; outline: none; }
+:root[data-theme] #graph-results:focus-visible { box-shadow: 0 0 0 2px var(--edge); border-radius: 12px; }
+:root[data-theme] #graph-results > .meta { grid-column: 1 / -1; }
+:root[data-theme] #graph-results article { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px; background: var(--stage); border: 1px solid var(--line); border-radius: 12px; font-size: 12px; overflow-wrap: anywhere; }
+:root[data-theme] #graph-results article .evidence-quote { max-height: 96px; overflow-y: auto; margin: 0; }
+:root[data-theme] #graph-results .graph-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 :root[data-theme] .graph-row-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 3px; }
 :root[data-theme] .graph-row-actions .btn { height: auto; min-height: 30px; padding: 4px 10px; font-size: 11px; white-space: normal; text-align: left; }
 :root[data-theme] .graph-verification { width: min(850px, 95vw); }
 
+/* The checks of the selection: one row per stage, ticked when the server has verified it */
+:root[data-theme] .graph-checks { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--stage); border: var(--bw) solid var(--edge); border-radius: 12px; }
+:root[data-theme] .graph-checks .checks { gap: 8px; }
+:root[data-theme] .graph-checks [data-state="partial"] > .check { background: var(--butter); }
+:root[data-theme] .graph-checks .pill { text-transform: uppercase; }
+:root[data-theme] .graph-stages > li:nth-child(4) .step-no { background: var(--sky); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .graph-stages > li:nth-child(5) .step-no { background: var(--coral); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .graph-stages > li.is-done .step-no { background: var(--paper); font-size: 12px; font-weight: 800; }
 /* Continuous runs, entities across passages and measurement */
 :root[data-theme] .graph-modern { display: flex; flex-direction: column; gap: 14px; }
 :root[data-theme] .graph-modern .field { gap: 8px; }
@@ -983,12 +994,16 @@
 :root[data-theme] .graph-continuous { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--stage); border: 1px solid var(--line); border-radius: 12px; }
 :root[data-theme] .graph-continuous .pill { text-transform: uppercase; }
 :root[data-theme] .graph-card--wide { grid-column: 1 / -1; }
-:root[data-theme] .graph-card--wide .graph-card__head .step-no { background: var(--sky); }
+:root[data-theme] .graph-cards > .graph-card:first-child { grid-row: span 2; align-self: stretch; }
+:root[data-theme] .graph-cards { grid-template-rows: auto 1fr; }
+:root[data-theme] .graph-card--measure { align-self: stretch; }
+:root[data-theme] .graph-card--measure .graph-card__head .step-no { background: var(--sky); }
 :root[data-theme] .graph-card__head .pill { margin-left: auto; }
-:root[data-theme] .graph-measure { display: grid; grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr); align-items: start; gap: 14px 20px; }
+:root[data-theme] .graph-measure { display: flex; flex-direction: column; gap: 14px; }
 :root[data-theme] .graph-measure .field { gap: 8px; min-width: 0; }
-:root[data-theme] .graph-measure .textarea { min-height: 132px; }
-:root[data-theme] .graph-measure__options { display: flex; flex-direction: column; gap: 12px; }
+:root[data-theme] .graph-measure .textarea { min-height: 96px; }
+:root[data-theme] .graph-measure__options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 12px 14px; }
+:root[data-theme] .graph-measure__options > .btn, :root[data-theme] .graph-measure__options > .meta { grid-column: 1 / -1; }
 :root[data-theme] .graph-measure__options .select { height: 38px; }
 :root[data-theme] #graph-eval-report { border-top: var(--bw) solid var(--edge); }
 :root[data-theme] #graph-eval-report td:first-child { text-transform: capitalize; }
@@ -1003,7 +1018,10 @@
 /* Settings: the graph in the chat */
 :root[data-theme] .cfg-graph { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line); }
 @media (max-width: 720px) {
-  :root[data-theme] .graph-limits, :root[data-theme] .graph-measure { grid-template-columns: minmax(0, 1fr); }
+  :root[data-theme] .graph-limits { grid-template-columns: minmax(0, 1fr); }
+  :root[data-theme] .graph-cards > .graph-card:first-child { grid-row: auto; }
+  :root[data-theme] .graph-cards { grid-template-rows: none; }
+  :root[data-theme] #graph-results { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 1000px) {
   :root[data-theme] .graph-map-workspace, :root[data-theme] .graph-cards { grid-template-columns: minmax(0, 1fr); }

@@ -897,13 +897,15 @@
        </div>
        <span class="page-head__spacer"></span>
        <label class="tool tool--scope graph-collection" for="graph-collection-select"><span class="tool__label" data-i18n="collections.label">Colección</span><select class="tool__select" id="graph-collection-select"></select></label>
-       <button class="btn btn--primary" id="graph-extract" type="button" aria-describedby="graph-model-reason"><span data-i18n="graph.process">Modelizar siguiente lote</span><svg aria-hidden="true" class="icon"><use href="#i-arrow"></use></svg></button>
+       <button class="btn btn--primary" id="graph-extract" type="button" aria-describedby="graph-model-reason"><span data-i18n="graph.process_selection">Procesar selección</span><svg aria-hidden="true" class="icon"><use href="#i-arrow"></use></svg></button>
       </header>
       <div class="graph-status">
        <ol class="graph-stages" id="graph-stages">
         <li><span class="step-no">1</span><span data-i18n="graph.stage_preparation">Preparación</span></li>
         <li><span class="step-no">2</span><span data-i18n="graph.stage_extraction">Extracción</span></li>
         <li><span class="step-no">3</span><span data-i18n="graph.stage_assessment">Contraste</span></li>
+        <li><span class="step-no">4</span><span data-i18n="graph.stage_publication">Publicación</span></li>
+        <li><span class="step-no">5</span><span data-i18n="graph.stage_connection">Unión</span></li>
        </ol>
        <span class="meta" id="graph-batch-hint"></span>
        <span class="spacer"></span>
@@ -939,39 +941,38 @@
        <header class="graph-card__head"><span class="step-no">1</span><h2 class="card-title" id="graph-sources-title" data-i18n="graph.sources_title">Fuentes</h2><span class="meta num" id="graph-files-count" role="status"></span></header>
        <ul class="picklist" id="graph-files" aria-labelledby="graph-sources-title"></ul>
        <p class="meta" id="graph-files-empty" data-i18n="graph.no_sources">No hay documentos de texto en esta colección.</p>
-       <div class="graph-actions"><button class="btn btn--ghost btn--sm" id="graph-select-all" type="button" data-i18n="graph.select_all">Seleccionar todos</button><button class="btn btn--secondary btn--sm" id="graph-prepare" type="button" data-i18n="graph.prepare">Preparar evidencias</button></div>
-       <header class="graph-card__head graph-card__head--next"><span class="step-no">2</span><h2 class="card-title" data-i18n="graph.extraction">Extracción de relaciones</h2></header>
+       <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-select-all" type="button" data-i18n="graph.select_all">Seleccionar todos</button><button class="btn btn--secondary btn--sm" id="graph-select-max" type="button">Seleccionar el máximo</button><button class="btn btn--ghost btn--sm" id="graph-select-none" type="button" data-i18n="graph.clear_selection" hidden>Quitar selección</button><button class="btn btn--secondary btn--sm" id="graph-prepare" type="button" data-i18n="graph.prepare">Preparar evidencias</button></div>
+       <p class="meta" id="graph-select-note" hidden></p>
+       <section class="graph-checks" id="graph-checks" hidden aria-labelledby="graph-checks-title">
+        <div class="journey__top"><span class="eyebrow" id="graph-checks-title" data-i18n="graph.checks_title">Comprobaciones de la selección</span><span class="pill pill--sm" id="graph-checks-state" role="status"></span></div>
+        <ol class="checks" id="graph-checks-list"></ol>
+       </section>
+       <header class="graph-card__head graph-card__head--next"><span class="step-no">2</span><h2 class="card-title" data-i18n="graph.process_title">Procesar</h2></header>
        <div class="graph-fields">
         <label class="field"><span class="field-label" data-i18n="graph.provider">Proveedor</span><select class="select" id="graph-provider"><option value="ollama">Ollama local</option><option value="groq">Groq</option><option value="scaleway">Scaleway</option><option value="ovh">OVHcloud</option><option value="xai">xAI</option></select></label>
         <label class="field"><span class="field-label" data-i18n="graph.model">Modelo de extracción</span><select class="select" id="graph-model" aria-describedby="graph-model-reason"></select><span class="graph-reason" id="graph-model-reason" data-i18n="graph.model_missing">Falta el modelo para poder extraer.</span></label>
-        <div class="field"><label class="field-label" for="graph-unit-limit" data-i18n="graph.units_short">Pasajes por trabajo</label>
+        <div class="field" id="graph-unit-field"><label class="field-label" for="graph-unit-limit" data-i18n="graph.units_short">Pasajes por trabajo</label>
          <div class="cfg-stepper"><button type="button" data-graph-step="-1" data-i18n-aria-label="graph.fewer" aria-label="Menos pasajes">−</button><input id="graph-unit-limit" type="number" inputmode="numeric" min="1" max="100" value="3"/><button type="button" data-graph-step="1" data-i18n-aria-label="graph.more" aria-label="Más pasajes">+</button></div>
          <span class="meta" data-i18n="graph.unit_scope">El límite afecta a pasajes, no a documentos completos.</span>
         </div>
        </div>
        <div class="graph-modern" data-graph-modern hidden>
-        <div class="field"><span class="field-label" id="graph-mode-label" data-i18n="graph.mode">Forma de procesar</span>
-         <div aria-labelledby="graph-mode-label" class="segmented cfg-seg" id="graph-mode" role="radiogroup">
-          <button aria-checked="true" data-graph-mode="batch" role="radio" type="button" data-i18n="graph.mode_batch">Por lotes</button>
-          <button aria-checked="false" data-graph-mode="continuous" role="radio" tabindex="-1" type="button" data-i18n="graph.mode_continuous">Continuo</button>
-         </div>
-        </div>
-        <div class="graph-limits" id="graph-limits" hidden>
+        <div class="graph-limits" id="graph-limits">
          <label class="field"><span class="field-label" data-i18n="graph.limit_units">Máximo de pasajes</span><input class="input" id="graph-max-units" type="number" inputmode="numeric" min="1" max="1000" value="30"/></label>
          <label class="field"><span class="field-label" data-i18n="graph.limit_minutes">Tiempo máximo (min)</span><input class="input" id="graph-max-minutes" type="number" inputmode="numeric" min="1" max="120" value="10"/></label>
          <label class="field"><span class="field-label" data-i18n="graph.limit_memory">Memoria máxima (GB)</span><input class="input" id="graph-max-memory" type="number" inputmode="numeric" min="1" max="64" value="8"/></label>
-         <p class="meta" data-i18n="graph.continuous_note">Procesa un pasaje cada vez y cede la cola entre uno y otro. Se detiene al llegar a cualquiera de los límites; reanudar no amplía el presupuesto.</p>
+         <p class="meta" data-i18n="graph.continuous_note">Procesa la selección pasaje a pasaje hasta terminarla o llegar a uno de estos límites.</p>
         </div>
         <section class="graph-continuous" id="graph-continuous" hidden aria-labelledby="graph-continuous-title">
-         <div class="journey__top"><span class="eyebrow" id="graph-continuous-title" data-i18n="graph.continuous_title">Proceso continuo</span><span class="pill pill--sm" id="graph-continuous-state" role="status"></span></div>
+         <div class="journey__top"><span class="eyebrow" id="graph-continuous-title" data-i18n="graph.continuous_title">Estado del proceso</span><span class="pill pill--sm" id="graph-continuous-state" role="status"></span></div>
          <div class="ratio" id="graph-continuous-bar" role="img"><i class="ratio__accepted"></i><i></i></div>
          <p class="meta num" id="graph-continuous-figures"></p>
          <p class="graph-reason" id="graph-continuous-error" hidden></p>
-         <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-continuous-pause" type="button" data-i18n="graph.pause">Pausar</button><button class="btn btn--secondary btn--sm" id="graph-continuous-resume" type="button" data-i18n="graph.resume">Reanudar</button></div>
+         <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-continuous-pause" type="button" data-i18n="graph.pause">Pausar</button><button class="btn btn--secondary btn--sm" id="graph-continuous-resume" type="button" data-i18n="graph.resume">Reanudar</button><button class="btn btn--secondary btn--sm" id="graph-continuous-again" type="button" data-i18n="graph.task_again" hidden>Seguir con otra tanda</button></div>
         </section>
        </div>
        <label class="graph-remote" id="graph-remote-field" hidden><input id="graph-remote" type="checkbox"/><span data-i18n="graph.remote">Enviar los pasajes seleccionados a este proveedor remoto</span></label>
-       <div class="graph-actions"><button class="btn btn--ghost btn--sm" id="graph-model-refresh" type="button" data-i18n="graph.refresh_models">Actualizar modelos</button></div>
+       <div class="graph-actions"><button class="btn btn--primary" id="graph-process" type="button" data-i18n="graph.process_selection">Procesar selección</button><button class="btn btn--ghost btn--sm" id="graph-model-refresh" type="button" data-i18n="graph.refresh_models">Actualizar modelos</button></div>
        <div id="graph-runs"></div>
       </section>
       <section class="card graph-card" aria-labelledby="graph-assessment-title">
@@ -997,12 +998,8 @@
         <svg aria-hidden="true" class="icon"><use href="#i-info"></use></svg>
         <span><strong data-i18n="graph.guarantee_title">Qué garantiza</strong><span data-i18n="graph.audit_scope">La integridad de archivos y citas no certifica la interpretación semántica del modelo.</span></span>
        </div>
-       <details class="disclosure graph-register"><summary data-i18n="graph.relations">Registro de relaciones</summary>
-        <p class="meta" data-i18n="graph.review_notice">El modelo contrasta automáticamente las relaciones. Estos detalles son opcionales y no requieren revisión manual. El chat todavía no utiliza el grafo.</p>
-        <div id="graph-results"></div>
-       </details>
       </section>
-      <section class="card graph-card graph-card--wide" data-graph-modern hidden aria-labelledby="graph-measure-title">
+      <section class="card graph-card graph-card--measure" data-graph-modern hidden aria-labelledby="graph-measure-title">
        <header class="graph-card__head"><span class="step-no">4</span><h2 class="card-title" id="graph-measure-title" data-i18n="graph.measure_title">Medición</h2><span class="pill pill--sm pill--sky" data-i18n="lab.no_generation">sin generación</span></header>
        <p class="meta" data-i18n="graph.measure_intro">Compara la recuperación con y sin grafo sobre el mismo índice, el mismo contexto y el mismo reordenador. No genera respuestas ni mide su fidelidad.</p>
        <div class="graph-measure">
@@ -1019,6 +1016,11 @@
         <table class="table"><thead><tr><th data-i18n="graph.metric">Métrica</th><th data-i18n="graph.without_graph">Sin grafo</th><th data-i18n="graph.with_graph">Con grafo</th><th data-i18n="graph.difference">Diferencia</th></tr></thead><tbody id="graph-eval-rows"></tbody></table>
         <p class="meta" id="graph-eval-note"></p>
        </div>
+      </section>
+      <section class="card graph-card graph-card--wide graph-register" aria-labelledby="graph-register-title">
+       <header class="graph-card__head"><h2 class="card-title" id="graph-register-title" data-i18n="graph.relations">Registro de relaciones</h2><span class="pill pill--sm num" id="graph-register-count"></span></header>
+       <p class="meta" data-i18n="graph.review_notice">El modelo contrasta automáticamente las relaciones. Estos detalles son opcionales y no requieren revisión manual.</p>
+       <div id="graph-results" tabindex="0" role="region" aria-labelledby="graph-register-title"></div>
       </section>
      </div>
     </section>
