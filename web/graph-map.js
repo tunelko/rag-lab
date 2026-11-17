@@ -74,6 +74,10 @@ export class GraphMap {
       const caption = svg('text', {x: group.x, y: group.y - group.ry - 44, 'text-anchor': 'middle', class: 'graph-group-caption'}, short(group.file.split('/').at(-1), 46));
       caption.append(svg('title', {}, group.file)); drawing.append(caption);
     }
+    // Two relations between the same pair of cards run side by side, each with its own label.
+    const pairs = new Map();
+    for (const edge of this.data.edges) { const key = JSON.stringify([edge.source, edge.target].sort()); if (!pairs.has(key)) pairs.set(key, []); pairs.get(key).push(edge); }
+    for (const list of pairs.values()) list.forEach((edge, index) => { edge.shift = (index - (list.length - 1) / 2) * 26 * (edge.source < edge.target ? 1 : -1); });
     // Lines under the cards, their labels above them.
     this.lines = []; const tags = svg('g', {class: 'graph-tags'});
     for (const edge of this.data.edges) {
@@ -135,10 +139,13 @@ export class GraphMap {
     this.drawing?.querySelector('.graph-bridges')?.remove(); this.links = [];
     if (!this.drawing || !data?.identity_links?.length) return;
     const key = entity => JSON.stringify([entity.unit, entity.kind || '', entity.label]), byId = new Map(data.entities.map(entity => [entity.id, entity]));
-    const layer = svg('g', {class: 'graph-bridges'});
+    const layer = svg('g', {class: 'graph-bridges'}), drawn = new Set();
     for (const link of data.identity_links) {
       const left = byId.get(link.left_entity), right = byId.get(link.right_entity), a = left && this.positions.get(key(left)), b = right && this.positions.get(key(right));
-      if (!a || !b) continue;
+      // Mentions that share a card need no bridge, and two cards get one bridge however many links join them.
+      const pair = a && b && JSON.stringify([a.id, b.id].sort());
+      if (!a || !b || a === b || drawn.has(pair)) continue;
+      drawn.add(pair);
       const control = svg('g', {class: 'gbridge', tabindex: 0, role: 'button', 'aria-pressed': 'false', 'aria-label': label('same_entity') + ': ' + left.label});
       const path = svg('path'), hit = svg('path', {class: 'graph-edge-hit'}); control.append(hit, path, svg('title', {}, label('same_entity')));
       const open = () => this.select({bridge: link.id});
@@ -169,6 +176,7 @@ export class GraphMap {
     for (const {item, control} of this.cards) control.setAttribute('transform', `translate(${item.x} ${item.y})`);
     for (const {edge, line, hit, tag} of this.lines) {
       const a = this.positions.get(edge.source), b = this.positions.get(edge.target), from = border(b, a, a.half), to = border(a, b, b.half);
+      if (edge.shift) { const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy) || 1, ox = -dy / length * edge.shift, oy = dx / length * edge.shift; from.x += ox; from.y += oy; to.x += ox; to.y += oy; }
       for (const [key, value] of Object.entries({x1: from.x, y1: from.y, x2: to.x, y2: to.y})) { line.setAttribute(key, value); hit.setAttribute(key, value); }
       // The label sits at the middle of the visible stretch, between the two cards.
       tag.setAttribute('transform', `translate(${(from.x + to.x) / 2} ${(from.y + to.y) / 2})`);
@@ -180,8 +188,10 @@ export class GraphMap {
   // Normal zoom is one pixel per unit; a map smaller than the canvas is centred, a larger one starts at its first passage.
   home() {
     if (!this.drawing) return;
-    const width = this.box.clientWidth || 960;
-    this.view = [this.data.width < width ? (this.data.width - width) / 2 : 0, this.data.height < HEIGHT ? (this.data.height - HEIGHT) / 2 : 0, width, HEIGHT];
+    const width = this.box.clientWidth || 960, fit = Math.max(1, this.data.width / width, this.data.height / HEIGHT);
+    // A map a little larger than the canvas is shown whole; a much larger one starts at its first passage, at normal size.
+    this.view = fit <= 1.6 ? [(this.data.width - width * fit) / 2, (this.data.height - HEIGHT * fit) / 2, width * fit, HEIGHT * fit]
+      : [0, 0, width, HEIGHT];
     this.applyView();
   }
   zoom(factor) { if (!this.drawing) return; const [x, y, width, height] = this.view, next = width * factor; if (next < 240 || next > 8000) return; this.view = [x + (width - next) / 2, y + (height - height * factor) / 2, next, height * factor]; this.applyView(); }

@@ -77,7 +77,8 @@ export class Graph{
     const [filled,rest]=$('graph-continuous-bar').children;filled.style.flexGrow=String(done);rest.style.flexGrow=String(Math.max(0,total-done));filled.hidden=!done;rest.hidden=total<=done;
     $('graph-continuous-bar').setAttribute('aria-label',label('task_coverage',{done:number(done),total:number(total),percent:number(task.coverage_percent||0,1)}));
     $('graph-continuous-figures').textContent=label('task_coverage',{done:number(done),total:number(total),percent:number(task.coverage_percent||0,1)})+' · '+label('task_spent',{processed:number(task.processed||0),limit:number(task.config.max_total_units),elapsed:clock(task.elapsed),minutes:number(task.config.max_seconds/60)});
-    const reason=task.status==='paused_budget'?label('task_budget_note'):serverText(task.error||'');$('graph-continuous-error').textContent=reason;$('graph-continuous-error').hidden=!reason;
+    // Coverage counts extraction and assessment; connecting entities across passages may still be pending.
+    const reason=task.status==='paused_budget'?label(task.reconciliation_pending&&total&&done>=total?'task_reconcile_note':'task_budget_note'):serverText(task.error||'');$('graph-continuous-error').textContent=reason;$('graph-continuous-error').hidden=!reason;
     $('graph-continuous-pause').hidden=!running;$('graph-continuous-resume').hidden=!RESUMABLE.includes(task.status);this.controls();
   }
   async watch(id){

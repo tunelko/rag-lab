@@ -1230,5 +1230,6 @@
   "graph.measure_counts": "Graph used: {assertions} relations and {links} identity decisions.",
   "settings.graph_retrieval": "Use the graph in the chat",
   "settings.graph_hops": "Graph hops",
-  "settings.graph_hint": "It adds the assessed relations of the graph and their sources to the answer. Inventory queries do not use it."
+  "settings.graph_hint": "It adds the assessed relations of the graph and their sources to the answer. Inventory queries do not use it.",
+  "graph.task_reconcile_note": "The passages are extracted and assessed; connecting entities across passages is still pending. Press “Connect across passages” or start another run."
 }

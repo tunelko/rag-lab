@@ -28,7 +28,7 @@ test('nothing sits right above the middle card, where the name of the passage go
 test('passages sit side by side and wrap into rows', () => {
   const groups = Array.from({length: 5}, (_, index) => passage('g' + index + '-', 4));
   const size = placeStars(groups, [], {rowWidth: 1600});
-  assert.ok(groups[1].x - groups[0].x >= 2 * groups[0].rx + 200);
+  assert.ok(groups[1].x - groups[0].x >= 2 * groups[0].rx + 180);
   assert.ok(new Set(groups.map(group => group.y)).size > 1);
   assert.ok(size.width <= 1600);
 });

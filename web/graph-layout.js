@@ -35,13 +35,13 @@ export function placeStars(groups,edges=[],{rowWidth=2400}={}){
   let x=0,y=0,rowHeight=0,width=0;
   for(const group of groups){
     const [hub,...around]=[...group.nodes].sort((a,b)=>(degree.get(b.id)||0)-(degree.get(a.id)||0)),count=around.length;
-    const rx=Math.max(220,150+26*count),ry=Math.max(120,84+14*count),w=2*rx+250,h=2*ry+130;
+    const rx=Math.max(280,180+26*count),ry=Math.max(130,90+14*count),w=2*rx+200,h=2*ry+130;
     if(x&&x+w>rowWidth){x=0;y+=rowHeight;rowHeight=0;}
     group.x=x+w/2;group.y=y+h/2+16;group.rx=rx;group.ry=ry;
     hub.x=group.x;hub.y=group.y;
     // Half a step off the top, so nothing sits right above the middle card, where the name of the passage goes;
-    // a single companion stands to its right.
-    around.forEach((item,index)=>{const angle=count===1?0:-Math.PI/2+2*Math.PI*(index+.5)/count;item.x=group.x+rx*Math.cos(angle);item.y=group.y+ry*Math.sin(angle);});
+    // one or two companions stand on a gentle diagonal instead of a flat line.
+    around.forEach((item,index)=>{const angle=count<3?Math.PI/9+Math.PI*index:-Math.PI/2+2*Math.PI*(index+.5)/count;item.x=group.x+rx*Math.cos(angle);item.y=group.y+ry*Math.sin(angle);});
     x+=w;rowHeight=Math.max(rowHeight,h);width=Math.max(width,x);
   }
   return {width:Math.max(400,width),height:Math.max(360,y+rowHeight)};

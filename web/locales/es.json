@@ -1230,5 +1230,6 @@
   "graph.measure_counts": "Grafo usado: {assertions} relaciones y {links} decisiones de identidad.",
   "settings.graph_retrieval": "Usar el grafo en el chat",
   "settings.graph_hops": "Saltos del grafo",
-  "settings.graph_hint": "Añade a la respuesta las relaciones contrastadas del grafo y sus fuentes. Las consultas de inventario no lo usan."
+  "settings.graph_hint": "Añade a la respuesta las relaciones contrastadas del grafo y sus fuentes. Las consultas de inventario no lo usan.",
+  "graph.task_reconcile_note": "Los pasajes ya están extraídos y contrastados; queda conectar entidades entre pasajes. Pulsa «Conectar entre pasajes» o inicia otra ejecución."
 }
