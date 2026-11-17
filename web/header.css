@@ -220,6 +220,8 @@
 
 .topnav{flex-shrink:0}.cmdk{min-width:100px}.kbd{white-space:nowrap;flex:none}
 @media(max-width:1399px){.cmdk{min-width:32px}}
+/* Seven tabs no longer fit below 1000 px: the row scrolls sideways instead of widening the page. */
+@media(max-width:1000px){.topnav{flex-shrink:1}}
 @media(min-width:640px) and (max-width:1000px){.topbar__brand{font-size:0;gap:0}.topbar__bar{gap:8px;padding:0 12px}.topnav a{font-size:12px;padding:0 6px}.topnav a svg{display:none}}
 @media(max-width:639px){.topnav{flex-shrink:1}.cmdk{min-width:44px}}
 @media (max-width: 1023px) {
