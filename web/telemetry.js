@@ -36,8 +36,6 @@ export class Telemetry {
       $('hardware-gpu-sensors').textContent=gpu?[gpu.temperature_c==null?'':t("ui.core_c_c20a90", {value1: (number(gpu.temperature_c,1))}),gpu.power_w==null?'':`${number(gpu.power_w,1)} W`].filter(Boolean).join(' · '):'';
       $('hardware-vram').textContent=gpu?memory(gpu.memory_used_bytes,gpu.memory_total_bytes):'—';
       $('hardware-vram-caption').textContent=gpu?.memory_total_bytes?percent(100*gpu.memory_used_bytes/gpu.memory_total_bytes)+t("ui.of_dedicated_memory_db06c0"):t("ui.no_gpu_memory_reading_e00a2e");
-      $('hardware-processes').replaceChildren();
-      for(const process of data.processes){const row=node('tr');for(const value of [process.role==='rag'?t("ui.rag_server_1f279b"):'Ollama',`${process.name} · PID ${process.pid}`,percent(process.cpu_percent),`${number(process.ram_bytes/1024**3,2)} GiB`])row.append(node('td','',value));$('hardware-processes').append(row);}
       $('hardware-status').textContent=this.paused?t("ui.display_paused_collecting_readings_d8948d"):t("ui.actual_reading_0b3bc9")+new Date(data.time).toLocaleTimeString(intlLocale())+t("ui.every_2_s_3417fe");
       this.display={data,history:this.history.slice()};this.draw(this.display);
   }

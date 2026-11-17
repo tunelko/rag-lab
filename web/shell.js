@@ -7,12 +7,16 @@ import {PipelineScene} from './pipeline-scene.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
+// Where each stage of the explained scene is set: a card of the Settings view.
+const card=(anchor,key,note)=>({anchor,key,note,element:()=>document.getElementById(anchor).closest('section')});
+const index=()=>card('settings-index-title','scene.go_index','scene.note_fixed');
+const sceneTargets={settings:{1:card('settings-multimodal-title','scene.go_settings'),2:index(),3:index(),4:index(),5:card('settings-retrieval-title','scene.go_settings'),6:card('settings-generation-title','scene.go_settings')}};
 export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
     this.palette=new CommandPalette(()=>this.status);
     // Light theme: the isometric scene replaces the pipeline row and shows the same states and values.
-    this.scenes=[...document.querySelectorAll('[data-pipeline-scene]')].map(host=>new PipelineScene(host));
+    this.scenes=[...document.querySelectorAll('[data-pipeline-scene]')].map(host=>{const targets=sceneTargets[host.dataset.pipelineScene];return new PipelineScene(host,targets?{explain:{targets}}:{});});
     // Closing with ×, Esc or a click on empty space returns focus to the icon; a click on another control keeps it there.
     $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
     $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
@@ -52,7 +56,10 @@ export class Shell {
     const bar=$('system-vram-progress');$('system-vram-row').hidden=ratio==null;bar.style.setProperty('--pct',(ratio??0)+'%');bar.classList.toggle('is-warn',ratio!=null&&ratio>=90);bar.setAttribute('aria-valuemax',total?(total/1024**3).toFixed(1):'0');bar.setAttribute('aria-valuenow',total?(used/1024**3).toFixed(1):'0');
     $('system-gpu-row').hidden=!device;$('system-gpu').textContent=$('system-gpu').title=device?.name||'';
     const metrics=device?[[device.utilization_percent,' %',h('usage')],[device.temperature_c,' °C',''],[device.power_w,' W','']].filter(([value])=>value!=null).map(([value,unit,label])=>{const item=node('span');item.append(node('b','',compact(value)+unit));if(label)item.append(' '+label);return item;}):[];
-    $('system-gpu-metrics').replaceChildren(...metrics);$('system-gpu-metrics').hidden=!metrics.length;this.level();
+    $('system-gpu-metrics').replaceChildren(...metrics);$('system-gpu-metrics').hidden=!metrics.length;
+    // The processes of the RAG server and Ollama, with the readings of the same sample.
+    const processes=(data?.processes||[]).map(process=>{const row=node('li','sys__process');row.append(node('span','sys__process-role',process.role==='rag'?t('ui.rag_server_1f279b'):'Ollama'),node('span','sys__process-use',`CPU ${process.cpu_percent==null?'—':number(process.cpu_percent,1)+' %'} · RAM ${number(process.ram_bytes/1024**3,2)} GiB`),node('span','sys__process-name',`${process.name} · PID ${process.pid}`));return row;});
+    $('hardware-processes').replaceChildren(...processes);$('system-processes-row').hidden=!processes.length;this.level();
   }
   ingestion(job){
     const state=ingestionState(job),active=job&&['running','queued'].includes(job.status);

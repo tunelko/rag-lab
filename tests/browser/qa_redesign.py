@@ -733,7 +733,10 @@ def run_browser(url):
         expect(page.locator("#hardware-cpu")).to_have_text("12,5 %")
         expect(page.locator("#hardware-gpu")).to_have_text("87,5 %")
         expect(page.locator("#hardware-vram")).to_have_text("8,0 / 10,0 GiB")
-        expect(page.locator("#hardware-processes")).to_contain_text("qa-runner")
+        # Processes live in the system status popover, not in Statistics.
+        assert page.locator('#statistics-view #hardware-processes').count()==0
+        page.locator('#system-button').click();expect(page.locator("#system-popover #hardware-processes")).to_be_visible()
+        expect(page.locator("#system-popover #hardware-processes")).to_contain_text("qa-runner");page.keyboard.press('Escape')
         expect(page.locator("#chart-cpu")).to_have_attribute("data-samples","30")
         expect(page.locator("#chart-cpu .resource-line")).to_have_count(1)
         assert 'NaN' not in page.locator("#chart-cpu .resource-line").get_attribute("d")

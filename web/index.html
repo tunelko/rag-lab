@@ -456,6 +456,15 @@
         —
        </p>
       </li>
+      <li class="sys__row" hidden="" id="system-processes-row">
+       <div class="sys__top">
+        <span class="sys__label" data-i18n="sentinel.processes">
+         Procesos
+        </span>
+       </div>
+       <ul class="sys__processes" id="hardware-processes">
+       </ul>
+      </li>
      </ul>
      <footer class="sys__foot">
       <a class="sys__link" href="/estadisticas">
@@ -602,7 +611,7 @@
        <header class="page-head card__head chat-toolbar">
         <div class="chat-heading">
          <p class="chat-crumb" id="chat-crumb"></p>
-         <h1 class="page-title"><span class="chat-title-short" data-i18n="sentinel.chat">Chat</span><span class="chat-title-long" data-i18n="journey.page_title">Pregunta a tus documentos</span></h1>
+         <h1 class="page-title"><span class="chat-title-short" data-i18n="sentinel.chat">Chat</span><span class="chat-title-long" data-i18n="journey.page_title">Consultas en el chat</span></h1>
          <span class="chat-summary" id="conversation-count"></span>
          <span class="meta" id="settings-sync" role="status"></span>
         </div>
@@ -1377,7 +1386,7 @@
        </span>
       </button>
      </header>
-     <div data-pipeline-scene id="settings-scene"></div>
+     <div data-pipeline-scene="settings" id="settings-scene"></div>
      <div class="banner banner--warn" hidden="" id="reindex-warning">
       <svg aria-hidden="true" class="icon">
        <use href="#i-alert">
@@ -2130,41 +2139,91 @@
        <section class="card">
         <header class="card__head">
          <h2 class="card-title">
-          <span data-i18n="sentinel.processes">
-           Procesos
+          <span data-i18n="sentinel.queries">
+           Consultas
           </span>
          </h2>
         </header>
         <div class="card__body">
+         <p class="meta" id="statistics-scope">
+         </p>
+         <p class="meta" id="statistics-totals">
+         </p>
+         <div class="history-toolbar">
+          <div aria-label="Histórico de consultas" class="segmented" data-i18n-aria-label="ui.query_history_858472" id="statistics-history-range">
+           <button aria-pressed="false" data-history-seconds="86400" type="button">
+            <span data-i18n="ui.1_day_95700f">
+             1 día
+            </span>
+           </button>
+           <button aria-pressed="true" data-history-seconds="604800" type="button">
+            <span data-i18n="ui.1_week_84c52e">
+             1 semana
+            </span>
+           </button>
+          </div>
+          <button class="btn btn--secondary" id="refresh-statistics" type="button">
+           <svg aria-hidden="true" class="icon">
+            <use href="#i-refresh">
+            </use>
+           </svg>
+           <span data-i18n="sentinel.refresh">
+            Actualizar
+           </span>
+          </button>
+          <button class="btn btn--secondary" id="clear-trace-filter" type="button">
+           <span data-i18n="sentinel.clear_filter">
+            Ver todas las consultas
+           </span>
+          </button>
+         </div>
          <div class="table-wrap">
-          <table class="table">
+          <table class="table query-table">
            <thead>
             <tr>
-             <th>
-              <span data-i18n="ui.component_937fbd">
-               COMPONENTE
-              </span>
+             <th data-i18n="sentinel.time">
+              Hora
+             </th>
+             <th data-i18n="sentinel.question">
+              Pregunta
+             </th>
+             <th data-i18n="sentinel.model">
+              Modelo
+             </th>
+             <th data-i18n="sentinel.route">
+              Ruta
+             </th>
+             <th data-i18n="sentinel.elapsed">
+              Tiempo
              </th>
              <th>
-              <span data-i18n="ui.process_c2d2e5">
-               PROCESO
-              </span>
+              tok/s
              </th>
-             <th>
-              <span data-i18n="ui.system_cpu_409128">
-               CPU DEL EQUIPO
-              </span>
+             <th data-i18n="sentinel.output">
+              Salida
              </th>
-             <th>
-              <span data-i18n="ui.process_ram_94205a">
-               RAM DEL PROCESO
-              </span>
+             <th data-i18n="sentinel.context_tokens">
+              Contexto
              </th>
             </tr>
            </thead>
-           <tbody id="hardware-processes">
+           <tbody id="query-statistics">
            </tbody>
           </table>
+         </div>
+         <div class="pagination">
+          <button class="btn btn--secondary" disabled="" id="statistics-previous" type="button">
+           <span data-i18n="ui.previous_e4ce7c">
+            Anterior
+           </span>
+          </button>
+          <span class="meta" id="statistics-page">
+          </span>
+          <button class="btn btn--secondary" disabled="" id="statistics-next" type="button">
+           <span data-i18n="ui.next_49683b">
+            Siguiente
+           </span>
+          </button>
          </div>
         </div>
        </section>
@@ -2268,97 +2327,6 @@
        </section>
       </aside>
      </div>
-     <section class="card">
-      <header class="card__head">
-       <h2 class="card-title">
-        <span data-i18n="sentinel.queries">
-         Consultas
-        </span>
-       </h2>
-      </header>
-      <div class="card__body">
-       <p class="meta" id="statistics-scope">
-       </p>
-       <p class="meta" id="statistics-totals">
-       </p>
-       <div class="history-toolbar">
-        <div aria-label="Histórico de consultas" class="segmented" data-i18n-aria-label="ui.query_history_858472" id="statistics-history-range">
-         <button aria-pressed="false" data-history-seconds="86400" type="button">
-          <span data-i18n="ui.1_day_95700f">
-           1 día
-          </span>
-         </button>
-         <button aria-pressed="true" data-history-seconds="604800" type="button">
-          <span data-i18n="ui.1_week_84c52e">
-           1 semana
-          </span>
-         </button>
-        </div>
-        <button class="btn btn--secondary" id="refresh-statistics" type="button">
-         <svg aria-hidden="true" class="icon">
-          <use href="#i-refresh">
-          </use>
-         </svg>
-         <span data-i18n="sentinel.refresh">
-          Actualizar
-         </span>
-        </button>
-        <button class="btn btn--secondary" id="clear-trace-filter" type="button">
-         <span data-i18n="sentinel.clear_filter">
-          Ver todas las consultas
-         </span>
-        </button>
-       </div>
-       <div class="table-wrap">
-        <table class="table query-table">
-         <thead>
-          <tr>
-           <th data-i18n="sentinel.time">
-            Hora
-           </th>
-           <th data-i18n="sentinel.question">
-            Pregunta
-           </th>
-           <th data-i18n="sentinel.model">
-            Modelo
-           </th>
-           <th data-i18n="sentinel.route">
-            Ruta
-           </th>
-           <th data-i18n="sentinel.elapsed">
-            Tiempo
-           </th>
-           <th>
-            tok/s
-           </th>
-           <th data-i18n="sentinel.output">
-            Salida
-           </th>
-           <th data-i18n="sentinel.context_tokens">
-            Contexto
-           </th>
-          </tr>
-         </thead>
-         <tbody id="query-statistics">
-         </tbody>
-        </table>
-       </div>
-       <div class="pagination">
-        <button class="btn btn--secondary" disabled="" id="statistics-previous" type="button">
-         <span data-i18n="ui.previous_e4ce7c">
-          Anterior
-         </span>
-        </button>
-        <span class="meta" id="statistics-page">
-        </span>
-        <button class="btn btn--secondary" disabled="" id="statistics-next" type="button">
-         <span data-i18n="ui.next_49683b">
-          Siguiente
-         </span>
-        </button>
-       </div>
-      </div>
-     </section>
      <details class="ingestion-history">
       <summary>
        <span data-i18n="sentinel.ingestion_history">
