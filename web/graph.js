@@ -8,9 +8,13 @@ export class Graph{
     $('graph-select-all').addEventListener('click',()=>{for(const option of $('graph-files').options)option.selected=true;});
     $('graph-prepare').addEventListener('click',()=>this.start('prepare'));
     $('graph-extract').addEventListener('click',()=>this.start('extract'));
+    $('graph-audit').addEventListener('click',()=>this.audit());
     $('graph-cancel').addEventListener('click',async()=>{if(!this.job)return;try{await this.api('/api/jobs/'+this.job,{method:'DELETE'});}catch(error){toast(error.message);}});
     $('graph-provider').addEventListener('change',()=>{$('graph-remote-field').hidden=$('graph-provider').value==='ollama';$('graph-remote').checked=false;this.loadModels();});
     $('graph-model-refresh').addEventListener('click',()=>this.loadModels());
+    $('graph-verification-close').addEventListener('click',()=>$('graph-verification-dialog').close());
+    $('graph-verification-dialog').addEventListener('close',()=>this.verifyTrigger?.focus());
+    $('graph-verification-form').addEventListener('submit',async event=>{event.preventDefault();try{await this.api('/api/graph/assertions/'+this.verifyRow.id+'/verification',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:$('graph-verification-status').value,note:$('graph-verification-note').value})});$('graph-verification-dialog').close();await this.refresh();}catch(error){toast(error.message);}});
     window.addEventListener('rag:languagechange',()=>{if(this.snapshot)this.render(this.snapshot);});
   }
   setStatus(status){
@@ -20,7 +24,8 @@ export class Graph{
     files.replaceChildren(...names.map(name=>{const option=node('option','',name);option.value=name;option.selected=selected.has(name);return option;}));
   }
   async setActive(active){this.active=active;if(!active)return;try{await this.refresh();const job=sessionStorage.getItem(STORE);if(job&&!this.busy)this.follow(job);}catch(error){toast(error.message);}}
-  async refresh(){this.snapshot=await this.api('/api/graph');this.render(this.snapshot);}
+  async refresh(){this.snapshot=await this.api('/api/graph');this.render(this.snapshot);const result=await this.api('/api/graph/audit');if(result.audit){const data=result.audit;$('graph-audit-summary').textContent=label('audit_summary',{checked:number(data.checked_documents),total:number(data.total_documents),issues:number(data.issues.length),duplicates:number(data.duplicate_groups.length)});if(data.source_assessments)$('graph-audit-relations').textContent=label('audit_relations',data.source_assessments);$('graph-audit-report').href=collectionUrl('/api/graph/audit/report');$('graph-audit-report').hidden=false;}}
+  async audit(){if(this.busy)return;this.busy=true;this.controls();try{const queued=await this.api('/api/graph/audit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({all_collections:true})});sessionStorage.setItem(STORE,queued.job_id);await this.follow(queued.job_id);}catch(error){toast(error.message);this.busy=false;this.controls();}}
   async loadModels(){
     const provider=$('graph-provider').value,previous=$('graph-model').value,sequence=(this.modelSequence||0)+1;this.modelSequence=sequence;
     try{const data=await this.api(provider==='ollama'?'/api/settings':'/api/providers/'+provider+'/models');if(sequence!==this.modelSequence)return;
@@ -30,12 +35,12 @@ export class Graph{
   }
   render(data){
     if(!this.modelInitialized){this.modelInitialized=true;if(data.extraction_settings?.provider)$('graph-provider').value=data.extraction_settings.provider;$('graph-remote-field').hidden=$('graph-provider').value==='ollama';this.loadModels();}
-    $('graph-summary').textContent=label('summary',{documents:number(data.documents),units:number(data.units),assertions:number(data.assertions)});
+    $('graph-summary').textContent=label('summary',{documents:number(data.documents),units:number(data.units),modelled:number(data.modelled_units),assertions:number(data.assertions)});
     $('graph-results').replaceChildren(...data.rows.map(row=>{
-      const article=node('article');article.append(node('strong','',`${row.subject_label} → ${row.predicate} → ${row.object_label}`),node('p','meta',`${label(row.basis)} · ${label(row.polarity)} · ${label(row.review)}`),node('blockquote','',row.quote));
+      const article=node('article');article.append(node('strong','',`${row.subject_label} → ${row.predicate} → ${row.object_label}`),node('p','meta',`${label(row.basis)} · ${label(row.polarity)} · ${label(row.review)} · ${label('verification_'+row.verification)}`),node('blockquote','',row.quote));if(row.verification_note)article.append(node('p','meta',row.verification_note));
       const source=node('button','btn btn--secondary',row.file+(row.page?' · '+row.page:''));source.type='button';
       source.addEventListener('click',()=>window.dispatchEvent(new CustomEvent('rag:document',{detail:{url:collectionUrl('/api/graph/source?unit='+row.unit),file:row.file,page:row.page||1,trigger:source}})));
-      article.append(source);for(const state of ['accepted','rejected','proposed']){const button=node('button','btn btn--secondary',label('review_'+state));button.type='button';button.disabled=row.review===state;button.addEventListener('click',async()=>{try{await this.api('/api/graph/assertions/'+row.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state})});await this.refresh();}catch(error){toast(error.message);}});article.append(button);}return article;
+      const verify=node('button','btn btn--secondary',label('verify'));verify.type='button';verify.addEventListener('click',()=>this.verify(row,verify));article.append(source,verify);for(const state of ['accepted','rejected','proposed']){const button=node('button','btn btn--secondary',label('review_'+state));button.type='button';button.disabled=row.review===state||(state==='accepted'&&row.verification!=='supported');button.addEventListener('click',async()=>{try{await this.api('/api/graph/assertions/'+row.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state})});await this.refresh();}catch(error){toast(error.message);}});article.append(button);}return article;
     }));
     if(!data.rows.length)$('graph-results').append(node('p','meta',label('empty')));
     if(data.truncated)$('graph-results').append(node('p','meta',label('truncated',{limit:data.limit})));
@@ -53,8 +58,9 @@ export class Graph{
     this.busy=true;this.controls();
     try{const queued=await this.api('/api/graph/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});sessionStorage.setItem(STORE,queued.job_id);await this.follow(queued.job_id);}catch(error){toast(error.message);this.busy=false;this.controls();}
   }
+  async verify(row,trigger){try{const result=await this.api('/api/graph/evidence/'+row.unit);this.verifyRow=row;this.verifyTrigger=trigger;$('graph-verification-claim').textContent=`${row.subject_label} → ${row.predicate} → ${row.object_label}`;$('graph-verification-evidence').textContent=result.text;$('graph-verification-note').value=row.verification_note||'';$('graph-verification-status').value=row.verification==='pending'?'':row.verification;$('graph-verification-dialog').showModal();}catch(error){toast(error.message);}}
   async resume(run){if(this.busy)return;try{const queued=await this.api('/api/graph/runs/'+run+'/resume',{method:'POST'});sessionStorage.setItem(STORE,queued.job_id);await this.follow(queued.job_id);}catch(error){toast(error.message);}}
-  controls(){for(const id of ['graph-prepare','graph-extract','graph-select-all'])$(id).disabled=this.busy;$('graph-cancel').hidden=!this.busy;}
+  controls(){for(const id of ['graph-prepare','graph-extract','graph-select-all','graph-audit'])$(id).disabled=this.busy;$('graph-cancel').hidden=!this.busy;}
   async follow(id){
     this.job=id;this.busy=true;this.controls();$('graph-progress').hidden=false;
     try{while(true){const job=await this.api('/api/jobs/'+id);$('graph-progress').value=job.progress||0;$('graph-message').textContent=serverText(job.phase);window.dispatchEvent(new CustomEvent('rag:job',{detail:job}));

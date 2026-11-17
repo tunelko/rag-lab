@@ -848,11 +848,20 @@
        <label id="graph-remote-field" hidden><input id="graph-remote" type="checkbox"/><span data-i18n="graph.remote">Enviar los pasajes seleccionados a este proveedor remoto</span></label>
        <button class="btn" id="graph-extract" type="button" data-i18n="graph.extract">Modelizar relaciones</button>
       </fieldset>
+      <p class="meta" data-i18n="graph.unit_scope">El límite afecta a pasajes, no a documentos completos.</p>
       <progress id="graph-progress" max="100" value="0" hidden></progress><p id="graph-message" role="status"></p><button class="btn btn--secondary" id="graph-cancel" type="button" hidden data-i18n="graph.cancel">Cancelar tarea</button>
       <div id="graph-runs"></div>
      </section>
+     <section class="card graph-results"><h2 data-i18n="graph.audit_title">Verificación documental</h2><button class="btn btn--secondary" id="graph-audit" type="button" data-i18n="graph.audit_start">Verificar todas las colecciones</button><p class="meta" id="graph-audit-summary" role="status"></p><p class="meta" id="graph-audit-relations"></p><a id="graph-audit-report" class="btn btn--secondary" hidden data-i18n="graph.audit_report">Descargar informe por documento</a><p class="meta" data-i18n="graph.audit_scope">La integridad de archivos y citas no certifica la interpretación semántica del modelo.</p></section>
      <section class="card graph-results"><h2 data-i18n="graph.relations">Relaciones propuestas</h2><p class="meta" data-i18n="graph.review_notice">Una cita literal no verifica por sí sola la interpretación. Estas propuestas aún no se usan para responder en el chat.</p><div id="graph-results"></div></section>
     </section>
+    <dialog id="graph-verification-dialog" aria-labelledby="graph-verification-title" class="card graph-verification">
+     <form id="graph-verification-form"><h2 id="graph-verification-title" data-i18n="graph.verify">Contrastar con la fuente</h2><p id="graph-verification-claim"></p><pre id="graph-verification-evidence"></pre>
+      <label><span data-i18n="graph.verdict">Resultado del contraste</span><select class="select" id="graph-verification-status" required><option value="" data-i18n="graph.choose_verdict">Selecciona un resultado</option><option value="supported" data-i18n="graph.verification_supported">Respaldada por la fuente</option><option value="unsupported" data-i18n="graph.verification_unsupported">No respaldada</option><option value="uncertain" data-i18n="graph.verification_uncertain">Dudosa</option></select></label>
+      <label><span data-i18n="graph.verification_note">Justificación y contexto de la fuente</span><textarea class="input" id="graph-verification-note" minlength="20" maxlength="2000" rows="4" required></textarea></label>
+      <button class="btn" type="submit" data-i18n="graph.save_verification">Guardar contraste</button><button class="btn btn--secondary" id="graph-verification-close" type="button" data-i18n="graph.close">Cerrar</button>
+     </form>
+    </dialog>
     <section class="page" hidden="" id="admin-view">
      <div class="library-organize">
       <label class="scope-picker" for="collection-select"><span data-i18n="collections.label">Colección</span><select class="select" id="collection-select"></select></label>

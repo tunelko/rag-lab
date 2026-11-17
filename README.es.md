@@ -64,6 +64,8 @@ Opcional: [preparar un corpus de recetas](tools/recipes/README.md) con un adapta
 
 **Grafo (piloto):** abre **Grafo**, selecciona documentos y pulsa **Preparar evidencias**. Elige proveedor y modelo para **Modelizar relaciones**; el envío remoto se selecciona expresamente. Las propuestas conservan pasajes literales y admiten revisión y reanudación. Esta primera entrega muestra una lista de relaciones: el mapa visual y su uso en las respuestas del chat siguen pendientes.
 
+Antes de **Aceptar**, usa **Contrastar con la fuente** y justifica el resultado. **Verificar todas las colecciones** genera un informe de integridad y duplicados exactos, con un registro por documento; no certifica la veracidad de todo el contenido.
+
 ## Arrancar y parar
 
 Ejecuta estas órdenes desde la carpeta del proyecto. El servidor sigue en marcha al cerrar la terminal.

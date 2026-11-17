@@ -64,6 +64,8 @@ Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate ada
 
 **Graph (pilot):** open **Graph**, select documents and click **Prepare evidence**. Choose a provider and model to **Model relationships**; remote transmission must be explicitly selected. Proposals keep literal passages and support review and resume. This first delivery displays a relationship list: the visual map and its use in chat answers remain pending.
 
+Before **Accept**, use **Check against source** and explain the assessment. **Verify all collections** produces an integrity and exact-duplicate report with a record for each document; it does not certify the truth of all content.
+
 ## Start and stop
 
 Run these from the project folder. The server keeps running after you close the terminal.

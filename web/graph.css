@@ -12,3 +12,7 @@
 .graph-results article button{margin-top:.5rem;margin-right:.4rem;max-width:100%;white-space:normal;overflow-wrap:anywhere}
 #graph-remote-field{display:flex;align-items:center;gap:.6rem}
 #graph-runs>div{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-block:.5rem;overflow-wrap:anywhere}
+.graph-verification{width:min(850px,95vw);max-height:90dvh;overflow:auto;padding:1.5rem}
+.graph-verification pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:35dvh;overflow:auto}
+.graph-verification label{display:grid;gap:.5rem;margin-block:1rem}
+.graph-verification textarea{width:100%;min-height:7rem}

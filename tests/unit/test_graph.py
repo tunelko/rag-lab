@@ -7,7 +7,7 @@ import time
 import unittest
 
 from fastapi.testclient import TestClient
-from graph_store import GraphStore, Extraction, identifier
+from graph_store import GraphStore, Extraction, VerificationRequired, identifier, literal_span
 from web_app import RagService, create_app
 from rag import Config
 
@@ -25,6 +25,15 @@ def extraction(quote='The board supports DDR4 memory.'):
 
 
 class GraphTests(unittest.TestCase):
+    def test_pdf_whitespace_keeps_original_words_and_offsets(self):
+        source = 'CPU socket\n\tLGA 1151\nThis device does not support DDR5.'
+        start, end = literal_span(source, 'CPU socket LGA 1151')
+        self.assertEqual(source[start:end], 'CPU socket\n\tLGA 1151')
+        with self.assertRaises(ValueError):
+            literal_span(source, 'This device supports DDR5.')
+        with self.assertRaises(ValueError):
+            literal_span(source, 'CPU socket LGA 1200')
+
     def test_atomic_publication_and_literal_evidence(self):
         with tempfile.TemporaryDirectory() as folder:
             store = GraphStore(Path(folder) / 'graph.sqlite3')
@@ -40,6 +49,13 @@ class GraphTests(unittest.TestCase):
             store.complete(run)
             row = store.snapshot()['rows'][0]
             self.assertEqual(row['review'], 'proposed')
+            with self.assertRaises(VerificationRequired):
+                store.review(row['id'], 'accepted')
+            store.verify(row['id'], 'supported', 'The passage explicitly states that this board supports DDR4 memory.')
+            store.review(row['id'], 'accepted')
+            self.assertEqual(store.snapshot()['rows'][0]['verification'], 'supported')
+            store.verify(row['id'], 'uncertain', 'A later review cannot establish the required scope of this relationship.')
+            self.assertEqual(store.snapshot()['rows'][0]['review'], 'proposed')
             store.review(row['id'], 'rejected')
             self.assertEqual(store.snapshot()['rows'][0]['review'], 'rejected')
             store.review(row['id'], 'proposed')
@@ -105,6 +121,19 @@ class GraphTests(unittest.TestCase):
                 self.assertEqual(client.get('/api/graph/evidence/not-an-id').status_code, 404)
                 source_id = GraphStore(service.config.db.parent / 'graph.sqlite3').units()[0]['id']
                 self.assertEqual(client.get('/api/graph/source?unit=' + source_id).text, unit()['text'])
+                store = GraphStore(service.config.db.parent / 'graph.sqlite3')
+                run = store.start_run({'signature': 'http-test'}, [source_id])
+                store.publish_extraction(run, source_id, extraction(), {})
+                store.complete(run)
+                claim = store.snapshot()['rows'][0]['id']
+                route = '/api/graph/assertions/' + claim
+                self.assertEqual(client.post(route + '/review', headers=headers, json={'state': 'accepted'}).status_code, 422)
+                verified = client.post(route + '/verification', headers=headers,
+                    json={'status': 'supported', 'note': 'The actual source explicitly links the board to DDR4 memory.'})
+                self.assertEqual(verified.status_code, 200, verified.text)
+                self.assertEqual(client.post(route + '/review', headers=headers, json={'state': 'accepted'}).status_code, 200)
+                (service.documents / 'board.md').write_text('A changed document version.', 'utf-8')
+                self.assertEqual(client.post(route + '/review', headers=headers, json={'state': 'accepted'}).status_code, 422)
                 created = client.post('/api/collections', headers=headers, json={'id': 'other', 'name': 'Other', 'adapter': None})
                 self.assertEqual(created.status_code, 201)
                 self.assertEqual(client.get('/api/graph?collection=other').json()['documents'], 0)

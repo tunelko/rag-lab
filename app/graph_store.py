@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 from pathlib import Path
 import sqlite3
 from typing import Annotated, Literal
@@ -16,6 +17,20 @@ def identifier(*values):
 
 def now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def literal_span(source, quote):
+    """Match unchanged words across PDF whitespace; return original source bytes."""
+    start = source.find(quote)
+    if start >= 0:
+        return start, start + len(quote)
+    wanted = re.findall(r'\S+', quote)
+    words = list(re.finditer(r'\S+', source))
+    if wanted:
+        for offset in range(len(words) - len(wanted) + 1):
+            if [word.group() for word in words[offset:offset + len(wanted)]] == wanted:
+                return words[offset].start(), words[offset + len(wanted) - 1].end()
+    raise ValueError('La cita no coincide con las palabras del pasaje original.')
 
 
 class Entity(BaseModel):
@@ -49,6 +64,10 @@ class Extraction(BaseModel):
         return self
 
 
+class VerificationRequired(ValueError):
+    pass
+
+
 class GraphStore:
     def __init__(self, path):
         self.path = Path(path)
@@ -79,6 +98,8 @@ class GraphStore:
                 CREATE INDEX IF NOT EXISTS graph_assertion_unit ON graph_assertions(unit);
                 CREATE TABLE IF NOT EXISTS graph_reviews(id INTEGER PRIMARY KEY,assertion TEXT REFERENCES graph_assertions(id),
                     previous TEXT,current TEXT,created TEXT);
+                CREATE TABLE IF NOT EXISTS graph_verifications(id INTEGER PRIMARY KEY,
+                    assertion TEXT REFERENCES graph_assertions(id),status TEXT,note TEXT,created TEXT);
             ''')
             if db.execute("SELECT value FROM graph_meta WHERE key='schema'").fetchone()[0] != '1':
                 raise ValueError('Versión del grafo no compatible.')
@@ -157,10 +178,9 @@ class GraphStore:
                 return
             spans = []
             for assertion in extraction.assertions:
-                start = unit['text'].find(assertion.quote)
-                if start < 0:
-                    raise ValueError('El modelo ha citado un pasaje que no existe literalmente en la fuente.')
-                spans.append((start, start + len(assertion.quote)))
+                start, end = literal_span(unit['text'], assertion.quote)
+                assertion.quote = unit['text'][start:end]
+                spans.append((start, end))
             entities = {row.key: identifier(unit_id, run, row.key) for row in extraction.entities}
             for row in extraction.entities:
                 db.execute('INSERT INTO graph_entities VALUES(?,?,?,?,?,?)',
@@ -175,10 +195,13 @@ class GraphStore:
     def snapshot(self, limit=100):
         with self.connection() as db:
             counts = dict(db.execute('SELECT COUNT(DISTINCT file) AS documents,COUNT(*) AS units FROM graph_units WHERE active=1').fetchone())
+            counts['modelled_units'] = db.execute('SELECT COUNT(*) FROM graph_units WHERE active=1 AND published_run IS NOT NULL').fetchone()[0]
             counts['assertions'] = db.execute('SELECT COUNT(*) FROM graph_assertions a JOIN graph_units u ON u.id=a.unit WHERE u.active=1 AND a.run=u.published_run').fetchone()[0]
-            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,s.label AS subject_label,o.label AS object_label
+            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,s.label AS subject_label,o.label AS object_label,
+                COALESCE(v.status,'pending') AS verification,v.note AS verification_note
                 FROM graph_assertions a JOIN graph_units u ON u.id=a.unit
                 JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
+                LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
                 WHERE u.active=1 AND a.run=u.published_run ORDER BY a.rowid DESC LIMIT ?''', (limit,)).fetchall()
             runs = [dict(row) for row in db.execute('SELECT id,status,created,error FROM graph_runs ORDER BY created DESC LIMIT 20')]
             latest = db.execute('SELECT config FROM graph_runs ORDER BY created DESC LIMIT 1').fetchone()
@@ -191,12 +214,36 @@ class GraphStore:
             raise ValueError('Estado de revisión no válido.')
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            previous = db.execute('SELECT review FROM graph_assertions WHERE id=?', (assertion,)).fetchone()
+            previous = db.execute('SELECT review,unit,run FROM graph_assertions WHERE id=?', (assertion,)).fetchone()
             if previous is None:
                 raise ValueError('Relación no disponible.')
+            if state == 'accepted':
+                unit = db.execute('SELECT active,published_run FROM graph_units WHERE id=?', (previous['unit'],)).fetchone()
+                if unit is None or not unit['active'] or unit['published_run'] != previous['run']:
+                    raise VerificationRequired('La relación no pertenece a la versión publicada actual.')
+                verdict = db.execute('SELECT status FROM graph_verifications WHERE assertion=? ORDER BY id DESC LIMIT 1', (assertion,)).fetchone()
+                if not verdict or verdict[0] != 'supported':
+                    raise VerificationRequired('Contrasta primero el significado de la relación con su fuente. La cita literal no basta.')
             db.execute('INSERT INTO graph_reviews(assertion,previous,current,created) VALUES(?,?,?,?)',
                        (assertion, previous[0], state, now()))
             db.execute('UPDATE graph_assertions SET review=? WHERE id=?', (state, assertion))
+
+    def verify(self, assertion, status, note):
+        if status not in {'supported', 'unsupported', 'uncertain'} or not 20 <= len(note.strip()) <= 2000:
+            raise ValueError('Indica un resultado y una justificación de al menos 20 caracteres.')
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('''SELECT a.*,u.text,u.active,u.published_run FROM graph_assertions a
+                JOIN graph_units u ON u.id=a.unit WHERE a.id=?''', (assertion,)).fetchone()
+            if row is None or not row['active'] or row['published_run'] != row['run']:
+                raise ValueError('La relación no pertenece a la versión publicada actual.')
+            if row['text'][row['start']:row['end']] != row['quote']:
+                raise ValueError('La cita no coincide con su evidencia; no se puede validar.')
+            db.execute('INSERT INTO graph_verifications(assertion,status,note,created) VALUES(?,?,?,?)', (assertion, status, note.strip(), now()))
+            if status != 'supported' and row['review'] == 'accepted':
+                updated = 'rejected' if status == 'unsupported' else 'proposed'
+                db.execute('INSERT INTO graph_reviews(assertion,previous,current,created) VALUES(?,?,?,?)', (assertion, row['review'], updated, now()))
+                db.execute('UPDATE graph_assertions SET review=? WHERE id=?', (updated, assertion))
 
     def evidence(self, unit):
         with self.connection() as db:
