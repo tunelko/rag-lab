@@ -251,7 +251,7 @@
 
 /* ---------- 5. Isometric scene ---------- */
 :root[data-theme] .scene { display: block; padding: 12px 12px 14px; border: 1px solid var(--line); border-radius: 12px;
-  background: var(--stage) var(--iso-grid); color: var(--ink); font-size: 12px; line-height: 18px; }
+  background-color: var(--stage); background-image: var(--iso-grid); color: var(--ink); font-size: 12px; line-height: 18px; }
 :root[data-theme] .iso { display: block; width: 100%; height: auto; overflow: visible; fill: none; stroke: var(--on-fill); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 :root[data-theme] .iso .pad-top, :root[data-theme] .iso .pad-l, :root[data-theme] .iso .pad-r, :root[data-theme] .iso .arrows { stroke: var(--edge); }
 :root[data-theme] .iso .pad-top { fill: var(--pad-top); }
@@ -879,54 +879,45 @@
 :root[data-theme] .graph__bar .select { width: auto; max-width: 240px; }
 :root[data-theme] .graph__bar .btn { height: 34px; min-height: 34px; }
 :root[data-theme] .graph__bar .btn--icon { width: 34px; min-width: 34px; padding: 0; font-size: 15px; }
-:root[data-theme] .graph__stage { position: relative; height: 460px; min-height: 0; overflow: hidden; background: var(--stage) var(--iso-grid); border: 0; border-radius: 0; }
+:root[data-theme] .graph__stage { position: relative; height: 460px; min-height: 0; overflow: hidden; background-color: var(--stage); background-image: var(--iso-grid); border: 0; border-radius: 0; }
 :root[data-theme] .graph__stage svg { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; font-family: var(--font); }
 :root[data-theme] .graph__foot { margin: 0; padding: 8px 12px; background: var(--card); border-top: var(--bw) solid var(--edge); font-size: 12px; line-height: 18px; color: var(--muted); }
 :root[data-theme] .graph-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; color: var(--text); }
 :root[data-theme] .graph-empty p { max-width: 52ch; margin: 0; }
 :root[data-theme] .graph-legend { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; pointer-events: none; }
 :root[data-theme] .graph-legend .pill { text-transform: capitalize; }
-:root[data-theme] .graph-group-caption { fill: var(--muted); font-size: 10px; letter-spacing: 0; pointer-events: none; }
-/* Passages: islands on the floor, drawn like the platforms of the pipeline scene */
-:root[data-theme] .gisland polygon { stroke: var(--edge); stroke-width: 1.5; stroke-linejoin: round; }
-:root[data-theme] .gisland__top { fill: var(--pad-top); }
-:root[data-theme] .gisland__left { fill: var(--pad-side); }
-:root[data-theme] .gisland__right { fill: var(--pad-side-2); }
-/* Entities: a cube per entity, three tones of the colour of its type, with its name underneath */
-:root[data-theme] .gnode { cursor: pointer; outline: none; }
-:root[data-theme] .gnode__cube { transition: transform .15s cubic-bezier(.2, .8, .2, 1); }
-:root[data-theme] .gnode__cube polygon { stroke: var(--on-fill); stroke-width: 1.5; stroke-linejoin: round; }
-:root[data-theme] .gnode__top { fill: var(--paper); }     :root[data-theme] .gnode__left { fill: var(--paper-2); }    :root[data-theme] .gnode__right { fill: var(--paper-3); }
-:root[data-theme] .gnode--0 .gnode__top { fill: var(--lima); }    :root[data-theme] .gnode--0 .gnode__left { fill: var(--lima-2); }   :root[data-theme] .gnode--0 .gnode__right { fill: var(--lima-3); }
-:root[data-theme] .gnode--1 .gnode__top { fill: var(--lilac); }   :root[data-theme] .gnode--1 .gnode__left { fill: var(--lilac-2); }  :root[data-theme] .gnode--1 .gnode__right { fill: var(--lilac-3); }
-:root[data-theme] .gnode--2 .gnode__top { fill: var(--sky); }     :root[data-theme] .gnode--2 .gnode__left { fill: var(--sky-2); }    :root[data-theme] .gnode--2 .gnode__right { fill: var(--sky-3); }
-:root[data-theme] .gnode--3 .gnode__top { fill: var(--butter); }  :root[data-theme] .gnode--3 .gnode__left { fill: var(--butter-2); } :root[data-theme] .gnode--3 .gnode__right { fill: var(--butter-3); }
-:root[data-theme] .gnode--4 .gnode__top { fill: var(--coral); }   :root[data-theme] .gnode--4 .gnode__left { fill: var(--coral-2); }  :root[data-theme] .gnode--4 .gnode__right { fill: var(--coral-3); }
-:root[data-theme] .gnode__shade { fill: var(--on-fill); opacity: 0; transition: opacity .15s; }
-:root[data-theme] .gnode__name { fill: var(--ink); font-size: 11px; font-weight: 600; pointer-events: none; paint-order: stroke; stroke: var(--pad-top); stroke-width: 4px; stroke-linejoin: round; }
-:root[data-theme] .gnode:hover .gnode__cube { transform: translateY(-2px); }
-:root[data-theme] .gnode:focus-visible .gnode__cube, :root[data-theme] .gnode.is-selected .gnode__cube { transform: translateY(-6px); }
-:root[data-theme] .gnode:focus-visible .gnode__cube polygon, :root[data-theme] .gnode.is-selected .gnode__cube polygon { stroke-width: 2.5; }
-:root[data-theme] .gnode:focus-visible .gnode__shade, :root[data-theme] .gnode.is-selected .gnode__shade { opacity: .28; }
-:root[data-theme] .gnode.is-selected .gnode__name { font-weight: 800; }
+:root[data-theme] .graph-group-caption { fill: var(--muted); font-size: 11px; letter-spacing: 0; pointer-events: none; }
+/* Entities: a card with a 2 px outline and a hard shadow; the type in small capitals over the name */
+:root[data-theme] .gnode { cursor: grab; outline: none; }
+:root[data-theme] .gnode__shade { fill: var(--shade); }
+:root[data-theme] .gnode__card { fill: var(--card); stroke: var(--edge); stroke-width: 2; }
+:root[data-theme] .gnode__type { fill: var(--ink); font-size: 10px; font-weight: 800; letter-spacing: .06em; pointer-events: none; }
+:root[data-theme] .gnode__name { fill: var(--ink); font-size: 13px; font-weight: 700; pointer-events: none; }
+:root[data-theme] .gnode--0 .gnode__card { fill: var(--lima); }    :root[data-theme] .gnode--1 .gnode__card { fill: var(--lilac); }
+:root[data-theme] .gnode--2 .gnode__card { fill: var(--sky); }     :root[data-theme] .gnode--3 .gnode__card { fill: var(--butter); }
+:root[data-theme] .gnode--4 .gnode__card { fill: var(--coral); }
+:root[data-theme] .gnode[class*="gnode--"] .gnode__type, :root[data-theme] .gnode[class*="gnode--"] .gnode__name { fill: var(--on-fill); }
+:root[data-theme] .gnode[class*="gnode--"] .gnode__card { stroke: var(--on-fill); }
+:root[data-theme] .gnode[class*="gnode--"] .gnode__shade { fill: var(--on-fill); }
+:root[data-theme] .gnode:hover .gnode__card { stroke-width: 2.5; }
+:root[data-theme] .gnode:focus-visible .gnode__card, :root[data-theme] .gnode.is-selected .gnode__card { stroke-width: 3.5; }
+:root[data-theme] .gnode.is-selected .gnode__shade { transform: translateY(2px); }
 :root[data-theme] .gtone--0 { background: var(--lima); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }    :root[data-theme] .gtone--1 { background: var(--lilac); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .gtone--2 { background: var(--sky); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }     :root[data-theme] .gtone--3 { background: var(--butter); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .gtone--4 { background: var(--coral); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-/* Relations: a line on the floor; its label shows when the line is near the pointer, focused or selected */
+/* Relations: an ink line with its label at the midpoint; the selected one thicker, its label in lime */
 :root[data-theme] .gedge { cursor: pointer; outline: none; }
-:root[data-theme] .gedge line { stroke: var(--edge); stroke-width: 1.5; }
+:root[data-theme] .gedge line { stroke: var(--edge); stroke-width: 2; }
 :root[data-theme] .gedge.is-inferred line { stroke-dasharray: 6 4; }
-:root[data-theme] .gedge .graph-edge-hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; }
+:root[data-theme] .gedge .graph-edge-hit { stroke: transparent; stroke-width: 16; pointer-events: stroke; }
 :root[data-theme] .graph-arrow { fill: var(--edge); }
-:root[data-theme] .gedge:hover line, :root[data-theme] .gedge:focus-visible line { stroke-width: 3; }
-:root[data-theme] .gedge.is-selected line { stroke: var(--ink); stroke-width: 3.5; }
-:root[data-theme] .gedge__tag { display: none; cursor: pointer; }
-:root[data-theme] .gedge__tag.is-near, :root[data-theme] .gedge__tag.is-selected { display: block; }
+:root[data-theme] .gedge:hover line, :root[data-theme] .gedge:focus-visible line, :root[data-theme] .gedge.is-selected line { stroke-width: 3.5; }
+:root[data-theme] .gedge__tag { cursor: pointer; }
 :root[data-theme] .gedge__tag rect { fill: var(--card); stroke: var(--edge); stroke-width: 1.5; }
 :root[data-theme] .gedge__tag text { fill: var(--ink); font-size: 11px; font-weight: 700; pointer-events: none; }
-:root[data-theme] .gedge__tag.is-selected rect { fill: var(--lima); stroke: var(--on-fill); }
-:root[data-theme] .gedge__tag.is-selected text { fill: var(--on-fill); }
-:root[data-theme] .gnode.is-dim, :root[data-theme] .gedge.is-dim { opacity: .25; }
+:root[data-theme] .gedge__tag.is-selected rect, :root[data-theme] .gedge__tag.is-near rect { fill: var(--lima); stroke: var(--on-fill); }
+:root[data-theme] .gedge__tag.is-selected text, :root[data-theme] .gedge__tag.is-near text { fill: var(--on-fill); }
+:root[data-theme] .gnode.is-dim, :root[data-theme] .gedge.is-dim, :root[data-theme] .gedge__tag.is-dim { opacity: .3; }
 
 :root[data-theme] .graph-evidence { display: flex; flex-direction: column; gap: 10px; min-width: 0; max-height: 546px; padding: 16px; overflow: auto; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--card); }
 :root[data-theme] .graph-evidence__title { margin: 0; font-size: 16px; line-height: 22px; font-weight: 800; color: var(--ink); }

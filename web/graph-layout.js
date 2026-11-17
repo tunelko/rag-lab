@@ -26,22 +26,25 @@ export function layoutGraph(rows,query=''){
   return {nodes:[...nodes.values()],edges,groups:[...groups.values()],width:Math.max(400,Math.min(3,groups.size)*400),height:Math.max(360,Math.ceil(groups.size/3)*310+30)};
 }
 
-// Isometric map: every passage is an island of floor cells with one entity per cell, and the islands tile the
-// canvas like bricks. Positions are written on the groups and nodes; returns the size of the whole map.
-export function placeIslands(groups,{cell=66,width=960}={}){
-  const side=Math.max(2,...groups.map(group=>Math.ceil(Math.sqrt(group.nodes.length))));
-  const islandWidth=2*side*cell,islandHeight=side*cell,pitchX=islandWidth+cell*.6,pitchY=islandHeight/2+cell*1.25;
-  const columns=Math.max(1,Math.floor((width-islandWidth)/pitchX)+1),rows=Math.ceil(groups.length/columns);
-  groups.forEach((group,index)=>{
-    const row=Math.floor(index/columns);
-    // The far corner of the island's diamond; odd rows shift half a step, so islands interlock.
-    group.x=islandWidth/2+(index%columns)*pitchX+(row%2?pitchX/2:0);group.y=24+row*pitchY;group.side=side;
-    group.nodes.forEach((item,position)=>{
-      const u=position%side+.5,v=Math.floor(position/side)+.5;
-      item.x=group.x+(u-v)*cell;item.y=group.y+(u+v)*cell/2;item.depth=row*1000+u+v;
-    });
-  });
-  return {width:islandWidth+(columns-1)*pitchX+(rows>1?pitchX/2:0),height:24+Math.max(0,rows-1)*pitchY+islandHeight+44,cell,side};
+// Each passage is a small star, as in the design: its most connected entity in the middle and the others around
+// it on an ellipse wide enough for their cards. Passages sit side by side and wrap into rows.
+// Positions are written on the groups and nodes; returns the size of the whole map.
+export function placeStars(groups,edges=[],{rowWidth=2400}={}){
+  const degree=new Map();
+  for(const edge of edges)for(const end of [edge.source,edge.target])degree.set(end,(degree.get(end)||0)+1);
+  let x=0,y=0,rowHeight=0,width=0;
+  for(const group of groups){
+    const [hub,...around]=[...group.nodes].sort((a,b)=>(degree.get(b.id)||0)-(degree.get(a.id)||0)),count=around.length;
+    const rx=Math.max(220,150+26*count),ry=Math.max(120,84+14*count),w=2*rx+250,h=2*ry+130;
+    if(x&&x+w>rowWidth){x=0;y+=rowHeight;rowHeight=0;}
+    group.x=x+w/2;group.y=y+h/2+16;group.rx=rx;group.ry=ry;
+    hub.x=group.x;hub.y=group.y;
+    // Half a step off the top, so nothing sits right above the middle card, where the name of the passage goes;
+    // a single companion stands to its right.
+    around.forEach((item,index)=>{const angle=count===1?0:-Math.PI/2+2*Math.PI*(index+.5)/count;item.x=group.x+rx*Math.cos(angle);item.y=group.y+ry*Math.sin(angle);});
+    x+=w;rowHeight=Math.max(rowHeight,h);width=Math.max(width,x);
+  }
+  return {width:Math.max(400,width),height:Math.max(360,y+rowHeight)};
 }
 // One colour per type of entity: the most frequent types first, at most `limit`; the rest stay neutral.
 export function kindTones(nodes,limit=5){

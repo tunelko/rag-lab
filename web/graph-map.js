@@ -1,15 +1,15 @@
-// The canvas of the Graph view, drawn in the same isometric language as the pipeline scene: every passage is an
-// island on the floor, every entity a small cube coloured by its type, every relation a line on the floor.
+// The canvas of the Graph view, as in the design: entities are cards coloured by their type, relations are
+// lines with their label at the midpoint, on the isometric grid. Each passage is drawn as a small star.
 // It only draws what the server already accepted; the evidence panel shows what is selected.
 import {$, node} from './ui.js';
 import {t} from './i18n.js';
 import {collectionUrl} from './collection-scope.js';
-import {layoutGraph, placeIslands, kindTones, rowMatches} from './graph-layout.js';
+import {layoutGraph, placeStars, kindTones, rowMatches} from './graph-layout.js';
 
 const label = (key, values = {}) => t(`graph.${key}`, values), NS = 'http://www.w3.org/2000/svg';
-const short = (text, max = 15) => String(text).length > max ? String(text).slice(0, max - 1) + '…' : String(text);
-// A cube of half-width A stands H above the floor; the label sits under it. Sizes are pixels at the normal zoom.
-const A = 15, H = 14, DEPTH = 8, HEIGHT = 460;
+const short = (text, max = 22) => String(text).length > max ? String(text).slice(0, max - 1) + '…' : String(text);
+// Text is monospace, so the width of a card follows from its text. Sizes are pixels at the normal zoom.
+const NAME = 7.85, TYPE = 6.4, EDGE = 6.7, HEIGHT = 460;
 
 function svg(tag, attributes = {}, text) {
   const item = document.createElementNS(NS, tag);
@@ -17,7 +17,13 @@ function svg(tag, attributes = {}, text) {
   if (text != null) item.textContent = text;
   return item;
 }
-const points = list => list.map(([x, y]) => `${x},${y}`).join(' ');
+// Where the segment between two centres meets the border of the card at `to`, with a small gap for the arrow.
+function border(from, to, half) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  if (!dx && !dy) return {x: to.x, y: to.y};
+  const scale = Math.min(dx ? (half.w + 6) / Math.abs(dx) : Infinity, dy ? (half.h + 6) / Math.abs(dy) : Infinity, .5);
+  return {x: to.x - dx * scale, y: to.y - dy * scale};
+}
 
 export class GraphMap {
   constructor() {
@@ -53,51 +59,44 @@ export class GraphMap {
       $('graph-map-count').textContent = label('visible_connections', {count: 0});
       this.selection = null; this.hint(); return;
     }
-    const size = placeIslands(this.data.groups, {width: this.box.clientWidth || 960}), reach = size.side * size.cell;
-    Object.assign(this.data, size);
+    Object.assign(this.data, placeStars(this.data.groups, this.data.edges));
     const tones = kindTones(this.data.nodes);
+    for (const item of this.data.nodes) {
+      item.name = short(item.label); item.type = short(item.kind, 24).toLocaleUpperCase();
+      item.half = {w: Math.max(36, Math.max(item.name.length * NAME, item.type.length * TYPE) / 2 + 13), h: item.type ? 22 : 16};
+      item.tone = tones.get(item.kind.toLocaleLowerCase());
+    }
     const drawing = svg('svg', {role: 'group', 'aria-label': label('map_label'), preserveAspectRatio: 'xMidYMid meet'});
     this.drawing = drawing;
-    const defs = svg('defs'), marker = svg('marker', {id: 'graph-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse'});
+    const defs = svg('defs'), marker = svg('marker', {id: 'graph-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse'});
     marker.append(svg('path', {d: 'M 0 0 L 10 5 L 0 10 z', class: 'graph-arrow'})); defs.append(marker); drawing.append(defs);
-    // Floor first: one island per passage, far rows before near ones.
     for (const group of this.data.groups) {
-      const {x, y} = group, island = svg('g', {class: 'gisland'});
-      island.append(
-        svg('polygon', {class: 'gisland__left', points: points([[x - reach, y + reach / 2], [x, y + reach], [x, y + reach + DEPTH], [x - reach, y + reach / 2 + DEPTH]])}),
-        svg('polygon', {class: 'gisland__right', points: points([[x, y + reach], [x + reach, y + reach / 2], [x + reach, y + reach / 2 + DEPTH], [x, y + reach + DEPTH]])}),
-        svg('polygon', {class: 'gisland__top', points: points([[x, y], [x + reach, y + reach / 2], [x, y + reach], [x - reach, y + reach / 2]])}));
-      const caption = svg('text', {x, y: y + reach + DEPTH + 16, 'text-anchor': 'middle', class: 'graph-group-caption'}, short(group.file.split('/').at(-1), 26));
-      caption.append(svg('title', {}, group.file)); island.append(caption); drawing.append(island);
+      const caption = svg('text', {x: group.x, y: group.y - group.ry - 44, 'text-anchor': 'middle', class: 'graph-group-caption'}, short(group.file.split('/').at(-1), 46));
+      caption.append(svg('title', {}, group.file)); drawing.append(caption);
     }
-    // Relations lie on the floor, under the cubes; their labels float above everything.
+    // Lines under the cards, their labels above them.
     this.lines = []; const tags = svg('g', {class: 'graph-tags'});
     for (const edge of this.data.edges) {
-      const text = short((edge.row.polarity === 'negative' ? '¬ ' : '') + edge.row.predicate, 26), width = text.length * 6.7 + 16;
+      const text = short((edge.row.polarity === 'negative' ? '¬ ' : '') + edge.row.predicate, 24), width = text.length * EDGE + 16;
       const control = svg('g', {class: 'gedge' + (edge.row.basis === 'inferred' ? ' is-inferred' : ''), tabindex: 0, role: 'button', 'aria-pressed': 'false',
         'aria-label': `${edge.row.subject_label} ${edge.row.predicate} ${edge.row.object_label}`});
       const line = svg('line', {'marker-end': 'url(#graph-arrow)'}), hit = svg('line', {class: 'graph-edge-hit'});
-      const tag = svg('g', {class: 'gedge__tag'}); tag.append(svg('rect', {x: -width / 2, y: -10, width, height: 20, rx: 6}), svg('text', {'text-anchor': 'middle', y: 4}, text));
+      const tag = svg('g', {class: 'gedge__tag'}); tag.append(svg('rect', {x: -width / 2, y: -10, width, height: 20, rx: 6}), svg('text', {'text-anchor': 'middle', y: 4}, text), svg('title', {}, edge.row.predicate));
       control.append(hit, line, svg('title', {}, edge.row.predicate)); tags.append(tag);
       const open = () => this.select({edge: edge.id});
       control.addEventListener('click', open); tag.addEventListener('click', open);
-      control.addEventListener('pointerenter', () => tag.classList.add('is-near')); control.addEventListener('pointerleave', () => tag.classList.remove('is-near'));
       control.addEventListener('focus', () => tag.classList.add('is-near')); control.addEventListener('blur', () => tag.classList.remove('is-near'));
       control.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); } });
       drawing.append(control); this.lines.push({edge, control, line, hit, tag});
     }
-    // Entities: a cube per entity, coloured by type; back to front so near cubes cover far ones.
+    // Entities: a card with the type in small capitals over the name, in the pastel of its type.
     this.cards = [];
-    for (const item of [...this.data.nodes].sort((a, b) => a.depth - b.depth)) {
-      const tone = tones.get(item.kind.toLocaleLowerCase());
-      const control = svg('g', {class: 'gnode' + (tone == null ? '' : ' gnode--' + tone), tabindex: 0, role: 'button', 'aria-pressed': 'false', 'aria-label': item.label + (item.kind ? ' · ' + item.kind : '')});
-      const cube = svg('g', {class: 'gnode__cube'});
-      cube.append(
-        svg('polygon', {class: 'gnode__left', points: points([[-A, -H], [0, -H + A / 2], [0, A / 2], [-A, 0]])}),
-        svg('polygon', {class: 'gnode__right', points: points([[0, -H + A / 2], [A, -H], [A, 0], [0, A / 2]])}),
-        svg('polygon', {class: 'gnode__top', points: points([[0, -H - A / 2], [A, -H], [0, -H + A / 2], [-A, -H]])}));
-      control.append(svg('ellipse', {class: 'gnode__shade', cx: 0, cy: A / 2 - 1, rx: A, ry: A / 2}), cube, svg('text', {class: 'gnode__name', 'text-anchor': 'middle', y: A / 2 + 15}, short(item.label)),
-        svg('title', {}, item.label + (item.kind ? ' · ' + item.kind : '')));
+    for (const item of this.data.nodes) {
+      const control = svg('g', {class: 'gnode' + (item.tone == null ? '' : ' gnode--' + item.tone), tabindex: 0, role: 'button', 'aria-pressed': 'false', 'aria-label': item.label + (item.kind ? ' · ' + item.kind : '')});
+      const {w, h} = item.half;
+      control.append(svg('rect', {class: 'gnode__shade', x: -w, y: -h + 3, width: 2 * w, height: 2 * h, rx: 12}), svg('rect', {class: 'gnode__card', x: -w, y: -h, width: 2 * w, height: 2 * h, rx: 12}));
+      if (item.type) control.append(svg('text', {class: 'gnode__type', x: -w + 13, y: -5}, item.type));
+      control.append(svg('text', {class: 'gnode__name', x: -w + 13, y: item.type ? 12 : 5}, item.name), svg('title', {}, item.label + (item.kind ? ' · ' + item.kind : '')));
       const open = () => this.select({node: item.id});
       control.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); } });
       control.addEventListener('pointerdown', event => {
@@ -109,7 +108,7 @@ export class GraphMap {
       drawing.append(control); this.cards.push({item, control});
     }
     drawing.addEventListener('pointerdown', event => {
-      if (event.target !== drawing && !event.target.closest('.gisland')) return;
+      if (event.target !== drawing) return;
       const initial = {x: event.clientX, y: event.clientY}, view = [...this.view]; drawing.setPointerCapture(event.pointerId);
       const move = next => { const rect = drawing.getBoundingClientRect(); this.view = [view[0] - (next.clientX - initial.x) * view[2] / rect.width, view[1] - (next.clientY - initial.y) * view[3] / rect.height, view[2], view[3]]; this.applyView(); };
       const up = () => { drawing.removeEventListener('pointermove', move); drawing.removeEventListener('pointerup', up); drawing.removeEventListener('pointercancel', up); };
@@ -131,7 +130,7 @@ export class GraphMap {
     else { this.selection = null; this.hint(); }
   }
 
-  // The same entity mentioned in two passages: a dashed bridge between its two cubes, decided by the model and assessed.
+  // The same entity mentioned in two passages: a dashed bridge between its two cards, decided by the model and assessed.
   bridges(data) {
     this.drawing?.querySelector('.graph-bridges')?.remove(); this.links = [];
     if (!this.drawing || !data?.identity_links?.length) return;
@@ -146,7 +145,7 @@ export class GraphMap {
       control.addEventListener('click', open); control.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); } });
       layer.append(control); this.links.push({link, left, right, a, b, control, path, hit});
     }
-    // Above the floor and its lines, under the cubes.
+    // Above the relations, under the cards.
     this.drawing.insertBefore(layer, this.cards[0]?.control || null); this.paint();
   }
 
@@ -169,16 +168,16 @@ export class GraphMap {
   paint() {
     for (const {item, control} of this.cards) control.setAttribute('transform', `translate(${item.x} ${item.y})`);
     for (const {edge, line, hit, tag} of this.lines) {
-      const a = this.positions.get(edge.source), b = this.positions.get(edge.target), dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy) || 1, trim = Math.min(A + 3, length / 3);
-      const ends = {x1: a.x + dx / length * trim, y1: a.y + dy / length * trim, x2: b.x - dx / length * trim, y2: b.y - dy / length * trim};
-      for (const [key, value] of Object.entries(ends)) { line.setAttribute(key, value); hit.setAttribute(key, value); }
-      tag.setAttribute('transform', `translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - 12})`);
+      const a = this.positions.get(edge.source), b = this.positions.get(edge.target), from = border(b, a, a.half), to = border(a, b, b.half);
+      for (const [key, value] of Object.entries({x1: from.x, y1: from.y, x2: to.x, y2: to.y})) { line.setAttribute(key, value); hit.setAttribute(key, value); }
+      // The label sits at the middle of the visible stretch, between the two cards.
+      tag.setAttribute('transform', `translate(${(from.x + to.x) / 2} ${(from.y + to.y) / 2})`);
     }
-    // A bridge rises between its two cubes, so it reads as a link over the floor and not as a relation on it.
-    for (const {a, b, path, hit} of this.links || []) { const d = `M${a.x} ${a.y - H - 6} Q${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - H - 70} ${b.x} ${b.y - H - 6}`; path.setAttribute('d', d); hit.setAttribute('d', d); }
+    // A bridge arcs over the map between the two cards of one entity.
+    for (const {a, b, path, hit} of this.links || []) { const d = `M${a.x} ${a.y - a.half.h} Q${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 150} ${b.x} ${b.y - b.half.h}`; path.setAttribute('d', d); hit.setAttribute('d', d); }
   }
 
-  // Normal zoom is one pixel per unit; a map smaller than the canvas is centred, a larger one starts at its first islands.
+  // Normal zoom is one pixel per unit; a map smaller than the canvas is centred, a larger one starts at its first passage.
   home() {
     if (!this.drawing) return;
     const width = this.box.clientWidth || 960;

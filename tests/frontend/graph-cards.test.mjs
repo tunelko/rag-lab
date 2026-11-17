@@ -1,36 +1,36 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {placeIslands, kindTones, rowMatches} from '../../web/graph-layout.js';
+import {placeStars, kindTones, rowMatches} from '../../web/graph-layout.js';
 
-const group = count => ({nodes: Array.from({length: count}, () => ({}))});
+const passage = (prefix, count) => ({nodes: Array.from({length: count}, (_, index) => ({id: prefix + index}))});
 
-test('every entity gets its own floor cell, placed on the isometric axes (two across, one down)', () => {
-  const groups = [group(8), group(2), group(3)];
-  const size = placeIslands(groups, {cell: 66, width: 960});
-  for (const island of groups) {
-    const seen = new Set();
-    for (const item of island.nodes) {
-      // Back from screen to floor cells: both coordinates land on the half-cell grid inside the island.
-      const dx = (item.x - island.x) / 66, dy = (item.y - island.y) / 33, u = (dy + dx) / 2, v = (dy - dx) / 2;
-      assert.ok(Math.abs(u % 1 - .5) < 1e-9 && Math.abs(v % 1 - .5) < 1e-9);
-      assert.ok(u > 0 && u < island.side && v > 0 && v < island.side);
-      seen.add(u + ':' + v);
-    }
-    assert.equal(seen.size, island.nodes.length);
+test('a passage is a star: its most connected entity in the middle, the others around with room for their cards', () => {
+  const group = passage('a', 6), edges = [1, 2, 3, 4, 5].map(index => ({source: 'a2', target: 'a' + index}));
+  const size = placeStars([group], edges);
+  const hub = group.nodes.find(item => item.id === 'a2');
+  assert.deepEqual([hub.x, hub.y], [group.x, group.y]);
+  for (const a of group.nodes) for (const b of group.nodes) {
+    if (a === b) continue;
+    // Cards are up to about 200 px wide and 44 px tall: no two may share that box.
+    assert.ok(Math.abs(a.x - b.x) >= 200 || Math.abs(a.y - b.y) >= 50, `${a.id} and ${b.id} would overlap`);
   }
-  assert.equal(groups[0].side, 3);
-  assert.ok(size.width > 0 && size.height > 0);
+  assert.ok(size.width >= 2 * group.rx && size.height >= 2 * group.ry);
 });
 
-test('islands tile like bricks: rows shift half a step and never grow wider than the canvas allows', () => {
-  const groups = Array.from({length: 7}, () => group(4));
-  const size = placeIslands(groups, {cell: 66, width: 960});
-  const rows = [...new Set(groups.map(island => island.y))];
-  assert.ok(rows.length > 1);
-  const first = groups.filter(island => island.y === rows[0]), second = groups.filter(island => island.y === rows[1]);
-  assert.ok(first.length > 1);
-  assert.equal(second[0].x - first[0].x, (first[1].x - first[0].x) / 2);
-  assert.ok(size.width <= 960 + (first[1].x - first[0].x));
+test('nothing sits right above the middle card, where the name of the passage goes', () => {
+  for (const count of [2, 3, 4, 5, 9]) {
+    const group = passage('n', count);
+    placeStars([group]);
+    for (const item of group.nodes.slice(1)) assert.ok(item.y >= group.y || Math.abs(item.x - group.x) > 60, `count ${count}`);
+  }
+});
+
+test('passages sit side by side and wrap into rows', () => {
+  const groups = Array.from({length: 5}, (_, index) => passage('g' + index + '-', 4));
+  const size = placeStars(groups, [], {rowWidth: 1600});
+  assert.ok(groups[1].x - groups[0].x >= 2 * groups[0].rx + 200);
+  assert.ok(new Set(groups.map(group => group.y)).size > 1);
+  assert.ok(size.width <= 1600);
 });
 
 test('the commonest entity types get the colours, at most five', () => {
