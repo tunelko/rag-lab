@@ -125,10 +125,10 @@ export class Graph{
   stages(current){[...$('graph-stages').children].forEach((item,index)=>{const now=current===index;item.classList.toggle('is-current',now);item.classList.toggle('is-done',current!=null&&index<current);if(now)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');});}
   async follow(id){
     this.job=id;this.busy=true;this.controls();$('graph-progress').hidden=false;
-    try{while(true){const job=await this.api('/api/jobs/'+id);$('graph-progress').value=job.progress||0;$('graph-message').textContent=serverText(job.phase);window.dispatchEvent(new CustomEvent('rag:job',{detail:job}));
+    try{while(true){const job=await this.api('/api/jobs/'+id),ended=['done','error','cancelled'].includes(job.status);$('graph-progress').value=ended?job.progress||0:Math.min(job.progress||0,99);$('graph-message').textContent=serverText(job.phase);$('graph-message').title='';window.dispatchEvent(new CustomEvent('rag:job',{detail:job}));
       // The stage comes from the server when it reports one; preparing evidence is always the first.
       this.stages(job.graph_stage in STAGE?STAGE[job.graph_stage]:this.action==='prepare'?0:null);
-      if(['done','error','cancelled'].includes(job.status)){sessionStorage.removeItem(STORE);if(job.error_info)$('graph-message').textContent=job.error_info.detail||serverText(job.error_info.message);await this.refresh();break;}await new Promise(resolve=>setTimeout(resolve,1500));}
+      if(['done','error','cancelled'].includes(job.status)){sessionStorage.removeItem(STORE);if(job.error_info||job.error){$('graph-message').textContent=serverText(job.error_info?.message||job.error);$('graph-message').title=job.error_info?.detail||'';}await this.refresh();break;}await new Promise(resolve=>setTimeout(resolve,1500));}
     }catch(error){$('graph-message').textContent=error.message;if(error.status===404){sessionStorage.removeItem(STORE);await this.refresh();}}finally{this.job=null;this.busy=false;this.action=null;this.stages(null);$('graph-progress').hidden=true;this.controls();}
   }
 }
