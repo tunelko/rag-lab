@@ -92,6 +92,8 @@ def empty_library(config, documents, visual_root, backups_root, *, keep_captions
                 # A reader recreated an empty file meanwhile, or the folder is busy: keep the copy.
                 continue
         try:
+            if (target / 'dataset').is_dir():
+                (target / 'dataset').rmdir()
             (target / 'index').rmdir()
             target.rmdir()
         except OSError:

@@ -39,7 +39,7 @@ export class DocumentViewer {
   }
   open(details) {
     const url=new URL(details.url,location.origin);
-    if(url.origin!==location.origin||!(url.pathname==='/api/source'||url.pathname==='/api/knowledge/source'||/^\/api\/figures\/[a-f0-9]{64}$/.test(url.pathname)))return;
+    if(url.origin!==location.origin||!(url.pathname==='/api/source'||url.pathname==='/api/knowledge/source'||url.pathname==='/api/graph/source'||/^\/api\/figures\/[a-f0-9]{64}$/.test(url.pathname)))return;
     this.source=url;this.file=details.file;this.metadata=null;this.page=Number(details.page)||1;
     if(!this.dialog.open){
       this.returnFocus=details.trigger||document.activeElement;document.body.classList.add('document-viewer-open');
@@ -60,7 +60,7 @@ export class DocumentViewer {
     this.dialog.setAttribute('aria-busy','true');this.controls(true);
     try{
       const figure=this.source.pathname.startsWith('/api/figures/');
-      const metadata=figure?{kind:'image',url:this.source.pathname}:await this.api(this.source.pathname==='/api/knowledge/source'?'/api/knowledge/preview?'+new URLSearchParams({record:this.source.searchParams.get('record'),...(this.source.searchParams.has('version')?{version:this.source.searchParams.get('version')}:{})}):'/api/source/preview?'+new URLSearchParams({file:this.source.searchParams.get('file'),page}),{signal:this.request.signal});
+      const metadata=figure?{kind:'image',url:this.source.pathname}:await this.api(this.source.pathname==='/api/graph/source'?'/api/graph/preview?'+new URLSearchParams({unit:this.source.searchParams.get('unit')}):this.source.pathname==='/api/knowledge/source'?'/api/knowledge/preview?'+new URLSearchParams({record:this.source.searchParams.get('record'),...(this.source.searchParams.has('version')?{version:this.source.searchParams.get('version')}:{})}):'/api/source/preview?'+new URLSearchParams({file:this.source.searchParams.get('file'),page}),{signal:this.request.signal});
       if(sequence!==this.sequence||!this.dialog.open)return;
       this.metadata=metadata;this.page=metadata.page||1;this.labels();
       if(metadata.kind==='text'){

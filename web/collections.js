@@ -6,6 +6,7 @@ export class Collections{
   constructor(api,refresh){
     this.api=api;this.refresh=refresh;this.records=[];
     $('collection-select').addEventListener('change',()=>this.select($('collection-select').value));
+    $('graph-collection-select').addEventListener('change',()=>this.select($('graph-collection-select').value));
     $('cti-import').addEventListener('click',()=>this.import());
     window.addEventListener('rag:languagechange',()=>this.render());
   }
@@ -13,6 +14,8 @@ export class Collections{
   render(){
     $('collection-select').replaceChildren(...this.records.map(row=>{const option=node('option','',row.id==='default'?label('default'):row.name);option.value=row.id;return option;}));
     $('collection-select').value=collectionId;
+    $('graph-collection-select').replaceChildren(...this.records.map(row=>{const option=node('option','',row.id==='default'?label('default'):row.name);option.value=row.id;return option;}));
+    $('graph-collection-select').value=collectionId;
     $('cti-limit-field').hidden=collectionId!=='cti';
     $('cti-summary').hidden=collectionId!=='cti';
     if(collectionId==='cti')$('cti-summary').textContent=this.dataset?.status==='done'?label('summary',{documents:this.dataset.semantic_documents,relations:this.dataset.statistics.active_relationships}):label('sample_hint');

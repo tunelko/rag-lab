@@ -1,0 +1,14 @@
+.graph-controls,.graph-results{padding:1.25rem;margin-block:1rem;min-width:0}
+.graph-controls>select{width:100%;margin-block:.5rem}
+.graph-controls>select[multiple]{height:auto;min-height:12rem;padding:.5rem}
+.graph-actions,.graph-model{display:flex;gap:.8rem;flex-wrap:wrap;align-items:end}
+.graph-model{margin-block:1rem;padding:1rem;min-width:0}
+.graph-model{border:1px solid var(--line,#8885);border-radius:.5rem}
+.graph-model>label{display:grid;gap:.4rem;flex:1 1 12rem;min-width:0}
+.graph-model input,.graph-model select{max-width:100%;min-width:0}
+.graph-controls progress{width:100%;accent-color:var(--accent,#729038)}
+.graph-results article{padding:1rem 0;border-bottom:1px solid var(--line,#8885);overflow-wrap:anywhere}
+.graph-results blockquote{margin:.7rem 0;padding-left:1rem;border-left:2px solid var(--line,#8885);white-space:pre-wrap}
+.graph-results article button{margin-top:.5rem;margin-right:.4rem;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+#graph-remote-field{display:flex;align-items:center;gap:.6rem}
+#graph-runs>div{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;margin-block:.5rem;overflow-wrap:anywhere}

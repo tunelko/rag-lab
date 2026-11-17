@@ -363,6 +363,7 @@ class RagService(JobRuntime):
                         'evidence-cache.sqlite3', 'evidence-cache.sqlite3-wal', 'evidence-cache.sqlite3-shm',
                         'dataset-status.json', 'managed-documents.json', 'licenses'
                     )] if getattr(self, 'dataset_adapter', None) else []
+                    extra.extend(self.config.db.parent / name for name in ('graph.sqlite3', 'graph.sqlite3-wal', 'graph.sqlite3-shm'))
                     result = library_reset.empty_library(self.config, self.documents, self.visual_root,
                         self.config.db.parent / "library-backups", keep_captions=keep_captions, extra_paths=extra)
             except IndexBusyError as error:
@@ -801,6 +802,7 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
     @app.get("/estadisticas")
     @app.get("/consola")
     @app.get("/laboratorio")
+    @app.get("/grafo")
     def page():
         return FileResponse(rag.ROOT / "web" / "index.html")
 
@@ -811,6 +813,9 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
     @app.get('/api/collections')
     def collections():
         return collection_pool.snapshot(getattr(service, 'collection_key', 'default'))
+
+    from graph_jobs import install_routes as install_graph_routes
+    install_graph_routes(app, service, require_local_credentials)
 
     @app.post('/api/collections', status_code=201)
     def create_collection(body: dict, request: Request):

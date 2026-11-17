@@ -21,6 +21,7 @@
  <link rel="stylesheet" href="/assets/settings.css"/>
  <link rel="stylesheet" href="/assets/laboratory.css"/>
  <link rel="stylesheet" href="/assets/chat.css"/>
+ <link rel="stylesheet" href="/assets/graph.css"/>
 </head>
  <body>
   <svg aria-hidden="true" class="svg-defs" xmlns="http://www.w3.org/2000/svg">
@@ -267,6 +268,7 @@
        <span class="lab-nav-long" data-i18n="lab.title">Laboratorio</span>
        <span class="lab-nav-short" data-i18n="lab.short" aria-hidden="true">Lab</span>
       </a>
+      <a class="nav-item" href="/grafo" id="nav-graph"><svg aria-hidden="true" class="icon"><use href="#i-network"></use></svg><span data-i18n="graph.title">Grafo</span></a>
       <a class="nav-item" href="/consola" id="nav-console">
        <svg aria-hidden="true" class="icon">
         <use href="#i-console">
@@ -830,6 +832,26 @@
      </dialog>
      <div aria-live="polite" class="sr-only" id="query-announcements" role="status">
      </div>
+    </section>
+    <section class="page" hidden id="graph-view">
+     <header class="page-head"><h1 data-i18n="graph.title">Grafo</h1><p class="meta" data-i18n="graph.hint">Modeliza documentos de la colección actual. Cada relación conserva su evidencia.</p></header>
+     <label class="scope-picker" for="graph-collection-select"><span data-i18n="collections.label">Colección</span><select class="select" id="graph-collection-select"></select></label>
+     <section class="card graph-controls">
+      <p id="graph-summary" role="status"></p>
+      <label for="graph-files" data-i18n="graph.files">Documentos (selección múltiple)</label>
+      <select class="select" id="graph-files" multiple size="7"></select>
+      <div class="graph-actions"><button class="btn btn--secondary" id="graph-select-all" type="button" data-i18n="graph.select_all">Seleccionar todos</button><button class="btn" id="graph-prepare" type="button" data-i18n="graph.prepare">Preparar evidencias</button></div>
+      <fieldset class="graph-model"><legend data-i18n="graph.extraction">Extracción de relaciones</legend>
+       <label><span data-i18n="graph.provider">Proveedor</span><select class="select" id="graph-provider"><option value="ollama">Ollama local</option><option value="groq">Groq</option><option value="scaleway">Scaleway</option><option value="ovh">OVHcloud</option><option value="xai">xAI</option></select></label>
+       <label><span data-i18n="graph.model">Modelo</span><select class="select" id="graph-model"></select></label><button class="btn btn--secondary" id="graph-model-refresh" type="button" data-i18n="graph.refresh_models">Actualizar modelos</button>
+       <label><span data-i18n="graph.units">Máximo de pasajes por trabajo</span><input class="input" id="graph-unit-limit" type="number" min="1" max="100" value="3"/></label>
+       <label id="graph-remote-field" hidden><input id="graph-remote" type="checkbox"/><span data-i18n="graph.remote">Enviar los pasajes seleccionados a este proveedor remoto</span></label>
+       <button class="btn" id="graph-extract" type="button" data-i18n="graph.extract">Modelizar relaciones</button>
+      </fieldset>
+      <progress id="graph-progress" max="100" value="0" hidden></progress><p id="graph-message" role="status"></p><button class="btn btn--secondary" id="graph-cancel" type="button" hidden data-i18n="graph.cancel">Cancelar tarea</button>
+      <div id="graph-runs"></div>
+     </section>
+     <section class="card graph-results"><h2 data-i18n="graph.relations">Relaciones propuestas</h2><p class="meta" data-i18n="graph.review_notice">Una cita literal no verifica por sí sola la interpretación. Estas propuestas aún no se usan para responder en el chat.</p><div id="graph-results"></div></section>
     </section>
     <section class="page" hidden="" id="admin-view">
      <div class="library-organize">
