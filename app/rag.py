@@ -311,7 +311,7 @@ def build_messages(question: str, hits, max_chars: int, language: str = "es"):
     return [{"role": "system", "content": system}, {"role": "user", "content": user}], sources
 
 
-def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None, response_format=None):
+def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context_length=None, max_output_tokens=None, response_format=None, timeout=600):
     if cancelled and cancelled():
         raise InterruptedError('Generación cancelada antes de contactar con Ollama.')
     endpoint = os.getenv("RAG_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/api/chat"
@@ -334,7 +334,7 @@ def generate_ollama(messages, model: str, on_chunk=None, cancelled=None, context
     started = time.perf_counter()
     first_content = None
     thinking_characters = 0
-    with open_ollama(request, timeout=600) as response:
+    with open_ollama(request, timeout=timeout) as response:
         if on_chunk is None:
             result = json.load(response)
             answer = result["message"]["content"]

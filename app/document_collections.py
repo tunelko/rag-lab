@@ -94,8 +94,17 @@ class CollectionPool:
     def active_jobs(self):
         with self.lock:
             services = list(self.services.items())
-        return [{**job, 'collection': key} for key, service in services
-                for job in service.list_jobs(active=True)['jobs']]
+        result = [{**job, 'collection': key} for key, service in services
+                  for job in service.list_jobs(active=True)['jobs']]
+        active_tasks = {(job['collection'], job.get('graph_task')) for job in result if job.get('graph_task')}
+        for key, service in services:
+            continuation = getattr(service, 'graph_continuation', None)
+            for task in continuation.active_tasks() if continuation is not None else ():
+                if (key, task['id']) not in active_tasks:
+                    result.append({'id': 'graph-task-' + task['id'], 'graph_task': task['id'], 'collection': key,
+                        'kind': 'graph', 'status': 'queued', 'phase': 'Esperando el siguiente pasaje del procesamiento continuo',
+                        'persistent': True, 'progress': None})
+        return result
 
     def close(self):
         with self.lock:

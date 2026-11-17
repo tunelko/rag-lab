@@ -23,6 +23,8 @@ class Preferences(BaseModel):
     query_vision_model: str = Field(default="", max_length=300)
     max_images: int = Field(default=3, ge=1, le=4)
     max_visuals_per_document: int = Field(default=500, ge=1, le=500)
+    graph_retrieval: bool = True
+    graph_hops: int = Field(default=2, ge=1, le=2)
 
     @property
     def local_query_vision_model(self):

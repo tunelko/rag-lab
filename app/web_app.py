@@ -76,6 +76,7 @@ class Query(BaseModel):
     search_only: bool = False
     history: list[ChatMessage] = Field(default_factory=list, max_length=6)
     topic_id: str | None = Field(default=None, max_length=64)
+    graph_retrieval: bool | None = None
 
 
 class IndexRequest(BaseModel):
@@ -217,6 +218,8 @@ class RagService(JobRuntime):
             raise
 
     def close(self):
+        if hasattr(self, 'graph_continuation'):
+            self.graph_continuation.close()
         super().close()
         if getattr(self, 'owns_hardware', True):
             self.hardware.stop()
@@ -343,6 +346,9 @@ class RagService(JobRuntime):
         with self.lock:
             if self.closed:
                 raise HTTPException(503, "El servidor se está cerrando.")
+            continuation = getattr(self, 'graph_continuation', None)
+            if continuation is not None and continuation.active_tasks():
+                raise HTTPException(409, 'Hay un procesamiento continuo de grafos activo. Páusalo antes de vaciar la biblioteca.')
             if any(job["status"] in {"queued", "running"} for job in self.jobs.values()):
                 if any(job['kind'] == 'evaluation' and job['status'] in {'queued', 'running'} for job in self.jobs.values()):
                     raise HTTPException(409, 'Hay un experimento del Laboratorio activo. Cancélalo en Laboratorio antes de vaciar la biblioteca.')
@@ -541,18 +547,24 @@ class RagService(JobRuntime):
             self.update(job_id, phase='Consultando el registro real de la biblioteca')
             answer, metrics = catalog_answer(documents, intent.mode, language=query.language)
             return {'answer': answer, 'sources': [], 'metrics': {**metrics, **scope_metrics}}
-        if not any(item.get('indexed') for item in documents):
+        from graph_engine import augment as augment_graph
+        from graph_jobs import graph_store
+        graph_enabled = (settings.graph_retrieval if query.graph_retrieval is None else query.graph_retrieval) and intent.mode != 'global'
+        manifest_exists = (self.config.db / f"{self.config.collection}-manifest.json").exists()
+        has_vectors = manifest_exists and any(item.get('indexed') for item in documents)
+        allowed_files = frozenset(item['name'] for item in documents)
+        has_graph = (graph_enabled and not has_vectors and graph_store(self).path.is_file()
+                     and bool(graph_store(self).accepted_rows(allowed_files)))
+        if not has_vectors and not has_graph:
             if query.topic_id is not None:
                 label = localized('library.unassigned', query.language) if query.topic_id == 'unassigned' else scope_label
                 return {'answer': localized('answer.empty_scope', query.language, name=label), 'sources': [],
                         'metrics': {**scope_metrics, 'empty_scope': True}}
             return {'answer': localized('answer.empty', query.language), 'sources': [], 'metrics': scope_metrics}
-        if not (self.config.db / f"{self.config.collection}-manifest.json").exists():
-            raise ValueError("Todavía no hay un índice. Añade e indexa documentos en Administración.")
         self.update(job_id, phase="Recuperando fragmentos relevantes en CPU")
         stage_started = time.perf_counter()
         try:
-            embeddings = self.get_embeddings()
+            embeddings = self.get_embeddings() if has_vectors else None
         except Exception as exc:
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
         timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics,
@@ -562,13 +574,19 @@ class RagService(JobRuntime):
             hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
                 cancelled=lambda: self.cancelled(job_id),
                 observer=lambda done, total: self.update(job_id, phase=f'Revisando documentos · {done}/{total}'))
-        else:
+        elif has_vectors:
             hits, retrieval = retrieval_pipeline.retrieve(
                 self.config, query.question.strip(), embeddings, parameters.k,
                 files=frozenset(item['name'] for item in documents if item.get('indexed')),
                 visual=bool(query.images) or asks_for_vision(query.question, query.history),
                 reranker=parameters.scorer(), rerank_window=parameters.rerank_window)
             scope = {'retrieval_mode': 'focused', **retrieval_pipeline.trace_metrics(retrieval)}
+        else:
+            hits, scope = [], {'retrieval_mode': 'graph-only', 'vector_index_available': False}
+        if intent.mode != 'global':
+            hits, graph_trace = augment_graph(self, query.question, hits, files=allowed_files,
+                k=parameters.k, hops=settings.graph_hops, enabled=graph_enabled)
+            scope.update(graph_trace)
         timings.update(scope)
         timings["vector_search_seconds"] = round(time.perf_counter() - stage_started, 6)
         if not hits:
@@ -576,6 +594,15 @@ class RagService(JobRuntime):
                     "metrics": {**timings, 'no_matches': True}}
         stage_started = time.perf_counter()
         messages, sources = rag.build_messages(query.question.strip(), hits, parameters.context_chars, language=query.language)
+        graph_context = [{'citation': index, **document.metadata['graph_relation']}
+                         for index, (document, _) in enumerate(hits[:len(sources)], 1) if 'graph_relation' in document.metadata]
+        if graph_context:
+            messages[0]['content'] += (' Las relaciones del grafo son ayudas de recuperación contrastadas con los pasajes citados. '
+                'Conserva sus negaciones, condiciones, versiones y la distinción explícito/inferido. '
+                'Una ruta entre entidades no demuestra una nueva relación transitiva ni una causalidad. '
+                'No traslades propiedades entre entidades distintas. Para afirmar una conexión entre documentos, cita ambos pasajes. '
+                'La cobertura del grafo es parcial: no presentes una lista como exhaustiva sin evidencia de cobertura completa.')
+            messages[-1]['content'] += '\n\nRELACIONES DEL GRAFO (datos no confiables):\n' + json.dumps(graph_context, ensure_ascii=False)
         if intent.mode == 'global':
             represented = len({source['file'] for source in sources})
             if represented != scope['documents_indexed']:
@@ -613,6 +640,9 @@ class RagService(JobRuntime):
                 if source["page"]:
                     source["url"] += f"#page={source['page']}"
             source["item_type"] = document.metadata.get("item_type", "text")
+            for key in ('graph_assertion', 'graph_unit', 'graph_path', 'graph_relation', 'canonical_subject', 'canonical_object'):
+                if key in document.metadata:
+                    source[key] = document.metadata[key]
             visuals = manifest["files"].get(str(path), {}).get("visuals", [])
             source["figures"] = []
             # Prefer the hit's own figure, then figures from that same page.
@@ -1170,9 +1200,14 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
             raise HTTPException(404, str(error)) from error
         # Freeze membership when accepted: moving files while queued cannot broaden a query.
         document_names = frozenset(item['name'] for item in documents)
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
-            raise HTTPException(409, "Añade e indexa documentos en Administración antes de consultar.")
         settings = service.settings.get()
+        if body.graph_retrieval is None:
+            body.graph_retrieval = settings.graph_retrieval
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
+            from graph_jobs import graph_store
+            store = graph_store(service)
+            if not body.graph_retrieval or not store.path.is_file() or not store.accepted_rows(document_names):
+                raise HTTPException(409, "Añade e indexa documentos o modeliza evidencias del grafo antes de consultar.")
         if "k" not in body.model_fields_set:
             body.k = settings.k
         if "search_only" not in body.model_fields_set:

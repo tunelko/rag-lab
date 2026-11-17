@@ -88,6 +88,7 @@ selected passage states the relationship; otherwise mark inferred. Preserve nega
 and versions in polarity/qualifiers. A title or entity name alone does not establish an action or
 role. Empty claims is valid when no meaningful relationship is supported. No SQL, filesystem,
 network operations or tools are available. Select the best evidence_id for each claim.'''
+PROMPT += '\nUse compact JSON, short labels and an empty qualifiers object unless conditions require it. Do not repeat source prose in labels or qualifiers.'
 
 
 REVIEW_PROMPT = '''Independently assess each proposed relationship against the supplied source passages.
@@ -101,3 +102,4 @@ unsupported when the claim contradicts or exceeds the source. Do not rubber-stam
 Select evidence_id only from the supplied identifiers. Give a concrete reason in the source's
 language. The system retains uncertain/unsupported claims without accepting them.
 You have no tools or access to SQL, filesystem or network operations.'''
+REVIEW_PROMPT += '\nUse compact JSON. Give one concise sentence of 20-180 characters as the reason for each decision.'

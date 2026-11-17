@@ -110,6 +110,16 @@ class GraphStore:
                     previous TEXT,current TEXT,created TEXT);
                 CREATE TABLE IF NOT EXISTS graph_verifications(id INTEGER PRIMARY KEY,
                     assertion TEXT REFERENCES graph_assertions(id),status TEXT,note TEXT,created TEXT);
+                CREATE INDEX IF NOT EXISTS graph_verification_latest ON graph_verifications(assertion,id);
+                CREATE INDEX IF NOT EXISTS graph_assertion_review ON graph_assertions(review,run,unit);
+                CREATE TABLE IF NOT EXISTS graph_identity_decisions(
+                    id TEXT PRIMARY KEY,left_entity TEXT REFERENCES graph_entities(id),
+                    right_entity TEXT REFERENCES graph_entities(id),decision TEXT,reason TEXT,
+                    verification TEXT,verification_reason TEXT,config TEXT,created TEXT);
+                CREATE INDEX IF NOT EXISTS graph_identity_pair ON graph_identity_decisions(left_entity,right_entity);
+                CREATE TABLE IF NOT EXISTS graph_tasks(id TEXT PRIMARY KEY,status TEXT,config TEXT,
+                    created TEXT,updated TEXT,processed INTEGER NOT NULL DEFAULT 0,
+                    elapsed REAL NOT NULL DEFAULT 0,current_run TEXT,error TEXT);
             ''')
             if db.execute("SELECT value FROM graph_meta WHERE key='schema'").fetchone()[0] != '1':
                 raise ValueError('Versión del grafo no compatible.')
@@ -132,8 +142,12 @@ class GraphStore:
 
     def units(self, files=None):
         with self.connection() as db:
-            rows = db.execute('SELECT * FROM graph_units WHERE active=1 ORDER BY file,ordinal').fetchall()
-        return [dict(row) for row in rows if files is None or row['file'] in files]
+            db.execute('CREATE TEMP TABLE allowed_files(file TEXT PRIMARY KEY)')
+            if files is not None:
+                db.executemany('INSERT OR IGNORE INTO allowed_files VALUES(?)', [(name,) for name in files])
+            rows = db.execute('''SELECT * FROM graph_units WHERE active=1
+                AND (?=0 OR file IN (SELECT file FROM allowed_files)) ORDER BY file,ordinal''', (int(files is not None),)).fetchall()
+        return [dict(row) for row in rows]
 
     def start_run(self, config, units):
         run = identifier(now(), config, units)
@@ -159,22 +173,42 @@ class GraphStore:
     def complete(self, run):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            record = db.execute('SELECT status,config FROM graph_runs WHERE id=?', (run,)).fetchone()
+            if record is None:
+                raise ValueError('Modelización no disponible.')
+            if record['status'] == 'done':
+                return
             if db.execute("SELECT COUNT(*) FROM graph_batches WHERE run=? AND status!='done'", (run,)).fetchone()[0]:
                 raise ValueError('Hay unidades pendientes; el grafo anterior se conserva.')
             if db.execute('SELECT COUNT(*) FROM graph_batches b JOIN graph_units u ON u.id=b.unit WHERE b.run=? AND u.active=0', (run,)).fetchone()[0]:
                 raise ValueError('Una fuente ha cambiado durante la modelización.')
             db.execute('UPDATE graph_units SET published_run=? WHERE id IN (SELECT unit FROM graph_batches WHERE run=?)', (run, run))
             db.execute("UPDATE graph_runs SET status='done',error=NULL WHERE id=?", (run,))
+            task = json.loads(record['config']).get('continuation_task')
+            if task:
+                # Publication and the authorized unit budget commit together.
+                db.execute('''UPDATE graph_tasks SET processed=processed+
+                    (SELECT COUNT(*) FROM graph_batches WHERE run=?),current_run=?,updated=? WHERE id=?''',
+                    (run, run, now(), task))
 
     def cached_units(self, config):
         with self.connection() as db:
-            rows = db.execute("SELECT b.unit,r.config FROM graph_batches b JOIN graph_runs r ON r.id=b.run JOIN graph_units u ON u.id=b.unit WHERE r.status='done' AND b.status='done' AND u.published_run=r.id").fetchall()
-        return {row['unit'] for row in rows if json.loads(row['config']).get('signature') == config['signature']}
+            rows = db.execute('''SELECT b.unit FROM graph_batches b JOIN graph_runs r ON r.id=b.run
+                JOIN graph_units u ON u.id=b.unit WHERE r.status='done' AND b.status='done'
+                AND u.active=1 AND u.published_run=r.id AND json_extract(r.config,'$.signature')=?''', (config['signature'],)).fetchall()
+        return {row['unit'] for row in rows}
 
     def recover(self):
         if self.path.is_file():
             with self.connection() as db:
                 db.execute("UPDATE graph_runs SET status='interrupted' WHERE status IN ('queued','running')")
+                for row in db.execute("SELECT * FROM graph_tasks WHERE status='running'").fetchall():
+                    # Conservatively account for an interrupted in-flight call;
+                    # a restart must never silently reset a spent time budget.
+                    duration = max(0, (datetime.now(timezone.utc) - datetime.fromisoformat(row['updated'])).total_seconds())
+                    db.execute('UPDATE graph_tasks SET elapsed=? WHERE id=?', (
+                        min(json.loads(row['config'])['max_seconds'], row['elapsed'] + duration), row['id']))
+                db.execute("UPDATE graph_tasks SET status='interrupted' WHERE status IN ('queued','running')")
 
     def publish_extraction(self, run, unit_id, extraction, metrics, assessments=None):
         extraction = Extraction.model_validate(extraction)
@@ -260,7 +294,16 @@ class GraphStore:
             counts['assertions'] = db.execute('''SELECT COUNT(*) FROM graph_assertions a JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run
                 LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
                 WHERE u.active=1 AND r.status='done' AND (a.run=u.published_run OR (a.review='accepted' AND v.status='supported'))''').fetchone()[0]
-            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,s.label AS subject_label,o.label AS object_label,s.kind AS subject_kind,o.kind AS object_kind,
+            counts['assessment_counts'] = dict(db.execute('''SELECT
+                COALESCE(SUM(a.review='accepted' AND v.status='supported'),0) AS accepted,
+                COALESCE(SUM(a.review='rejected'),0) AS rejected,
+                COALESCE(SUM(a.review!='rejected' AND (a.review!='accepted' OR v.status IS NULL OR v.status!='supported')),0) AS unverified
+                FROM graph_assertions a JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run
+                LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE u.active=1 AND r.status='done' AND (a.run=u.published_run OR (a.review='accepted' AND v.status='supported'))''').fetchone())
+            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,u.ordinal AS passage_number,
+                (SELECT COUNT(*) FROM graph_units q WHERE q.file=u.file AND q.active=1) AS passage_total,
+                s.label AS subject_label,o.label AS object_label,s.kind AS subject_kind,o.kind AS object_kind,
                 COALESCE(v.status,'pending') AS verification,v.note AS verification_note
                 FROM graph_assertions a JOIN graph_units u ON u.id=a.unit
                 JOIN graph_runs r ON r.id=a.run
@@ -316,3 +359,77 @@ class GraphStore:
             if row is None:
                 raise ValueError('Evidencia no disponible.')
             return dict(row)
+
+    def accepted_rows(self, files=None):
+        """Read only published, currently supported claims, without a UI row limit."""
+        if files is not None and not files:
+            return []
+        with self.connection() as db:
+            db.execute('CREATE TEMP TABLE allowed_files(file TEXT PRIMARY KEY)')
+            if files is not None:
+                db.executemany('INSERT OR IGNORE INTO allowed_files VALUES(?)', [(name,) for name in files])
+            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,u.text AS source_text,
+                s.label AS subject_label,o.label AS object_label,s.kind AS subject_kind,o.kind AS object_kind
+                FROM graph_assertions a JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run
+                JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
+                JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE u.active=1 AND r.status='done' AND a.review='accepted' AND v.status='supported'
+                AND (?=0 OR u.file IN (SELECT file FROM allowed_files)) ORDER BY a.id''', (int(files is not None),)).fetchall()
+            return [dict(row) for row in rows]
+
+    def identity_decisions(self):
+        with self.connection() as db:
+            return [dict(row) for row in db.execute('SELECT * FROM graph_identity_decisions ORDER BY created,id')]
+
+    def publish_identities(self, decisions, config, eligible):
+        """Atomic model decisions, never a direct entity merge or an implicit name match."""
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            for row in decisions:
+                left, right = sorted((row['left'], row['right']))
+                if left == right or left not in eligible or right not in eligible:
+                    raise ValueError('La equivalencia referencia entidades fuera de la selección contrastada.')
+                if row['decision'] not in {'same', 'different', 'uncertain'} or row['verification'] not in {'supported', 'unsupported', 'uncertain'}:
+                    raise ValueError('Decisión de identidad no válida.')
+                active = db.execute('''SELECT COUNT(*) FROM graph_entities e JOIN graph_units u ON u.id=e.unit
+                    WHERE e.id IN (?,?) AND u.active=1''', (left, right)).fetchone()[0]
+                if active != 2:
+                    raise ValueError('La versión de una entidad ha cambiado durante la reconciliación.')
+                binding = {**config, 'left_assertion': eligible[left]['assertion'], 'right_assertion': eligible[right]['assertion'],
+                           'shared_identifier': row.get('shared_identifier')}
+                for claim in (binding['left_assertion'], binding['right_assertion']):
+                    supported = db.execute('''SELECT 1 FROM graph_assertions a JOIN graph_runs r ON r.id=a.run
+                        JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                        WHERE a.id=? AND a.review='accepted' AND v.status='supported' AND r.status='done' ''', (claim,)).fetchone()
+                    if not supported:
+                        raise ValueError('Una evidencia fue retirada antes de publicar la identidad.')
+                db.execute('INSERT OR IGNORE INTO graph_identity_decisions VALUES(?,?,?,?,?,?,?,?,?)', (
+                    identifier(left, right, binding), left, right, row['decision'], row['reason'],
+                    row['verification'], row['verification_reason'], json.dumps(binding), now()))
+
+    def task_create(self, config):
+        task = identifier(now(), config)
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if db.execute("SELECT 1 FROM graph_tasks WHERE status IN ('queued','running')").fetchone():
+                raise ValueError('Ya hay un procesamiento continuo activo en esta colección.')
+            db.execute('INSERT INTO graph_tasks VALUES(?,?,?,?,?,0,0,NULL,NULL)',
+                       (task, 'queued', json.dumps(config), now(), now()))
+        return task
+
+    def tasks(self, task=None):
+        with self.connection() as db:
+            if task:
+                rows = db.execute('SELECT * FROM graph_tasks WHERE id=? ORDER BY created DESC', (task,)).fetchall()
+            else:
+                rows = db.execute("SELECT * FROM graph_tasks ORDER BY CASE WHEN status IN ('queued','running') THEN 0 ELSE 1 END,created DESC LIMIT 30").fetchall()
+            results = [{**dict(row), 'config': json.loads(row['config'])} for row in rows]
+            if task and not results:
+                raise ValueError('Procesamiento continuo no disponible.')
+            return results[0] if task else results[:30]
+
+    def task_update(self, task, *, status=None, processed=0, elapsed=0, run=None, error=None):
+        with self.connection() as db:
+            db.execute('''UPDATE graph_tasks SET status=COALESCE(?,status),processed=processed+?,elapsed=elapsed+?,
+                current_run=COALESCE(?,current_run),error=COALESCE(?,error),updated=? WHERE id=?''',
+                (status, processed, elapsed, run, error, now(), task))

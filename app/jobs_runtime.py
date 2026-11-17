@@ -82,6 +82,8 @@ class JobRuntime:
             if active_count >= 100:
                 raise HTTPException(429, "La cola del servidor está llena. Espera antes de añadir más documentos.")
             job_id = secrets.token_hex(12)
+            if kind == 'graph':
+                metadata.setdefault('graph_budget_seconds', 600)
             self.jobs[job_id] = {"id": job_id, "kind": kind, "status": "queued", "state": "queued",
                 "phase": "En cola", "stage": "upload" if kind == "index" else kind,
                 "progress": 0 if kind == "index" else None, "stage_progress": 0,
@@ -94,7 +96,8 @@ class JobRuntime:
             return {"job_id": job_id}
 
     def cancelled(self, job_id):
-        return self.cancels[job_id].is_set()
+        deadline = self.jobs[job_id].get('graph_deadline')
+        return self.cancels[job_id].is_set() or (deadline is not None and time.monotonic() >= deadline)
 
     def check_cancel(self, job_id):
         if self.cancelled(job_id):
@@ -112,7 +115,13 @@ class JobRuntime:
             if job["status"] == "queued":
                 self.update(job_id, status="cancelled", state="cancelled", phase="Cancelado",
                             queue_seconds=round(time.perf_counter() - self.enqueued_at[job_id], 6), elapsed_seconds=0)
-            return self.snapshot(job_id)
+            result = self.snapshot(job_id)
+        # Outside the runtime lock: controller callbacks acquire their own lock
+        # before interacting with the runtime, like timer-based submission does.
+        continuation = getattr(self, 'graph_continuation', None)
+        if job['status'] == 'queued' and continuation is not None:
+            continuation.cancelled_queued(job_id)
+        return result
 
     def list_jobs(self, active=False):
         with self.lock:
@@ -129,6 +138,8 @@ class JobRuntime:
             self.active = job_id
         self.update(job_id, status="running", state="processing", phase="Preparando", started_at=now(),
                     queue_seconds=round(started - self.enqueued_at[job_id], 6))
+        if self.jobs[job_id].get('graph_budget_seconds'):
+            self.update(job_id, graph_deadline=started + self.jobs[job_id]['graph_budget_seconds'])
         try:
             self.check_cancel(job_id)
             result = work(job_id) or {}
