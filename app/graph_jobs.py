@@ -44,6 +44,11 @@ class ExtractRequest(PrepareRequest):
     remote_content: bool = False
 
 
+class SelectionCheckRequest(PrepareRequest):
+    provider: str = Field(default='ollama', pattern='^(ollama|groq|scaleway|ovh|xai)$')
+    model: str = Field(default='', max_length=300)
+
+
 class ReviewRequest(BaseModel):
     model_config = {'extra': 'forbid'}
     state: str = Field(pattern='^(proposed|accepted|rejected)$')
@@ -80,10 +85,28 @@ def selected_paths(service, files):
 
 def prepare(service, job, paths, *, progress_end=95):
     service.update(job, graph_stage='preparation')
+    store = graph_store(service)
+    previous, reused, reused_units, fresh_files = {}, [], 0, []
+    for row in store.prepared_units():
+        previous.setdefault(row['file'], []).append(row)
     units = []
     for number, (file, path) in enumerate(paths):
         service.check_cancel(job)
         version = sha256_file(path)
+        cached = previous.get(file, [])
+        try:
+            current = bool(cached) and all(row['version'] == version and json.loads(row['metadata']).get('parser') == POLICY for row in cached)
+        except (ValueError, TypeError):
+            current = False
+        if current:
+            reused.append(file)
+            reused_units += len(cached)
+            service.update(job, progress=progress_end * (number + 1) / len(paths),
+                phase=f'Evidencias verificadas reutilizadas · {number + 1}/{len(paths)}',
+                current_document=file, graph_documents=number + 1, graph_prepared_files=number + 1,
+                graph_reused_files=len(reused), graph_units=len(units) + reused_units)
+            continue
+        start = len(units)
         if path.suffix.lower() == '.pdf':
             import pymupdf
             with pymupdf.open(path) as document:
@@ -105,18 +128,28 @@ def prepare(service, job, paths, *, progress_end=95):
                     'metadata': {'parser': POLICY, 'page_offset': offset}})
                 if len(units) > 20000:
                     raise ValueError('Divide la preparación en selecciones de hasta 20.000 unidades.')
+        if not ordinal:
+            raise JobFailure('GRAPH_NO_TEXT', f'{file}: no hay texto extraíble; no se ha marcado como preparado. Puede necesitar OCR.')
         if sha256_file(path) != version:
             raise ValueError('El documento cambió durante la preparación.')
+        # Each document commits independently. A later bad PDF must not erase
+        # confirmed preparation steps or force the previous files to be parsed again.
+        with service.lock:
+            service.check_cancel(job)
+            service.update(job, stage='indexing', cancellable=False)
+            store.publish_units(units[start:], [file])
+        fresh_files.append(file)
         service.update(job, progress=progress_end * (number + 1) / len(paths),
             phase=f'Preparando evidencias del grafo · {number + 1}/{len(paths)}', current_document=file,
-            graph_documents=number + 1, graph_units=len(units))
-    if not units:
+            stage='graph', cancellable=True, graph_documents=number + 1, graph_prepared_files=number + 1,
+            graph_units=len(units) + reused_units)
+    if not units and not reused:
         raise ValueError('No hay texto extraíble. Este primer piloto no ejecuta OCR ni visión adicional.')
-    with service.lock:
-        service.check_cancel(job)
-        service.update(job, phase='Publicando evidencias del grafo', stage='indexing', cancellable=False)
-    graph_store(service).publish_units(units, [file for file, _ in paths])
-    return {'graph': graph_store(service).snapshot(), 'message': 'Evidencias preparadas; modelización independiente del índice vectorial.'}
+    service.check_cancel(job)
+    service.update(job, graph_prepared_files=len(paths), graph_reused_files=len(reused))
+    return {'graph': store.snapshot(), 'preparation': {'verified_files': len(paths), 'reused_files': len(reused),
+                                                     'newly_prepared_files': len(fresh_files)},
+            'message': 'Evidencias verificadas; los pasajes ya preparados se han reutilizado.'}
 
 
 def generate_passage(service, job, messages, config, key, arguments):
@@ -302,7 +335,7 @@ def extract(service, job, run, key, *, progress_start=0, progress_end=95):
                 assessments, metrics = assess_passage(service, job, unit, legacy, config, key)
                 if sha256_file(selected_paths(service, [unit['file']])[0][1]) != unit['version']:
                     raise ValueError('La fuente cambió durante el contraste automático del lote confirmado.')
-                store.assess_existing_batch(run, batch['unit'], assessments, metrics)
+                store.assess_existing_batch(run, batch['unit'], assessments, metrics, extraction=legacy)
         for unit_id in sorted(pending):
             service.check_cancel(job)
             unit = by_id.get(unit_id)
@@ -315,12 +348,24 @@ def extract(service, job, run, key, *, progress_start=0, progress_end=95):
                 stage='graph', graph_stage='extraction', current_document=unit['file'], graph_run=run,
                 graph_units_done=total - len(pending), graph_units_total=total,
                 progress=progress_start + (progress_end - progress_start) * (total - len(pending)) / total)
-            result, metrics = validated_passage(service, job, unit, config, key)
-            assessments, assessment_metrics = assess_passage(service, job, unit, result, config, key)
-            metrics['automatic_assessment'] = assessment_metrics
+            reused = store.reuse_checkpoint(run, unit_id, config)
+            if reused:
+                service.update(job, phase='Reutilizando extracción ya verificada', graph_checkpoint_reused=True)
+                result = store.batch_for_assessment(run, unit_id)
+            else:
+                result, metrics = validated_passage(service, job, unit, config, key)
+                if sha256_file(path) != unit['version']:
+                    raise ValueError('El documento cambió durante la extracción; el paso no se ha confirmado.')
+                # Durable technical checkpoint BEFORE the second model call.
+                store.publish_extraction(run, unit_id, result, metrics)
+            service.update(job, graph_extraction_checkpoint=unit_id)
+            if result is not None:
+                assessments, assessment_metrics = assess_passage(service, job, unit, result, config, key)
+                if sha256_file(path) != unit['version']:
+                    raise ValueError('El documento cambió durante el contraste; el paso no se ha confirmado.')
+                store.assess_existing_batch(run, unit_id, assessments, assessment_metrics, extraction=result)
             if sha256_file(path) != unit['version']:
                 raise ValueError('El documento cambió durante la modelización; prepara sus evidencias de nuevo.')
-            store.publish_extraction(run, unit_id, result, metrics, assessments=assessments)
             pending.remove(unit_id)
             service.update(job, progress=progress_start + (progress_end - progress_start) * (total - len(pending)) / total,
                 phase=f'Modelizando relaciones · {total - len(pending)}/{total}',
@@ -332,7 +377,7 @@ def extract(service, job, run, key, *, progress_start=0, progress_end=95):
         with service.lock:
             service.check_cancel(job)
             service.update(job, phase='Publicando relaciones contrastadas automáticamente', graph_stage='publication', stage='indexing', cancellable=False)
-        store.complete(run)
+        store.complete(run, task=service.snapshot(job).get('graph_task'))
         return {'graph_run': run, 'graph': store.snapshot()}
     except BaseException as error:
         store.state(run, 'cancelled' if isinstance(error, InterruptedError) else 'error', str(error))
@@ -361,7 +406,8 @@ def process_graph(service, job, body, key):
         from graph_engine import reconcile
         return {'graph': store.snapshot(), 'reconciliation': reconcile(service, job, config, key),
                 'message': 'La selección ya está modelizada y contrastada con esta configuración.'}
-    run = store.start_run(config, [unit['id'] for unit in units[:body.max_units]])
+    run = store.resumable_run(config, set(body.files), body.max_units)
+    run = run or store.start_run(config, [unit['id'] for unit in units[:body.max_units]])
     service.update(job, graph_run=run)
     result = extract(service, job, run, key, progress_start=30)
     from graph_engine import reconcile
@@ -380,7 +426,24 @@ def install_routes(app, service, require_local):
 
     @app.get('/api/graph')
     def snapshot(limit: int = Query(default=100, ge=1, le=500)):
-        return {**graph_store(service).snapshot(limit), 'continuations': graph_store(service).tasks()}
+        return {**graph_store(service).snapshot(limit), 'continuations': graph_store(service).tasks(),
+                'document_checkpoints': True, 'max_batch_size': 100}
+
+    @app.get('/api/graph/documents')
+    def document_checkpoints(provider: str = Query(default='ollama', pattern='^(ollama|groq|scaleway|ovh|xai)$'),
+                             model: str = Query(default='', max_length=300),
+                             offset: int = Query(default=0, ge=0), limit: int = Query(default=100, ge=1, le=100),
+                             eligible_only: bool = False):
+        from graph_documents import documents
+        return documents(service, provider=provider, model=model, offset=offset, limit=limit, eligible_only=eligible_only)
+
+    @app.post('/api/graph/documents/check')
+    def selected_checkpoints(body: SelectionCheckRequest):
+        from graph_documents import documents
+        try:
+            return documents(service, provider=body.provider, model=body.model, files=set(body.files))
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
 
     @app.get('/api/graph/connections')
     def connections():

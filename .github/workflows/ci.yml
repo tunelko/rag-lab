@@ -76,7 +76,7 @@ jobs:
           bash -n install/linux/configurar.sh
           bash -n install/linux/web.sh
       - name: CTI adapters and collection separation (real files, SQLite and ASGI)
-        run: python -m unittest -v tests.unit.test_cti tests.unit.test_document_collections tests.unit.test_graph tests.unit.test_graph_extraction tests.unit.test_graph_engine tests.unit.test_document_audit
+        run: python -m unittest -v tests.unit.test_cti tests.unit.test_document_collections tests.unit.test_graph tests.unit.test_graph_extraction tests.unit.test_graph_engine tests.unit.test_graph_documents tests.unit.test_document_audit
       - name: Select a browser for acceptance tests
         id: browser
         # Runner images ship Chrome and Edge. Using one of them needs no package mirror

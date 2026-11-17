@@ -111,7 +111,7 @@ class GraphContinuation:
                     store.task_update(task, status='paused_resources',
                         error='Hay otro modelo local cargado. No se descarga ni se sustituye automáticamente; libera recursos o selecciona un proveedor remoto.')
                     return {'graph_task': task, 'task': store.tasks(task)}
-            run = store.start_run(config, [pending[0]['id']])
+            run = store.resumable_run(config, set(body.files), 1) or store.start_run(config, [pending[0]['id']])
             store.task_update(task, run=run)
             self.check_active(task, job)
             result = extract(service, job, run, self.key(body.provider))

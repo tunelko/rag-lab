@@ -170,7 +170,7 @@ class GraphStore:
         with self.connection() as db:
             db.execute('UPDATE graph_runs SET status=?,error=? WHERE id=?', (status, error, run))
 
-    def complete(self, run):
+    def complete(self, run, *, task=None):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             record = db.execute('SELECT status,config FROM graph_runs WHERE id=?', (run,)).fetchone()
@@ -180,11 +180,15 @@ class GraphStore:
                 return
             if db.execute("SELECT COUNT(*) FROM graph_batches WHERE run=? AND status!='done'", (run,)).fetchone()[0]:
                 raise ValueError('Hay unidades pendientes; el grafo anterior se conserva.')
+            if json.loads(record['config']).get('automatic_assessment') and db.execute('''SELECT 1
+                FROM graph_assertions a LEFT JOIN graph_verifications v
+                ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE a.run=? AND v.id IS NULL LIMIT 1''', (run,)).fetchone():
+                raise ValueError('El contraste está pendiente; la extracción guardada no se publica sin verificar.')
             if db.execute('SELECT COUNT(*) FROM graph_batches b JOIN graph_units u ON u.id=b.unit WHERE b.run=? AND u.active=0', (run,)).fetchone()[0]:
                 raise ValueError('Una fuente ha cambiado durante la modelización.')
             db.execute('UPDATE graph_units SET published_run=? WHERE id IN (SELECT unit FROM graph_batches WHERE run=?)', (run, run))
             db.execute("UPDATE graph_runs SET status='done',error=NULL WHERE id=?", (run,))
-            task = json.loads(record['config']).get('continuation_task')
             if task:
                 # Publication and the authorized unit budget commit together.
                 db.execute('''UPDATE graph_tasks SET processed=processed+
@@ -193,10 +197,85 @@ class GraphStore:
 
     def cached_units(self, config):
         with self.connection() as db:
-            rows = db.execute('''SELECT b.unit FROM graph_batches b JOIN graph_runs r ON r.id=b.run
+            rows = db.execute('''SELECT DISTINCT b.unit FROM graph_batches b JOIN graph_runs r ON r.id=b.run
                 JOIN graph_units u ON u.id=b.unit WHERE r.status='done' AND b.status='done'
-                AND u.active=1 AND u.published_run=r.id AND json_extract(r.config,'$.signature')=?''', (config['signature'],)).fetchall()
+                AND u.active=1 AND json_extract(r.config,'$.signature')=?
+                AND NOT EXISTS(SELECT 1 FROM graph_assertions a LEFT JOIN graph_verifications v
+                    ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                    WHERE a.run=r.id AND a.unit=u.id AND v.id IS NULL)''', (config['signature'],)).fetchall()
         return {row['unit'] for row in rows}
+
+    def checkpoint_inventory(self, signature=None):
+        """Small stage records; do not load passage bodies for the source picker."""
+        with self.connection() as db:
+            units = [dict(row) for row in db.execute(
+                'SELECT id,file,version,metadata FROM graph_units WHERE active=1 ORDER BY file,ordinal')]
+            batches = [dict(row) for row in db.execute('''SELECT b.unit,b.run,b.status AS batch_status,
+                r.status AS run_status,r.created,COUNT(a.id) AS claims,COUNT(v.id) AS assessed,
+                COALESCE(SUM(v.status='supported' AND a.review='accepted'),0) AS supported
+                FROM graph_batches b JOIN graph_runs r ON r.id=b.run JOIN graph_units u ON u.id=b.unit
+                LEFT JOIN graph_assertions a ON a.unit=b.unit AND a.run=b.run
+                LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE u.active=1 AND (? IS NULL OR json_extract(r.config,'$.signature')=?)
+                GROUP BY b.unit,b.run ORDER BY r.created DESC''', (signature, signature))]
+        return units, batches
+
+    def prepared_units(self):
+        with self.connection() as db:
+            return [dict(row) for row in db.execute(
+                'SELECT id,file,version,metadata FROM graph_units WHERE active=1 ORDER BY file,ordinal')]
+
+    def resumable_run(self, config, files, max_units):
+        """Use a previous bounded checkpoint only if its entire scope is selected."""
+        with self.connection() as db:
+            rows = db.execute('''SELECT r.id,COUNT(*) AS units FROM graph_runs r
+                JOIN graph_batches b ON b.run=r.id JOIN graph_units u ON u.id=b.unit
+                WHERE r.status IN ('error','interrupted','cancelled') AND json_extract(r.config,'$.signature')=?
+                GROUP BY r.id HAVING COUNT(*)<=? AND MIN(u.active)=1 AND SUM(b.status='done')>0
+                ORDER BY r.created DESC''', (config['signature'], max_units)).fetchall()
+            for row in rows:
+                names = {value[0] for value in db.execute('''SELECT u.file FROM graph_batches b
+                    JOIN graph_units u ON u.id=b.unit WHERE b.run=?''', (row['id'],))}
+                if names <= set(files):
+                    return row['id']
+        return None
+
+    def reuse_checkpoint(self, run, unit, config):
+        """Copy a compatible staged unit without expanding the current file scope.
+
+        Whole-run resume is preferable. This also handles a changed sibling PDF
+        or a smaller batch: other still valid units must not be extracted again.
+        """
+        with self.connection() as db:
+            previous = db.execute('''SELECT b.run,b.result FROM graph_batches b JOIN graph_runs r ON r.id=b.run
+                JOIN graph_units u ON u.id=b.unit WHERE b.unit=? AND b.run!=? AND b.status='done' AND u.active=1
+                AND r.status IN ('done','error','cancelled','interrupted') AND json_extract(r.config,'$.signature')=?
+                ORDER BY NOT EXISTS(SELECT 1 FROM graph_assertions a LEFT JOIN graph_verifications v
+                    ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                    WHERE a.run=b.run AND a.unit=b.unit AND v.id IS NULL) DESC,r.created DESC LIMIT 1''',
+                (unit, run, config['signature'])).fetchone()
+            if previous is None:
+                return False
+            rows = db.execute('''SELECT a.*,s.local_key AS subject_key,o.local_key AS object_key,
+                v.status AS verification,v.note AS verification_note
+                FROM graph_assertions a JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
+                LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE a.run=? AND a.unit=? ORDER BY a.rowid''', (previous['run'], unit)).fetchall()
+            entities = [{'key': row['local_key'], 'label': row['label'], 'kind': row['kind']} for row in db.execute(
+                'SELECT * FROM graph_entities WHERE run=? AND unit=? ORDER BY rowid', (previous['run'], unit))]
+            assertions = [{'subject': row['subject_key'], 'object': row['object_key'], 'predicate': row['predicate'],
+                'quote': row['quote'], 'basis': row['basis'], 'polarity': row['polarity'],
+                'qualifiers': json.loads(row['qualifiers']), 'source_start': row['start'], 'source_end': row['end']} for row in rows]
+            assessments = None
+            if all(row['verification'] is not None for row in rows):
+                assessments = [{'index': index, 'status': row['verification'],
+                    'reason': row['verification_note'].removeprefix('Contraste automático del modelo: ')[:1500],
+                    'evidence_id': 'saved-checkpoint'} for index, row in enumerate(rows)]
+            metrics = {'reused_from_run': previous['run'], 'cache_signature': config['signature']}
+        # The regular publication validator rechecks schema, references and every
+        # source span; no new semantic verdict is fabricated by this replay.
+        self.publish_extraction(run, unit, Extraction(entities=entities, assertions=assertions), metrics, assessments=assessments)
+        return True
 
     def recover(self):
         if self.path.is_file():
@@ -271,11 +350,30 @@ class GraphStore:
                 'qualifiers': json.loads(row['qualifiers']), 'source_start': row['start'], 'source_end': row['end']} for row in rows]
             return Extraction(entities=entities, assertions=assertions)
 
-    def assess_existing_batch(self, run, unit, assessments, metrics):
+    def assess_existing_batch(self, run, unit, assessments, metrics, extraction=None):
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            rows = db.execute('SELECT id FROM graph_assertions WHERE run=? AND unit=? ORDER BY rowid', (run, unit)).fetchall()
+            rows = db.execute('''SELECT a.*,s.local_key AS subject_key,o.local_key AS object_key
+                FROM graph_assertions a JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
+                WHERE a.run=? AND a.unit=? ORDER BY a.rowid''', (run, unit)).fetchall()
             checked = self._assessments(assessments, len(rows))
+            if extraction is not None:
+                extraction = Extraction.model_validate(extraction)
+                source = db.execute('SELECT text FROM graph_units WHERE id=? AND active=1', (unit,)).fetchone()
+                if source is None or len(extraction.assertions) != len(rows):
+                    raise ValueError('El contraste no corresponde a la extracción guardada.')
+                stored_entities = sorted(tuple(row) for row in db.execute(
+                    'SELECT local_key,label,kind FROM graph_entities WHERE run=? AND unit=?', (run, unit)))
+                if stored_entities != sorted((row.key, row.label, row.kind) for row in extraction.entities):
+                    raise ValueError('El contraste no puede cambiar las entidades de la extracción guardada.')
+                for row, claim in zip(rows, extraction.assertions):
+                    if (claim.subject, claim.predicate, claim.object, claim.basis, claim.polarity, claim.qualifiers) != (
+                            row['subject_key'], row['predicate'], row['object_key'], row['basis'], row['polarity'], json.loads(row['qualifiers'])):
+                        raise ValueError('El contraste no puede cambiar la relación guardada; solo puede precisar su cita.')
+                    start, end = claim.source_start, claim.source_end
+                    if start is None or end is None or not 0 <= start < end <= len(source[0]) or source[0][start:end] != claim.quote:
+                        raise ValueError('La cita contrastada debe coincidir con el pasaje original.')
+                    db.execute('UPDATE graph_assertions SET quote=?,start=?,end=? WHERE id=?', (claim.quote, start, end, row['id']))
             for index, row in enumerate(rows):
                 assessment = checked[index]
                 db.execute('INSERT INTO graph_verifications(assertion,status,note,created) VALUES(?,?,?,?)',

@@ -259,6 +259,7 @@ class GraphEngineTests(unittest.TestCase):
         # This server implements only an HTTP failure, not a simulated model.
         class Unavailable(BaseHTTPRequestHandler):
             def do_POST(self):
+                self.rfile.read(int(self.headers.get('Content-Length', '0')))
                 body = b'{"error":"CUDA initialization failed"}'
                 self.send_response(500)
                 self.send_header('Content-Type', 'application/json')
