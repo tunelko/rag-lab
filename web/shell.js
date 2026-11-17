@@ -3,6 +3,7 @@ import {t,serverText,intlLocale} from './i18n.js';
 import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
 import {ingestionState,selectIngestionJob} from './ingestion-state.js';
+import {PipelineScene} from './pipeline-scene.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[5]};
@@ -10,6 +11,8 @@ export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
     this.palette=new CommandPalette(()=>this.status);
+    // Light theme: the isometric scene replaces the pipeline row and shows the same states and values.
+    this.scenes=[...document.querySelectorAll('[data-pipeline-scene]')].map(host=>new PipelineScene(host));
     // Closing with ×, Esc or a click on empty space returns focus to the icon; a click on another control keeps it there.
     $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
     $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
@@ -35,15 +38,17 @@ export class Shell {
     $('system-embeddings').textContent=$('system-embeddings').title=status.embedding_model;$('system-embeddings-device').textContent=status.embedding_device.toUpperCase();
     const host=status.server?.bind_host,local=status.server?.access==='loopback',port=location.port||(location.protocol==='https:'?'443':'80');
     $('exposure-detail').textContent=host?h(local?'local':'lan'):'—';$('server-exposure-tag').classList.toggle('is-warn',Boolean(host)&&!local);
+    $('pill-ollama').dataset.level=status.ollama.connected?'ok':'crit';$('pill-network').textContent=host?h(local?'local_short':'lan'):'';$('pill-network').hidden=!host;$('pill-network').classList.toggle('is-warn',Boolean(host)&&!local);
     $('server-address').textContent=host?host+':'+port:location.host;$('server-exposure-icon').setAttribute('href',local?'#i-lock':'#i-wifi');
     $('config-dimensions').textContent=status.embedding_dimensions==null?'—':number(status.embedding_dimensions);this.badge();this.pipeline();this.level();
   }
   badge(){const badge=$('nav-badge'),status=this.status;if(!status)return;const active=(status.jobs||[]).filter(job=>job.kind==='index'&&['queued','running'].includes(job.status)).length,work=Math.max(active,this.queue?.pending||0),errors=status.documents.filter(item=>item.status==='error').length;badge.hidden=!work&&!errors;badge.className='topnav__badge '+(errors?'topnav__badge--error':'topnav__badge--work');badge.textContent=errors?h('errors',{count:errors}):h('queued',{count:work});}
-  level(){const device=this.telemetry?.gpu?.devices?.[0],level=vramLevel(device?.memory_used_bytes,device?.memory_total_bytes,this.status?.ollama.loaded?.length||0);$('system-vram-row').dataset.level=level;$('system-button').dataset.level=this.status?.ollama.connected===false?'crit':level==='crit'?'crit':level==='warn'||this.status?.server?.access==='lan'?'warn':'info';}
+  level(){const device=this.telemetry?.gpu?.devices?.[0],level=vramLevel(device?.memory_used_bytes,device?.memory_total_bytes,this.status?.ollama.loaded?.length||0);$('system-vram-row').dataset.level=$('pill-vram').dataset.level=level;$('system-button').dataset.level=this.status?.ollama.connected===false?'crit':level==='crit'?'crit':level==='warn'||this.status?.server?.access==='lan'?'warn':'info';}
   hardware(data){
     this.telemetry=data;const device=data?.gpu?.devices?.[0],used=device?.memory_used_bytes,total=device?.memory_total_bytes,ratio=total?Math.max(0,Math.min(100,100*used/total)):null;
     $('header-vram').textContent=total?`${number(used/1024**3,1)} / ${number(total/1024**3,1)} GiB`:'—';
     // A reading that did not arrive hides its row instead of showing a placeholder.
+    $('pill-vram').hidden=ratio==null;$('pill-vram').textContent=ratio==null?'':'VRAM '+number(ratio)+' %';
     const bar=$('system-vram-progress');$('system-vram-row').hidden=ratio==null;bar.style.setProperty('--pct',(ratio??0)+'%');bar.classList.toggle('is-warn',ratio!=null&&ratio>=90);bar.setAttribute('aria-valuemax',total?(total/1024**3).toFixed(1):'0');bar.setAttribute('aria-valuenow',total?(used/1024**3).toFixed(1):'0');
     $('system-gpu-row').hidden=!device;$('system-gpu').textContent=$('system-gpu').title=device?.name||'';
     const metrics=device?[[device.utilization_percent,' %',h('usage')],[device.temperature_c,' °C',''],[device.power_w,' W','']].filter(([value])=>value!=null).map(([value,unit,label])=>{const item=node('span');item.append(node('b','',compact(value)+unit));if(label)item.append(' '+label);return item;}):[];
@@ -101,6 +106,7 @@ export class Shell {
     if(job?.kind==='query'&&(job.model||job.metrics?.model))$('pipeline-llm').textContent=(job.model||job.metrics.model)+(job.metrics?.generation_tok_s?' · '+number(job.metrics.generation_tok_s,1)+' tok/s':'');
     if(job?.kind==='index'&&job.progress!=null){const label=number(job.progress)+' %';for(const index of [2,3])if(states[index]==='run')document.querySelectorAll('.pstep__value')[index].textContent=label;}
     for(const [index,element]of [...document.querySelectorAll('.pstep')].entries()){element.dataset.state=states[index];const value=element.querySelector('.pstep__value');value.title=index===2?this.status.embedding_model+' · '+this.status.embedding_device:value.textContent;const label=element.querySelector('.pstep__name').textContent+' · '+value.title;element.querySelector('a').setAttribute('aria-label',label);}
+    const shown=[...document.querySelectorAll('.pstep__value')].map(value=>value.textContent);for(const scene of this.scenes)scene.set(states,shown);
     $('pipeline-state').textContent=caption;$('pipeline-status').classList.toggle('is-busy',states.includes('run'));$('pipeline-live').setAttribute('aria-label',h('pipeline')+' · '+caption);
   }
   schedule(delay=2000){clearTimeout(this.timer);if(!document.hidden)this.timer=setTimeout(()=>this.poll(),delay);}

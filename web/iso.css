@@ -1,0 +1,347 @@
+/* ==========================================================================
+   RAG Local · light theme "Isométrico claro"
+   Warm cream, ink outlines, hard shadows, pastel pills and isometric scenes.
+   Every rule is scoped to the light theme: the dark theme is not touched.
+   Source of the design: rag-local-iso.css (tokens and components).
+   ========================================================================== */
+
+/* Pieces that exist only in the light theme. */
+.scene, .brand-cube, .topnav .nav-settings-tab, .sysbtn__pill { display: none; }
+
+/* ---------- 1. Tokens ---------- */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:        #f3ede2;   /* page                                        */
+  --card:      #fbf7ef;   /* cards, buttons, inputs                      */
+  --stage:     #f7f1e6;   /* stages with the isometric grid              */
+  --ink:       #1f1b16;   /* outlines, titles, hard shadows              */
+  --text:      #3a342c;   /* body                                        */
+  --muted:     #6b6358;   /* metadata · 5.6:1 on --card                  */
+  --line:      #d9cfbe;   /* soft border of cards and rows               */
+  --line-2:    #b8ad9a;   /* border of disabled controls                 */
+  --hover:     #ece3d3;
+
+  --lima:      #cdea5a;   /* main action, active, selection: never text  */
+  --lima-soft: #e6f2b0;
+  /* Pastels are categories, never states: always with an ink outline and ink text. */
+  --butter:    #f5d67b;   --butter-2: #e8c35c;  --butter-3: #d9b045;   /* ingestion · time       */
+  --mint:      #bfe5c4;   --mint-2:   #a6d7ad;  --mint-3:   #8cc596;   /* chunks · collection    */
+  --lilac:     #d8ccf4;   --lilac-2:  #c7b8ee;  --lilac-3:  #b3a1e3;   /* embeddings · vision    */
+  --sky:       #b9d6f0;   --sky-2:    #9fc6ea;                         /* vectors · text route   */
+  --coral:     #f3b3a2;   --coral-2:  #f0a08c;  --coral-3:  #e28a74;   /* retrieval · PDF        */
+  --paper-2:   #efe7d8;   --pad-side: #e9dfcf;
+
+  --ok:        #1f7a3a;
+  --warn:      #a34e00;
+  --err:       #b3261e;
+
+  --term-bg:   #1f1b16;   /* console: the only dark block */
+  --term-bar:  #2e2921;
+  --term-ink:  #f3ede2;
+
+  --font: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --bw: 1.5px;                       /* ink outline */
+  --r-card: 14px; --r-ctl: 10px; --r-pill: 999px;
+  --hard:   0 3px 0 var(--ink);      /* hard shadow: this can be pressed */
+  --hard-s: 0 2px 0 var(--ink);
+  --hard-l: 0 4px 0 var(--ink);
+  --iso-grid:
+    repeating-linear-gradient(26.57deg,  transparent 0 23px, rgba(31,27,22,.07) 23px 24px),
+    repeating-linear-gradient(-26.57deg, transparent 0 23px, rgba(31,27,22,.07) 23px 24px);
+
+  /* The names the existing sheets use, mapped to this theme. */
+  --bg-app: var(--bg);            --bg-header: var(--card);
+  --surface: var(--card);         --surface-raised: var(--hover);
+  --border: var(--line);          --border-control: var(--ink);
+  --text-muted: var(--muted);     --text-disabled: var(--muted);   --disabled-bg: #e9dfcf;
+  --accent: var(--lima);          --accent-hover: #bfe03f;         --accent-text: var(--ink);
+  --accent-soft: var(--lima-soft); --on-accent: var(--ink);        --accent-rgb: 205 234 90;
+  --focus: var(--ink);
+  --success: var(--ok);   --success-soft: #e2f1e2;  --success-border: var(--ok);
+  --warning: var(--warn); --warning-soft: #f8ecc6;  --warning-border: var(--warn);
+  --danger:  var(--err);  --danger-soft:  #f8e1da;  --danger-border:  var(--err);
+  --on-danger: var(--card);
+  --font-display: var(--font);    --font-mono: var(--font);
+  --radius-sm: 6px; --radius-md: var(--r-ctl); --radius-lg: var(--r-card);
+  --shadow-dialog: 0 6px 0 var(--ink);
+  --scrim: rgb(31 27 22 / .45);
+  --header-h: 56px; --pipeline-h: 0px;
+  --nav-idle: var(--ink);
+}
+
+/* ---------- 2. Base ---------- */
+:root[data-theme="light"] a { color: var(--ink); }
+:root[data-theme="light"] a:hover { color: #4a5f00; }
+:root[data-theme="light"] :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+:root[data-theme="light"] .page-title,
+:root[data-theme="light"] .card-title,
+:root[data-theme="light"] .dialog-title,
+:root[data-theme="light"] #dialog-title,
+:root[data-theme="light"] .resource-dialog h2 { font-family: var(--font); font-weight: 800; letter-spacing: 0; text-transform: none; color: var(--ink); }
+:root[data-theme="light"] .page-title { font-size: 26px; line-height: 32px; }
+:root[data-theme="light"] .card-title { font-size: 16px; line-height: 22px; }
+:root[data-theme="light"] .label { color: var(--ink); font-weight: 800; letter-spacing: .06em; }
+:root[data-theme="light"] .page-head > .icon,
+:root[data-theme="light"] .page-head__icon,
+:root[data-theme="light"] .dropzone > svg,
+:root[data-theme="light"] .cfg-model-pricing a { color: var(--ink); }
+:root[data-theme="light"] strong, :root[data-theme="light"] b { font-weight: 700; }
+
+/* ---------- 3. Pieces ---------- */
+/* Containers: soft border, no shadow. What can be pressed: ink outline and hard shadow. */
+:root[data-theme="light"] .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); }
+:root[data-theme="light"] .card__head { border-bottom-color: var(--line); }
+
+:root[data-theme="light"] .btn { background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl);
+  box-shadow: var(--hard); font-weight: 700; opacity: 1; transition: transform .08s, box-shadow .08s; }
+:root[data-theme="light"] .btn:hover  { background: var(--card); color: var(--ink); transform: translateY(-1px); box-shadow: var(--hard-l); }
+:root[data-theme="light"] .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+:root[data-theme="light"] .btn--primary, :root[data-theme="light"] .btn--primary:hover { background: var(--lima); font-weight: 800; }
+:root[data-theme="light"] .btn--ghost { background: transparent; border-color: transparent; box-shadow: none; }
+:root[data-theme="light"] .btn--ghost:hover, :root[data-theme="light"] .btn--ghost:active { background: var(--hover); transform: none; box-shadow: none; }
+:root[data-theme="light"] .btn--danger, :root[data-theme="light"] .btn--danger:hover { color: var(--err); }
+:root[data-theme="light"] .btn:disabled, :root[data-theme="light"] .btn:disabled:hover { background: #e9dfcf; color: var(--muted); border-color: var(--line-2); box-shadow: none; transform: none; }
+
+:root[data-theme="light"] .input,
+:root[data-theme="light"] .select { background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); }
+:root[data-theme="light"] .input:focus, :root[data-theme="light"] .select:focus { box-shadow: var(--hard-s); }
+:root[data-theme="light"] .input::placeholder { color: var(--muted); }
+
+/* Segments: separate buttons; the chosen one is lime with a hard shadow. */
+:root[data-theme="light"] .segmented { gap: 6px; padding-bottom: 3px; border: 0; border-radius: 0; overflow: visible; }
+:root[data-theme="light"] .segmented button { background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); }
+:root[data-theme="light"] .segmented button:hover { background: var(--hover); }
+:root[data-theme="light"] .segmented [aria-checked="true"],
+:root[data-theme="light"] .segmented [aria-pressed="true"] { background: var(--lima); color: var(--ink); box-shadow: var(--hard); font-weight: 800; }
+
+:root[data-theme="light"] .toggle { width: 38px; height: 22px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); }
+:root[data-theme="light"] .toggle::after { top: 2px; left: 2px; width: 15px; height: 15px; background: var(--ink); }
+:root[data-theme="light"] input:checked + .toggle { background: var(--lima); border-color: var(--ink); }
+:root[data-theme="light"] input:checked + .toggle::after { transform: translateX(16px); background: var(--ink); }
+
+/* Pills. States keep their own text colour and their word; pastels are categories. */
+:root[data-theme="light"] .badge { padding: 1px 9px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card);
+  color: var(--ink); font-weight: 700; letter-spacing: 0; white-space: nowrap; }
+:root[data-theme="light"] .badge--info { background: var(--sky); color: var(--ink); }
+:root[data-theme="light"] .badge--ok   { color: var(--ok); }
+:root[data-theme="light"] .badge--warn { color: var(--warn); }
+:root[data-theme="light"] .badge--err  { color: var(--err); }
+
+:root[data-theme="light"] .banner { border: var(--bw) solid var(--ink); border-radius: 12px; color: var(--ink); }
+:root[data-theme="light"] .banner--warn { background: var(--butter); }
+:root[data-theme="light"] .banner--ok   { background: var(--mint); }
+:root[data-theme="light"] .banner--err  { background: var(--coral); }
+
+/* Value bars: outlined track, lime fill. */
+:root[data-theme="light"] .bar { height: 8px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); }
+:root[data-theme="light"] .bar > i { background: var(--lima); border-right: var(--bw) solid var(--ink); border-radius: 0; }
+:root[data-theme="light"] progress,
+:root[data-theme="light"] .data-progress { height: 8px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); }
+:root[data-theme="light"] progress::-webkit-progress-bar { background: var(--card); }
+:root[data-theme="light"] progress::-webkit-progress-value { background: var(--lima); }
+:root[data-theme="light"] progress::-moz-progress-bar { background: var(--lima); }
+
+:root[data-theme="light"] .dropzone { border: 2px dashed var(--ink); border-radius: 12px; background: var(--stage); }
+:root[data-theme="light"] .dropzone.dragging { border-color: var(--ink); background: var(--lima-soft); }
+
+/* Tables: ink rule under the heading, soft rules between rows. */
+:root[data-theme="light"] .table th { background: var(--bg); color: var(--ink); font-weight: 800; letter-spacing: .06em; border-bottom: var(--bw) solid var(--ink); }
+:root[data-theme="light"] .table td { border-bottom-color: var(--line); }
+:root[data-theme="light"] .table tbody tr:hover { background: var(--bg); }
+
+/* Dialogs and popovers float: ink outline and a hard shadow, never a blurred one. */
+:root[data-theme="light"] dialog,
+:root[data-theme="light"] [popover] { background: var(--card); color: var(--text); border: 2px solid var(--ink); border-radius: var(--r-card); box-shadow: var(--shadow-dialog); }
+:root[data-theme="light"] .dialog-icon { background: var(--lima); color: var(--ink); border: var(--bw) solid var(--ink); }
+
+/* Single-series charts are drawn in ink. */
+:root[data-theme="light"] .resource-line { stroke: var(--ink); }
+:root[data-theme="light"] .resource-single,
+:root[data-theme="light"] .resource-crosshair circle { fill: var(--ink); }
+
+/* ---------- 4. Top bar ---------- */
+:root[data-theme="light"] .topbar { background: var(--card); border-bottom: 1px solid var(--line); }
+:root[data-theme="light"] .topbar.is-compact,
+:root[data-theme="light"] .topbar.is-compact .topbar__bar { transform: none; }
+:root[data-theme="light"] .topbar__bar { height: auto; min-height: 56px; padding: 6px 20px; gap: 12px; background: var(--card); }
+:root[data-theme="light"] .topbar__brand { gap: 10px; font: 800 16px/1 var(--font); letter-spacing: 0; text-transform: none; white-space: nowrap; }
+:root[data-theme="light"] .topbar__brand .icon { display: none; }
+:root[data-theme="light"] .brand-cube { display: block; flex: none; width: 28px; height: 28px; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+:root[data-theme="light"] .brand-cube__top { fill: var(--lima); }
+:root[data-theme="light"] .brand-cube__left { fill: var(--card); }
+:root[data-theme="light"] .brand-cube__right { fill: var(--line); }
+:root[data-theme="light"] .topbar__spacer { display: none; }
+
+/* The row scrolls sideways when the tabs do not fit; the padding leaves room for the hard shadow. */
+:root[data-theme="light"] .topnav { flex: 1 1 auto; align-self: center; gap: 6px; padding: 4px 2px 6px; }
+:root[data-theme="light"] .topnav::before,
+:root[data-theme="light"] .topnav::after { content: ""; flex: 1 1 0; }          /* centred, and still scrollable from the first tab */
+:root[data-theme="light"] .topnav a { flex: none; height: 36px; padding: 0 14px; gap: 8px; border: var(--bw) solid transparent; border-radius: var(--r-ctl);
+  color: var(--ink); font-size: 13px; font-weight: 500; }
+:root[data-theme="light"] .topnav a svg,
+:root[data-theme="light"] .topnav a[aria-current="page"] svg { color: var(--ink); }
+:root[data-theme="light"] .topnav a:hover { background: var(--hover); color: var(--ink); }
+:root[data-theme="light"] .topnav a[aria-current="page"] { background: var(--lima); border-color: var(--ink); box-shadow: var(--hard); font-weight: 700; }
+:root[data-theme="light"] .nav-settings-tab { display: flex; }
+:root[data-theme="light"] .topbar-settings { display: none; }
+:root[data-theme="light"] .topnav__badge { padding: 0 7px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-size: 10px; font-weight: 800; }
+:root[data-theme="light"] .topnav__badge--error { color: var(--err); }
+
+:root[data-theme="light"] .cmdk { flex: 0 1 250px; min-width: 100px; height: 36px; padding: 0 8px 0 12px; background: var(--card); color: var(--muted);
+  border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); }
+:root[data-theme="light"] .cmdk:hover { background: var(--hover); border-color: var(--ink); }
+:root[data-theme="light"] .cmdk .icon { width: 14px; height: 14px; color: var(--ink); }
+:root[data-theme="light"] .kbd { padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+
+/* Status: Ollama · VRAM · network exposure. It opens the same popover. */
+:root[data-theme="light"] .sysbtn { flex: none; width: auto; height: 36px; padding: 0 12px; gap: 8px; background: var(--card); color: var(--ink);
+  border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); font-size: 12px; white-space: nowrap; }
+:root[data-theme="light"] .sysbtn:hover,
+:root[data-theme="light"] .sysbtn[aria-expanded="true"] { background: var(--hover); border-color: var(--ink); }
+:root[data-theme="light"] .sysbtn > .icon { display: none; }
+:root[data-theme="light"] .sysbtn__pill { display: flex; align-items: center; gap: 8px; }
+:root[data-theme="light"] .sysbtn__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+:root[data-theme="light"] .sysbtn__dot[data-level="crit"] { background: var(--err); }
+:root[data-theme="light"] .sysbtn__vram,
+:root[data-theme="light"] .sysbtn__net { position: relative; margin-left: 9px; font-weight: 700; }
+:root[data-theme="light"] .sysbtn__vram::before,
+:root[data-theme="light"] .sysbtn__net::before { content: ""; position: absolute; left: -9px; top: 50%; width: 1px; height: 14px; margin-top: -7px; background: var(--line); }
+/* VRAM thresholds: the figure is the word; the fill only says it needs attention. */
+:root[data-theme="light"] .sysbtn__vram[data-level="warn"],
+:root[data-theme="light"] .sysbtn__vram[data-level="crit"] { padding: 0 6px; border-radius: 6px; background: var(--butter); }
+:root[data-theme="light"] .sysbtn__vram[data-level="crit"] { background: var(--coral); }
+:root[data-theme="light"] .sysbtn__net.is-warn { color: var(--warn); }
+
+:root[data-theme="light"] .themebtn { flex: none; width: 36px; height: 36px; background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); }
+:root[data-theme="light"] .themebtn:hover { background: var(--hover); border-color: var(--ink); }
+:root[data-theme="light"] .topbar-language .langbtn { height: 36px; background: var(--card); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-ctl); font-weight: 700; }
+:root[data-theme="light"] .topbar-language .langbtn:hover { background: var(--hover); }
+
+/* The pipeline row gives way to the scene; only the ingestion progress keeps its place under the bar. */
+/* header.css repaints this row in black for the old light theme: give it back this theme's tokens. */
+:root[data-theme="light"] .pipeline2 { display: none;
+  --bg-app: #f3ede2; --surface: #fbf7ef; --surface-raised: #ece3d3; --border: #d9cfbe; --border-control: #1f1b16;
+  --ink: #1f1b16; --text: #3a342c; --text-muted: #6b6358; --accent: #cdea5a; --accent-hover: #bfe03f; --accent-text: #1f1b16;
+  --accent-rgb: 205 234 90; --focus: #1f1b16; --success: #1f7a3a; --success-border: #1f7a3a; --danger: #b3261e; --danger-border: #b3261e; }
+:root[data-theme="light"] .pipeline2.has-ingestion { display: flex; height: 34px; border-top: 1px solid var(--line); background: var(--card); color: var(--ink); }
+:root[data-theme="light"] .ingestion-menu { height: 34px; padding: 0 20px; background: var(--card); color: var(--ink); }
+:root[data-theme="light"] .ingestion-menu__track { background: var(--stage); }
+:root[data-theme="light"] .ingestion-menu__track i { background: var(--lima); opacity: 1; border-right: var(--bw) solid var(--ink); }
+:root[data-theme="light"] .ingestion-menu[data-state="error"] .ingestion-menu__track i { background: var(--coral); }
+
+/* ---------- 5. Isometric scene ---------- */
+:root[data-theme="light"] .scene { display: block; padding: 12px 12px 14px; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--stage) var(--iso-grid); color: var(--ink); font-size: 12px; line-height: 18px; }
+:root[data-theme="light"] .iso { display: block; width: 100%; height: auto; overflow: visible; fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+:root[data-theme="light"] .iso .pad-top { fill: var(--card); }
+:root[data-theme="light"] .iso .pad-l { fill: var(--pad-side); }
+:root[data-theme="light"] .iso .pad-r { fill: var(--line); }
+:root[data-theme="light"] .iso .is-on .pad-top { fill: var(--lima); }                 /* the view acts on this stage, or it is done */
+:root[data-theme="light"] .iso .is-run .pad-top { animation: iso-run 1s ease-in-out infinite; }   /* working now */
+:root[data-theme="light"] .iso .is-error .pad-top { fill: var(--coral); }
+:root[data-theme="light"] .iso .bu1 { fill: var(--butter); } :root[data-theme="light"] .iso .bu2 { fill: var(--butter-2); } :root[data-theme="light"] .iso .bu3 { fill: var(--butter-3); }
+:root[data-theme="light"] .iso .pa1 { fill: var(--card); }   :root[data-theme="light"] .iso .pa2 { fill: var(--paper-2); }  :root[data-theme="light"] .iso .pa3 { fill: var(--line); }
+:root[data-theme="light"] .iso .mi1 { fill: var(--mint); }   :root[data-theme="light"] .iso .mi2 { fill: var(--mint-2); }   :root[data-theme="light"] .iso .mi3 { fill: var(--mint-3); }
+:root[data-theme="light"] .iso .li1 { fill: var(--lilac); }  :root[data-theme="light"] .iso .li2 { fill: var(--lilac-2); }  :root[data-theme="light"] .iso .li3 { fill: var(--lilac-3); }
+:root[data-theme="light"] .iso .sk1 { fill: var(--sky); }    :root[data-theme="light"] .iso .sk2 { fill: var(--sky-2); }
+:root[data-theme="light"] .iso .co1 { fill: var(--coral); }  :root[data-theme="light"] .iso .co2 { fill: var(--coral-2); }  :root[data-theme="light"] .iso .co3 { fill: var(--coral-3); }
+:root[data-theme="light"] .iso .ch1 { fill: #544b3f; }       :root[data-theme="light"] .iso .ch2 { fill: var(--text); }     :root[data-theme="light"] .iso .ch3 { fill: var(--ink); }
+:root[data-theme="light"] .iso .thin { stroke-width: 1.5; }
+:root[data-theme="light"] .iso .bold { stroke-width: 2.4; }
+:root[data-theme="light"] .iso .solid { fill: var(--ink); stroke: none; }
+:root[data-theme="light"] .iso .musa-body { fill: var(--lima); }
+:root[data-theme="light"] .iso .hat-body { fill: var(--ink); stroke-width: 5; }
+:root[data-theme="light"] .iso .hat-trim { stroke: #c4161c; stroke-width: 7; }       /* the montera's red trim is not a state colour */
+:root[data-theme="light"] .iso .packet { fill: var(--lima); stroke-width: 1.5; animation: iso-packet 1.6s linear infinite; }
+:root[data-theme="light"] .iso .packet:nth-child(2) { animation-delay: .3s; }
+:root[data-theme="light"] .iso .packet:nth-child(3) { animation-delay: .6s; }
+:root[data-theme="light"] .iso .packet:nth-child(4) { animation-delay: .9s; }
+:root[data-theme="light"] .iso .packet:nth-child(5) { animation-delay: 1.2s; }
+:root[data-theme="light"] .iso .float { animation: iso-float 3s ease-in-out infinite; }
+
+:root[data-theme="light"] .scene__steps { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+:root[data-theme="light"] .scene__steps li { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; text-align: center; }
+:root[data-theme="light"] .scene__name { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; color: var(--muted); font-weight: 500; }
+:root[data-theme="light"] .scene__steps .is-on .scene__name { color: var(--ink); font-weight: 700; }
+:root[data-theme="light"] .scene__steps .is-error .scene__name { color: var(--err); font-weight: 700; }
+:root[data-theme="light"] .step-no { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 22px; height: 22px;
+  border: var(--bw) solid var(--ink); border-radius: 50%; background: var(--card); color: var(--ink); font-size: 11px; font-weight: 700; }
+:root[data-theme="light"] .is-on > .scene__name .step-no { background: var(--lima); }
+:root[data-theme="light"] .is-run > .scene__name .step-no { animation: iso-run-chip 1s ease-in-out infinite; }
+:root[data-theme="light"] .scene__value { max-width: 100%; padding: 1px 8px; border: var(--bw) solid var(--ink); border-radius: var(--r-pill); background: var(--card);
+  font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-theme="light"] .scene--mini { padding: 8px; }
+
+@keyframes iso-packet   { 0% { transform: translateX(0); opacity: 0 } 20%, 80% { opacity: 1 } 100% { transform: translateX(24px); opacity: 0 } }
+@keyframes iso-float    { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-4px) } }
+@keyframes iso-run      { 0%, 100% { fill: #cdea5a } 50% { fill: #e6f2b0 } }
+@keyframes iso-run-chip { 0%, 100% { background-color: #cdea5a } 50% { background-color: #e6f2b0 } }
+
+:root[data-theme="light"] .cfg > .scene { margin-bottom: 16px; }
+
+/* ---------- 6. Chat (colours only; its structure is phase 2) ---------- */
+/* chat.css scopes its own light palette to the card: bring it to this theme's tokens. */
+:root[data-theme="light"] .conversation-card {
+  --bg-app: var(--bg);              --surface: var(--card);          --surface-sunken: var(--card);
+  --surface-muted: var(--bg);       --surface-raised: var(--hover);
+  --border: var(--line);            --border-soft: var(--line);      --border-control: var(--ink);    --border-strong: var(--ink);
+  --ink: #1f1b16;                   --text: #3a342c;                 --text-muted: var(--muted);
+  --text-placeholder: var(--muted); --text-disabled: var(--muted);   --disabled-bg: #e9dfcf;
+  --accent: var(--lima);            --accent-hover: #bfe03f;         --accent-text: var(--ink);       --accent-text-hover: #4a5f00;
+  --accent-strong: var(--ink);      --accent-soft: var(--lima-soft); --on-accent: var(--ink);         --focus: var(--ink);
+  --success: var(--ok);   --success-soft: #e2f1e2;  --success-border: var(--ok);
+  --warning: var(--warn); --warning-soft: #f8ecc6;  --warning-border: var(--warn);
+  --danger:  var(--err);  --danger-soft:  #f8e1da;  --danger-border:  var(--err);
+  --bubble-user: var(--card);       --bubble-user-ink: var(--ink);   --row-hover: var(--bg);
+  --composer-bg: var(--card);       --tool-bg: var(--card);          --tool-scope-bg: var(--mint);
+  --stop-bg: var(--ink);            --stop-ink: var(--card);         --musa-ring: var(--ink);
+  --shadow-composer: var(--hard-l);
+}
+
+/* ---------- 7. Widths ---------- */
+/* The launcher becomes an icon before anything else gives way; then the status and the mark shorten; the tabs go last. */
+:root[data-theme="light"] .topbar-language, :root[data-theme="light"] .topbar-language .langbtn { width: 86px; }
+@media (max-width: 1799px) {
+  :root[data-theme="light"] .cmdk__label, :root[data-theme="light"] .cmdk .kbd { display: none; }
+  :root[data-theme="light"] .cmdk { flex: 0 0 36px; width: 36px; min-width: 36px; padding: 0; justify-content: center; }
+}
+@media (max-width: 1599px) {
+  :root[data-theme="light"] .sysbtn__name { display: none; }
+  :root[data-theme="light"] .sysbtn__vram, :root[data-theme="light"] .sysbtn__vram[hidden] + .sysbtn__net { margin-left: 0; }
+  :root[data-theme="light"] .sysbtn__vram::before, :root[data-theme="light"] .sysbtn__vram[hidden] + .sysbtn__net::before { content: none; }
+}
+@media (max-width: 1519px) {
+  :root[data-theme="light"] .topbar__brand { font-size: 0; gap: 0; }
+}
+@media (max-width: 1399px) {
+  :root[data-theme="light"] .topnav a { padding: 0 10px; }
+  :root[data-theme="light"] .lab-nav-long { display: none; }
+  :root[data-theme="light"] .lab-nav-short { display: inline; }
+}
+@media (max-width: 1199px) {
+  :root[data-theme="light"] .topnav a svg { display: none; }
+  :root[data-theme="light"] .topbar__bar { gap: 8px; padding: 6px 12px; }
+  :root[data-theme="light"] .topnav { gap: 4px; }
+  :root[data-theme="light"] .topnav a { padding: 0 8px; }
+  :root[data-theme="light"] .topbar-language img { display: none; }
+  :root[data-theme="light"] .topbar-language, :root[data-theme="light"] .topbar-language .langbtn { width: 64px; }
+  :root[data-theme="light"] .topbar-language .langbtn { padding-left: 8px; }
+}
+@media (max-width: 720px) {
+  :root[data-theme="light"] .topbar__bar { flex-wrap: wrap; row-gap: 0; }
+  :root[data-theme="light"] .topbar__brand { height: 48px; margin-right: auto; }
+  :root[data-theme="light"] .topnav { order: 3; flex: 1 0 100%; width: auto; height: auto; margin: 0 -12px; padding: 4px 12px 8px; border-top: 1px solid var(--line); }
+  :root[data-theme="light"] .topnav::before, :root[data-theme="light"] .topnav::after { content: none; }
+  :root[data-theme="light"] .cmdk, :root[data-theme="light"] .themebtn { flex: 0 0 40px; width: 40px; height: 40px; border: var(--bw) solid var(--ink); }
+  :root[data-theme="light"] .sysbtn { height: 40px; border: var(--bw) solid var(--ink); }
+  :root[data-theme="light"] .topbar-language .langbtn { height: 40px; }
+  :root[data-theme="light"] .scene__steps { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 10px; }
+}
+@media (max-width: 480px) {
+  /* The network exposure stays; the VRAM figure shows only when it needs attention (always in the popover). */
+  :root[data-theme="light"] .sysbtn__vram[data-level="info"] { display: none; }
+  :root[data-theme="light"] .sysbtn__vram[data-level="info"] + .sysbtn__net { margin-left: 0; }
+  :root[data-theme="light"] .sysbtn__vram[data-level="info"] + .sysbtn__net::before { content: none; }
+}

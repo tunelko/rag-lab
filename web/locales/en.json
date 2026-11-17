@@ -828,6 +828,7 @@
   "header.statistics": "View statistics",
   "header.no_model": "No model loaded",
   "header.local": "This computer only",
+  "header.local_short": "Local",
   "header.lan": "Local network",
   "header.errors": "{count} errors",
   "header.queued": "{count} queued",
@@ -1025,5 +1026,12 @@
   "sentinel.ask_scope": "Ask “{name}”…",
   "sentinel.jump_to_end": "Jump to the end",
   "sentinel.search_in": "Search in",
-  "sentinel.fragments_per_answer": "Fragments retrieved per question"
+  "sentinel.fragments_per_answer": "Fragments retrieved per question",
+  "scene.label": "RAG pipeline: ingestion, chunks, embeddings, vectors, retrieval and model",
+  "scene.ingestion": "Ingestion",
+  "scene.chunks": "Chunks",
+  "scene.embeddings": "Embeddings",
+  "scene.vectors": "Vectors",
+  "scene.retrieval": "Retrieval",
+  "scene.model": "Model"
 }
