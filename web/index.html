@@ -2495,12 +2495,14 @@
        </use>
       </svg>
       <div class="page-head__text">
+       <p class="hero-crumb only-light" data-i18n="console.crumb">Consola / servidor RAG · solo lectura</p>
        <h1 class="page-title">
-        <span data-i18n="sentinel.console">
+        <span class="only-dark" data-i18n="sentinel.console">
          Consola
         </span>
+        <span class="only-light" data-i18n="console.hero_title">Lo que pasa por dentro</span>
        </h1>
-       <p class="meta">
+       <p class="meta only-dark">
         <span data-i18n="sentinel.console_sub">
          Registro del servidor · solo lectura
         </span>
@@ -2519,6 +2521,7 @@
          </use>
         </svg>
         <input class="input" data-i18n-placeholder="ui.file_message_error_8a2035" id="console-search" placeholder="Archivo, mensaje, error…" type="search"/>
+        <kbd aria-hidden="true" class="kbd only-light">/</kbd>
        </label>
        <div class="tabs" id="console-level-chips">
         <button aria-pressed="true" data-level="" type="button">
@@ -2601,9 +2604,7 @@
          <use href="#i-eraser">
          </use>
         </svg>
-        <span data-i18n="sentinel.clear_display">
-         Limpiar vista
-        </span>
+        <span data-i18n="console.clear_short">Limpiar</span>
        </button>
        <button class="btn btn--secondary" id="console-copy" type="button">
         <svg aria-hidden="true" class="icon">
@@ -2619,11 +2620,11 @@
          <use href="#i-download">
          </use>
         </svg>
-        <span data-i18n="sentinel.download">
-         Descargar registro
-        </span>
+        <span data-i18n="console.download_short">Descargar</span>
        </button>
       </div>
+      <div class="term">
+      <div aria-hidden="true" class="term__bar only-light"><i></i><i></i><i></i><span id="console-host"></span></div>
       <div aria-label="Salida del servidor" aria-live="polite" class="log" data-i18n-aria-label="sentinel.log_output" id="console-output" role="log">
       </div>
       <p class="empty-state" id="console-empty">
@@ -2631,6 +2632,7 @@
         No hay líneas que coincidan con el filtro.
        </span>
       </p>
+      </div>
       <footer class="console-footer">
        <span class="meta" id="console-count">
        </span>

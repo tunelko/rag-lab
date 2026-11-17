@@ -706,7 +706,70 @@
   :root[data-theme="light"] .cfg-card--retrieval { grid-column: auto; }
 }
 
-/* ---------- 9. Widths ---------- */
+/* ---------- 9. Console ---------- */
+/* Heading: what is being watched, and whether it is live */
+:root[data-theme="light"] #console-view .hero-crumb { margin: 0 0 2px; }
+:root[data-theme="light"] #console-view .page-head > .icon { display: none; }
+:root[data-theme="light"] .live-status { display: inline-flex; align-items: center; padding: 2px 10px; background: var(--mint); color: var(--ink); border: var(--bw) solid var(--ink); border-radius: var(--r-pill); font-size: 12px; line-height: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+:root[data-theme="light"] .live-status:empty { display: none; }
+:root[data-theme="light"] .live-status::before { width: 8px; height: 8px; background: var(--ok); }
+
+/* Toolbar on the page, not in a card */
+:root[data-theme="light"] .console-card { height: calc(100dvh - 184px); gap: 12px; overflow: visible; background: none; border: 0; border-radius: 0; }
+:root[data-theme="light"] .console-toolbar { padding: 0 0 3px; border-bottom: 0; }
+:root[data-theme="light"] .search-field { flex: 1 1 200px; max-width: 300px; }
+:root[data-theme="light"] .search-field .input { padding-left: 32px; padding-right: 40px; }
+:root[data-theme="light"] .search-field > .icon { color: var(--ink); }
+:root[data-theme="light"] .console-toolbar > .select { width: 184px; }
+:root[data-theme="light"] .search-field > .kbd { position: absolute; right: 10px; }
+:root[data-theme="light"] .tabs .badge { margin-left: 6px; padding: 0; background: none; border: 0; font-weight: inherit; }
+:root[data-theme="light"] .console-toolbar .btn { width: auto; min-width: 0; padding: 0 12px; font-size: 12px; }
+:root[data-theme="light"] .console-toolbar .btn > .icon { display: none; }
+:root[data-theme="light"] .console-toolbar .btn .sr-only { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+/* "Follow the end" is a switch */
+:root[data-theme="light"] #console-follow { appearance: none; position: relative; flex: none; width: 38px; height: 22px; margin: 0; background: var(--card); border: var(--bw) solid var(--ink); border-radius: var(--r-pill); cursor: pointer; }
+:root[data-theme="light"] #console-follow::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--ink); transition: transform .12s; }
+:root[data-theme="light"] #console-follow:checked { background: var(--lima); }
+:root[data-theme="light"] #console-follow:checked::after { transform: translateX(16px); }
+
+/* The terminal: the only dark block of the app */
+:root[data-theme="light"] .term { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; background: var(--term-bg); color: var(--term-ink);
+  border: 2px solid var(--ink); border-radius: var(--r-card); box-shadow: 0 5px 0 var(--line-2); }
+:root[data-theme="light"] .term__bar { display: flex; flex: none; align-items: center; gap: 8px; height: 36px; padding: 0 14px; background: var(--term-bar); border-bottom: 1px solid #453e33; color: #c9bfae; font-size: 12px; }
+:root[data-theme="light"] .term__bar > i { width: 10px; height: 10px; border-radius: 50%; background: var(--coral); }
+:root[data-theme="light"] .term__bar > i:nth-child(2) { background: var(--butter); }
+:root[data-theme="light"] .term__bar > i:nth-child(3) { background: var(--lima); }
+:root[data-theme="light"] .term__bar > span { margin-left: 8px; }
+:root[data-theme="light"] .term .log { padding: 10px 0; background: transparent; color: var(--term-ink); font-size: 12px; line-height: 23px; }
+:root[data-theme="light"] .term .log__line { grid-template-columns: 40px 76px 96px 64px minmax(0, 1fr); }
+:root[data-theme="light"] .term .log__line:hover { background: var(--term-bar); }
+:root[data-theme="light"] .term .log__no { color: #8a8072; }
+:root[data-theme="light"] .term .log__time { color: #b8ad9a; }
+/* Origin: a colour per source, as a category */
+:root[data-theme="light"] .term .log__src { color: #c9bfae; }
+:root[data-theme="light"] .term .log__src[data-src="server"] { color: var(--lima); }
+:root[data-theme="light"] .term .log__src[data-src="uvicorn"] { color: var(--sky); }
+:root[data-theme="light"] .term .log__src[data-src="ollama"] { color: var(--butter); }
+:root[data-theme="light"] .term .log__src[data-src="retriever"] { color: var(--mint); }
+/* Level: a tag with its word */
+:root[data-theme="light"] .term .log__lv { justify-self: start; align-self: center; padding: 0 6px; background: #453e33; color: #e6ddcd; border-radius: 5px; font-size: 10px; line-height: 16px; font-weight: 800; }
+:root[data-theme="light"] .term .log__lv--WARN { background: var(--butter); color: var(--ink); }
+:root[data-theme="light"] .term .log__lv--ERROR, :root[data-theme="light"] .term .log__lv--CRITICAL { background: var(--coral); color: var(--ink); }
+:root[data-theme="light"] .term .log__lv--DEBUG { color: #b8ad9a; }
+:root[data-theme="light"] .term .empty-state { color: #c9bfae; }
+:root[data-theme="light"] .console-footer { padding: 0; border-top: 0; font-size: 12px; }
+@media (max-width: 1359px) {
+  /* When the row does not hold their words, the four actions are icons again (their names stay as labels). */
+  :root[data-theme="light"] .console-toolbar .btn { width: 36px; min-width: 36px; padding: 0; font-size: 0; }
+  :root[data-theme="light"] .console-toolbar .btn > .icon { display: block; }
+  :root[data-theme="light"] .console-toolbar .btn .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+}
+@media (max-width: 720px) {
+  :root[data-theme="light"] .console-toolbar .tabs { flex-wrap: wrap; }
+  :root[data-theme="light"] .console-toolbar > .select { flex: 1 1 150px; width: auto; }
+}
+
+/* ---------- 10. Widths ---------- */
 /* The launcher becomes an icon before anything else gives way; then the status and the mark shorten; the tabs go last. */
 :root[data-theme="light"] .topbar-language, :root[data-theme="light"] .topbar-language .langbtn { width: 86px; }
 @media (max-width: 1799px) {

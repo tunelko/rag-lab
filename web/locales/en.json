@@ -1118,5 +1118,9 @@
   "settings.card_retrieval": "Retrieval",
   "settings.card_model": "Model",
   "settings.read_only": "Read-only",
-  "settings.overlap_note": "Each fragment repeats the last {overlap} characters of the previous one so ideas are not cut."
+  "settings.overlap_note": "Each fragment repeats the last {overlap} characters of the previous one so ideas are not cut.",
+  "console.crumb": "Console / RAG server · read-only",
+  "console.hero_title": "What happens inside",
+  "console.clear_short": "Clear",
+  "console.download_short": "Download"
 }
