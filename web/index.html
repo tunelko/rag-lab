@@ -836,8 +836,15 @@
     <section class="page" hidden id="graph-view">
      <header class="page-head"><h1 data-i18n="graph.title">Grafo</h1><p class="meta" data-i18n="graph.hint">Modeliza documentos de la colección actual. Cada relación conserva su evidencia.</p></header>
      <label class="scope-picker" for="graph-collection-select"><span data-i18n="collections.label">Colección</span><select class="select" id="graph-collection-select"></select></label>
-     <section class="card graph-controls">
-      <p id="graph-summary" role="status"></p>
+     <section class="card graph-workspace">
+      <div class="graph-map-toolbar"><p id="graph-summary" role="status"></p><button class="btn" id="graph-extract" type="button" data-i18n="graph.process">Modelizar siguiente lote</button></div>
+      <p class="meta" id="graph-batch-hint"></p><progress id="graph-progress" max="100" value="0" hidden></progress><p id="graph-message" role="status"></p><button class="btn btn--secondary" id="graph-cancel" type="button" hidden data-i18n="graph.cancel">Cancelar tarea</button>
+      <div class="graph-map-toolbar"><label><span class="sr-only" data-i18n="graph.search">Buscar una entidad</span><input class="input" type="search" id="graph-search" data-i18n-placeholder="graph.search" placeholder="Buscar una entidad"/></label><select class="select" id="graph-map-source" data-i18n-aria-label="graph.all_sources" aria-label="Todas las fuentes"></select><span id="graph-map-count" class="meta"></span><div class="graph-map-tools"><button class="btn btn--secondary" id="graph-zoom-in" type="button" data-i18n-aria-label="graph.zoom_in" aria-label="Acercar">+</button><button class="btn btn--secondary" id="graph-zoom-out" type="button" data-i18n-aria-label="graph.zoom_out" aria-label="Alejar">&minus;</button><button class="btn btn--secondary" id="graph-map-reset" type="button" data-i18n="graph.reset_view">Centrar</button></div></div>
+      <div class="graph-map-workspace"><div id="graph-map"></div><aside id="graph-map-detail"><h2 data-i18n="graph.explore">Explora tus fuentes</h2><p class="meta" data-i18n="graph.explore_hint">Pulsa una entidad o una conexión para consultar su evidencia.</p></aside></div>
+      <p class="meta" data-i18n="graph.map_scope">Conexiones respaldadas, agrupadas por pasaje de origen. Arrastra los nodos o el fondo para explorar.</p>
+     </section>
+     <details class="card graph-options" id="graph-options"><summary data-i18n="graph.options">Fuentes y opciones del modelo</summary>
+     <section class="graph-controls">
       <label for="graph-files" data-i18n="graph.files">Documentos (selección múltiple)</label>
       <select class="select" id="graph-files" multiple size="7"></select>
       <div class="graph-actions"><button class="btn btn--secondary" id="graph-select-all" type="button" data-i18n="graph.select_all">Seleccionar todos</button><button class="btn" id="graph-prepare" type="button" data-i18n="graph.prepare">Preparar evidencias</button></div>
@@ -846,14 +853,15 @@
        <label><span data-i18n="graph.model">Modelo</span><select class="select" id="graph-model"></select></label><button class="btn btn--secondary" id="graph-model-refresh" type="button" data-i18n="graph.refresh_models">Actualizar modelos</button>
        <label><span data-i18n="graph.units">Máximo de pasajes por trabajo</span><input class="input" id="graph-unit-limit" type="number" min="1" max="100" value="3"/></label>
        <label id="graph-remote-field" hidden><input id="graph-remote" type="checkbox"/><span data-i18n="graph.remote">Enviar los pasajes seleccionados a este proveedor remoto</span></label>
-       <button class="btn" id="graph-extract" type="button" data-i18n="graph.extract">Modelizar relaciones</button>
       </fieldset>
       <p class="meta" data-i18n="graph.unit_scope">El límite afecta a pasajes, no a documentos completos.</p>
-      <progress id="graph-progress" max="100" value="0" hidden></progress><p id="graph-message" role="status"></p><button class="btn btn--secondary" id="graph-cancel" type="button" hidden data-i18n="graph.cancel">Cancelar tarea</button>
       <div id="graph-runs"></div>
      </section>
-     <section class="card graph-results"><h2 data-i18n="graph.audit_title">Verificación documental</h2><button class="btn btn--secondary" id="graph-audit" type="button" data-i18n="graph.audit_start">Verificar todas las colecciones</button><p class="meta" id="graph-audit-summary" role="status"></p><p class="meta" id="graph-audit-relations"></p><a id="graph-audit-report" class="btn btn--secondary" hidden data-i18n="graph.audit_report">Descargar informe por documento</a><p class="meta" data-i18n="graph.audit_scope">La integridad de archivos y citas no certifica la interpretación semántica del modelo.</p></section>
-     <section class="card graph-results"><h2 data-i18n="graph.relations">Relaciones propuestas</h2><p class="meta" data-i18n="graph.review_notice">Una cita literal no verifica por sí sola la interpretación. Estas propuestas aún no se usan para responder en el chat.</p><div id="graph-results"></div></section>
+     </details>
+     <details class="card graph-diagnostics"><summary data-i18n="graph.diagnostics">Diagnóstico y registros</summary>
+     <section class="graph-results"><h2 data-i18n="graph.audit_title">Verificación documental</h2><button class="btn btn--secondary" id="graph-audit" type="button" data-i18n="graph.audit_start">Verificar todas las colecciones</button><p class="meta" id="graph-audit-summary" role="status"></p><p class="meta" id="graph-audit-relations"></p><a id="graph-audit-report" class="btn btn--secondary" hidden data-i18n="graph.audit_report">Descargar informe por documento</a><p class="meta" data-i18n="graph.audit_scope">La integridad de archivos y citas no certifica la interpretación semántica del modelo.</p></section>
+     <section class="graph-results"><h2 data-i18n="graph.relations">Registro de relaciones</h2><p class="meta" data-i18n="graph.review_notice">El modelo contrasta automáticamente las relaciones. Estos detalles son opcionales y no requieren revisión manual. El chat todavía no utiliza el grafo.</p><div id="graph-results"></div></section>
+     </details>
     </section>
     <dialog id="graph-verification-dialog" aria-labelledby="graph-verification-title" class="card graph-verification">
      <form id="graph-verification-form"><h2 id="graph-verification-title" data-i18n="graph.verify">Contrastar con la fuente</h2><p id="graph-verification-claim"></p><pre id="graph-verification-evidence"></pre>

@@ -62,9 +62,9 @@ Opcional: [preparar un corpus de recetas](tools/recipes/README.md) con un adapta
 
 **Datasets CTI / APTs:** en **Biblioteca**, pulsa **Añadir CTI · APTs**, selecciona la nueva colección y pulsa **Sincronizar CTI · ATT&CK 20.1**. La muestra semántica predeterminada es de 5.000 documentos; las relaciones documentadas completas se guardan aparte en SQLite. Cambia de colección en Biblioteca para volver a tus documentos actuales. Las descargas, originales, evidencias Markdown, exportaciones JSONL y licencias quedan en `datasets/cti/`; los índices e históricos de cada colección, en `data/collections/`. El chat interpreta las preguntas estructuradas con el modelo configurado y cita la evidencia real; las técnicas de un grupo no establecen la secuencia de un incidente.
 
-**Grafo (piloto):** abre **Grafo**, selecciona documentos y pulsa **Preparar evidencias**. Elige proveedor y modelo para **Modelizar relaciones**; el envío remoto se selecciona expresamente. Las propuestas conservan pasajes literales y admiten revisión y reanudación. Esta primera entrega muestra una lista de relaciones: el mapa visual y su uso en las respuestas del chat siguen pendientes.
+**Grafo (piloto):** abre **Grafo**, elige la colección y pulsa **Modelizar siguiente lote**. La aplicación prepara las evidencias y el modelo extrae y contrasta las relaciones automáticamente; no necesitas revisar listas. El mapa muestra conexiones respaldadas, agrupadas por fuente, con búsqueda, zoom y acceso a sus evidencias. El proveedor, modelo, selección de documentos y límite de pasajes están en **Fuentes y opciones del modelo**; el envío remoto se selecciona expresamente. La cobertura procesada se muestra en pantalla. La reconciliación entre documentos y su uso en el chat siguen pendientes.
 
-Antes de **Aceptar**, usa **Contrastar con la fuente** y justifica el resultado. **Verificar todas las colecciones** genera un informe de integridad y duplicados exactos, con un registro por documento; no certifica la veracidad de todo el contenido.
+**Diagnóstico y registros** es opcional: incluye decisiones del modelo, revisión administrativa e informe por documento de integridad y duplicados exactos. El contraste automático no certifica la veracidad de todo el contenido.
 
 ## Arrancar y parar
 

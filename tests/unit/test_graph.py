@@ -86,6 +86,49 @@ class GraphTests(unittest.TestCase):
                 source_db.backup(backup_db)
             self.assertEqual(GraphStore(backup).snapshot()['assertions'], 1)
 
+    def test_another_extraction_keeps_accepted_evidence_visible(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = GraphStore(Path(folder) / 'graph.sqlite3')
+            source = unit()
+            store.publish_units([source], ['board.md'])
+            previous = store.start_run({'signature': 'first'}, [source['id']])
+            store.publish_extraction(previous, source['id'], extraction(), {})
+            store.complete(previous)
+            accepted = store.snapshot()['rows'][0]['id']
+            store.verify(accepted, 'supported', 'The source explicitly states that the board supports this memory.')
+            store.review(accepted, 'accepted')
+            following = store.start_run({'signature': 'second'}, [source['id']])
+            store.publish_extraction(following, source['id'], extraction(), {})
+            self.assertEqual(store.snapshot()['assertions'], 1)
+            store.complete(following)
+            self.assertEqual(store.snapshot()['assertions'], 2)
+            self.assertIn(accepted, {row['id'] for row in store.snapshot()['rows']})
+            self.assertEqual(next(row for row in store.snapshot()['rows'] if row['id']==accepted)['review'], 'accepted')
+
+    def test_automatic_assessment_is_complete_atomic_and_does_not_need_user_review(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store = GraphStore(Path(folder) / 'graph.sqlite3')
+            source = unit()
+            store.publish_units([source], ['board.md'])
+            run = store.start_run({'signature': 'auto'}, [source['id']])
+            verdict = {'index': 0, 'status': 'supported', 'reason': 'The source explicitly states that the board supports this memory.', 'evidence_id': 'E1'}
+            with self.assertRaises(ValueError):
+                store.publish_extraction(run, source['id'], extraction(), {}, assessments=[])
+            store.publish_extraction(run, source['id'], extraction(), {}, assessments=[verdict])
+            self.assertEqual(store.snapshot()['assertions'], 0)
+            store.complete(run)
+            row = store.snapshot()['rows'][0]
+            self.assertEqual((row['verification'], row['review']), ('supported', 'accepted'))
+            alternate = store.start_run({'signature': 'legacy'}, [source['id']])
+            store.publish_extraction(alternate, source['id'], extraction(), {})
+            self.assertIsNotNone(store.batch_for_assessment(alternate, source['id']))
+            verdict['status'] = 'uncertain'
+            store.assess_existing_batch(alternate, source['id'], [verdict], {'automatic': True})
+            store.complete(alternate)
+            legacy = next(row for row in store.snapshot()['rows'] if row['run']==alternate)
+            self.assertEqual((legacy['verification'], legacy['review']), ('uncertain', 'rejected'))
+            self.assertIsNone(store.batch_for_assessment(alternate, source['id']))
+
     def test_missing_entities_are_rejected_without_domain_restrictions(self):
         for kind in ('ingredient', 'contract-requirement', 'component', 'intrusion-set'):
             payload = extraction()

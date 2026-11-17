@@ -62,9 +62,9 @@ Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate ada
 
 **CTI / APT datasets:** in **Library**, click **Add CTI · APTs**, select the new collection and click **Sync CTI · ATT&CK 20.1**. The default semantic sample is 5,000 documents; complete documented relationships are stored separately in SQLite. Switch collections in Library to return to your existing documents. Downloads, originals, Markdown evidence, JSONL exports and licenses are kept in `datasets/cti/`; collection indexes and history are in `data/collections/`. Chat uses the configured model to interpret structured questions and cites the actual evidence; a group's techniques do not establish an incident's sequence.
 
-**Graph (pilot):** open **Graph**, select documents and click **Prepare evidence**. Choose a provider and model to **Model relationships**; remote transmission must be explicitly selected. Proposals keep literal passages and support review and resume. This first delivery displays a relationship list: the visual map and its use in chat answers remain pending.
+**Graph (pilot):** open **Graph**, choose a collection and click **Model next batch**. The application prepares evidence and the model automatically extracts and assesses relationships; no list review is required. The map shows supported connections grouped by source, with search, zoom and access to evidence. Provider, model, document selection and passage limit are under **Sources and model options**; remote transmission must be explicitly selected. Processing coverage is displayed. Cross-document reconciliation and use in chat remain pending.
 
-Before **Accept**, use **Check against source** and explain the assessment. **Verify all collections** produces an integrity and exact-duplicate report with a record for each document; it does not certify the truth of all content.
+**Diagnostics and logs** is optional: it includes model decisions, administrative overrides and a per-document integrity and exact-duplicate report. Automated assessment does not certify the truth of all content.
 
 ## Start and stop
 

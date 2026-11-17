@@ -149,8 +149,9 @@ def audit(service, job, services):
                     except (KeyError, IndexError, TypeError, ValueError, OSError) as error:
                         issue(name, str(error))
                     report['checked_units'] += 1
-                rows = db.execute('''SELECT a.*,s.unit AS subject_unit,o.unit AS object_unit,COALESCE(v.status,'pending') AS verification
+                rows = db.execute('''SELECT a.*,s.unit AS subject_unit,o.unit AS object_unit,COALESCE(v.status,'pending') AS verification,r.status AS run_status
                     FROM graph_assertions a LEFT JOIN graph_entities s ON s.id=a.subject LEFT JOIN graph_entities o ON o.id=a.object
+                    JOIN graph_runs r ON r.id=a.run
                     LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)''')
                 for row in rows:
                     if row['unit'] not in units:
@@ -158,7 +159,7 @@ def audit(service, job, services):
                     unit = units[row['unit']]
                     if row['subject_unit'] != row['unit'] or row['object_unit'] != row['unit'] or unit['text'][row['start']:row['end']] != row['quote']:
                         issue(unit['file'], 'Relación con entidades o cita fuera de su unidad de evidencia.')
-                    if row['run'] == unit['published_run']:
+                    if row['run_status'] == 'done' and (row['run'] == unit['published_run'] or (row['review'] == 'accepted' and row['verification'] == 'supported')):
                         report['source_assessments'][row['verification']] += 1
                         if row['review'] in {'accepted', 'rejected'}:
                             report['source_assessments'][row['review']] += 1

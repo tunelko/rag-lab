@@ -49,6 +49,8 @@ class Assertion(BaseModel):
     basis: Literal['explicit', 'inferred']
     polarity: Literal['positive', 'negative'] = 'positive'
     qualifiers: dict[str, Annotated[str, Field(max_length=300)]] = Field(default_factory=dict, max_length=10)
+    source_start: int | None = Field(default=None, ge=0)
+    source_end: int | None = Field(default=None, ge=0)
 
 
 class Extraction(BaseModel):
@@ -66,6 +68,14 @@ class Extraction(BaseModel):
 
 class VerificationRequired(ValueError):
     pass
+
+
+class Assessment(BaseModel):
+    model_config = {'extra': 'forbid'}
+    index: int = Field(ge=0, le=11)
+    status: Literal['supported', 'unsupported', 'uncertain']
+    reason: str = Field(min_length=20, max_length=1500)
+    evidence_id: str = Field(min_length=1, max_length=20)
 
 
 class GraphStore:
@@ -166,8 +176,9 @@ class GraphStore:
             with self.connection() as db:
                 db.execute("UPDATE graph_runs SET status='interrupted' WHERE status IN ('queued','running')")
 
-    def publish_extraction(self, run, unit_id, extraction, metrics):
+    def publish_extraction(self, run, unit_id, extraction, metrics, assessments=None):
         extraction = Extraction.model_validate(extraction)
+        checked = None if assessments is None else self._assessments(assessments, len(extraction.assertions))
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             unit = db.execute('SELECT text,active FROM graph_units WHERE id=?', (unit_id,)).fetchone()
@@ -178,7 +189,12 @@ class GraphStore:
                 return
             spans = []
             for assertion in extraction.assertions:
-                start, end = literal_span(unit['text'], assertion.quote)
+                if assertion.source_start is not None or assertion.source_end is not None:
+                    start, end = assertion.source_start, assertion.source_end
+                    if start is None or end is None or not 0 <= start < end <= len(unit['text']) or unit['text'][start:end] != assertion.quote:
+                        raise ValueError('La posición y la cita deben coincidir exactamente con la fuente.')
+                else:
+                    start, end = literal_span(unit['text'], assertion.quote)
                 assertion.quote = unit['text'][start:end]
                 spans.append((start, end))
             entities = {row.key: identifier(unit_id, run, row.key) for row in extraction.entities}
@@ -186,23 +202,71 @@ class GraphStore:
                 db.execute('INSERT INTO graph_entities VALUES(?,?,?,?,?,?)',
                     (entities[row.key], unit_id, row.key, row.label, row.kind, run))
             for number, (row, span) in enumerate(zip(extraction.assertions, spans)):
+                claim_id = identifier(run, unit_id, number)
+                assessment = checked[number] if checked is not None else None
+                review = ('accepted' if assessment.status == 'supported' else 'rejected') if assessment else 'proposed'
                 db.execute('INSERT INTO graph_assertions VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)', (
-                    identifier(run, unit_id, number), unit_id, entities[row.subject], row.predicate, entities[row.object],
-                    row.quote, *span, row.basis, row.polarity, json.dumps(row.qualifiers), 'proposed', run))
+                    claim_id, unit_id, entities[row.subject], row.predicate, entities[row.object],
+                    row.quote, *span, row.basis, row.polarity, json.dumps(row.qualifiers), review, run))
+                if assessment:
+                    db.execute('INSERT INTO graph_verifications(assertion,status,note,created) VALUES(?,?,?,?)',
+                        (claim_id, assessment.status, 'Contraste automático del modelo: ' + assessment.reason, now()))
             db.execute('UPDATE graph_batches SET status=?,result=? WHERE run=? AND unit=?',
                 ('done', json.dumps({'metrics': metrics}), run, unit_id))
+
+    @staticmethod
+    def _assessments(values, count):
+        rows = [Assessment.model_validate(row) for row in values]
+        by_index = {row.index: row for row in rows}
+        if len(by_index) != len(rows) or set(by_index) != set(range(count)):
+            raise ValueError('El contraste debe cubrir todas las relaciones exactamente una vez.')
+        return by_index
+
+    def batch_for_assessment(self, run, unit):
+        with self.connection() as db:
+            rows = db.execute('''SELECT a.*,s.local_key AS subject_key,o.local_key AS object_key
+                FROM graph_assertions a JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
+                WHERE a.run=? AND a.unit=? ORDER BY a.rowid''', (run, unit)).fetchall()
+            needed = any(not db.execute('SELECT 1 FROM graph_verifications WHERE assertion=?', (row['id'],)).fetchone() for row in rows)
+            if not needed:
+                return None
+            entities = [{'key': row['local_key'], 'label': row['label'], 'kind': row['kind']} for row in db.execute(
+                'SELECT * FROM graph_entities WHERE run=? AND unit=? ORDER BY rowid', (run, unit))]
+            assertions = [{'subject': row['subject_key'], 'object': row['object_key'], 'predicate': row['predicate'],
+                'quote': row['quote'], 'basis': row['basis'], 'polarity': row['polarity'],
+                'qualifiers': json.loads(row['qualifiers']), 'source_start': row['start'], 'source_end': row['end']} for row in rows]
+            return Extraction(entities=entities, assertions=assertions)
+
+    def assess_existing_batch(self, run, unit, assessments, metrics):
+        with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            rows = db.execute('SELECT id FROM graph_assertions WHERE run=? AND unit=? ORDER BY rowid', (run, unit)).fetchall()
+            checked = self._assessments(assessments, len(rows))
+            for index, row in enumerate(rows):
+                assessment = checked[index]
+                db.execute('INSERT INTO graph_verifications(assertion,status,note,created) VALUES(?,?,?,?)',
+                    (row['id'], assessment.status, 'Contraste automático del modelo: ' + assessment.reason, now()))
+                db.execute('UPDATE graph_assertions SET review=? WHERE id=?',
+                    ('accepted' if assessment.status == 'supported' else 'rejected', row['id']))
+            previous = db.execute('SELECT result FROM graph_batches WHERE run=? AND unit=?', (run, unit)).fetchone()
+            result = json.loads(previous[0]) if previous and previous[0] else {}
+            result['automatic_assessment'] = metrics
+            db.execute('UPDATE graph_batches SET result=? WHERE run=? AND unit=?', (json.dumps(result), run, unit))
 
     def snapshot(self, limit=100):
         with self.connection() as db:
             counts = dict(db.execute('SELECT COUNT(DISTINCT file) AS documents,COUNT(*) AS units FROM graph_units WHERE active=1').fetchone())
             counts['modelled_units'] = db.execute('SELECT COUNT(*) FROM graph_units WHERE active=1 AND published_run IS NOT NULL').fetchone()[0]
-            counts['assertions'] = db.execute('SELECT COUNT(*) FROM graph_assertions a JOIN graph_units u ON u.id=a.unit WHERE u.active=1 AND a.run=u.published_run').fetchone()[0]
-            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,s.label AS subject_label,o.label AS object_label,
+            counts['assertions'] = db.execute('''SELECT COUNT(*) FROM graph_assertions a JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run
+                LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
+                WHERE u.active=1 AND r.status='done' AND (a.run=u.published_run OR (a.review='accepted' AND v.status='supported'))''').fetchone()[0]
+            rows = db.execute('''SELECT a.*,u.file,u.page,u.version,s.label AS subject_label,o.label AS object_label,s.kind AS subject_kind,o.kind AS object_kind,
                 COALESCE(v.status,'pending') AS verification,v.note AS verification_note
                 FROM graph_assertions a JOIN graph_units u ON u.id=a.unit
+                JOIN graph_runs r ON r.id=a.run
                 JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
                 LEFT JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
-                WHERE u.active=1 AND a.run=u.published_run ORDER BY a.rowid DESC LIMIT ?''', (limit,)).fetchall()
+                WHERE u.active=1 AND r.status='done' AND (a.run=u.published_run OR (a.review='accepted' AND v.status='supported')) ORDER BY a.rowid DESC LIMIT ?''', (limit,)).fetchall()
             runs = [dict(row) for row in db.execute('SELECT id,status,created,error FROM graph_runs ORDER BY created DESC LIMIT 20')]
             latest = db.execute('SELECT config FROM graph_runs ORDER BY created DESC LIMIT 1').fetchone()
             return {'schema': 1, **counts, 'rows': [dict(row) for row in rows], 'runs': runs,
@@ -219,7 +283,8 @@ class GraphStore:
                 raise ValueError('Relación no disponible.')
             if state == 'accepted':
                 unit = db.execute('SELECT active,published_run FROM graph_units WHERE id=?', (previous['unit'],)).fetchone()
-                if unit is None or not unit['active'] or unit['published_run'] != previous['run']:
+                run = db.execute('SELECT status FROM graph_runs WHERE id=?', (previous['run'],)).fetchone()
+                if unit is None or not unit['active'] or run is None or run[0] != 'done':
                     raise VerificationRequired('La relación no pertenece a la versión publicada actual.')
                 verdict = db.execute('SELECT status FROM graph_verifications WHERE assertion=? ORDER BY id DESC LIMIT 1', (assertion,)).fetchone()
                 if not verdict or verdict[0] != 'supported':
@@ -233,9 +298,9 @@ class GraphStore:
             raise ValueError('Indica un resultado y una justificación de al menos 20 caracteres.')
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
-            row = db.execute('''SELECT a.*,u.text,u.active,u.published_run FROM graph_assertions a
-                JOIN graph_units u ON u.id=a.unit WHERE a.id=?''', (assertion,)).fetchone()
-            if row is None or not row['active'] or row['published_run'] != row['run']:
+            row = db.execute('''SELECT a.*,u.text,u.active,u.published_run,r.status AS run_status FROM graph_assertions a
+                JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run WHERE a.id=?''', (assertion,)).fetchone()
+            if row is None or not row['active'] or row['run_status'] != 'done':
                 raise ValueError('La relación no pertenece a la versión publicada actual.')
             if row['text'][row['start']:row['end']] != row['quote']:
                 raise ValueError('La cita no coincide con su evidencia; no se puede validar.')
