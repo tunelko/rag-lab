@@ -241,12 +241,18 @@ export class Graph{
     for(const id of ['graph-extract','graph-process','graph-reconcile'])$(id).disabled=held||missing;
     $('graph-cancel').hidden=!this.busy;$('graph-model').classList.toggle('is-missing',missing);$('graph-model-reason').hidden=!missing;
   }
+  // A verified stage shows the same drawn tick as the checklist, centred in its circle; the others keep their number.
+  tick(badge,done,number){
+    if(!done){badge.textContent=String(number);return;}
+    if(badge.querySelector('svg'))return;
+    const icon=document.createElementNS(SVG,'svg'),use=document.createElementNS(SVG,'use');icon.setAttribute('class','icon');icon.setAttribute('aria-hidden','true');use.setAttribute('href','#i-check');icon.append(use);badge.replaceChildren(icon);
+  }
   // The stages: the one working in lime; in mint, with a check, the ones the server has verified for the selection.
   stages(current=this.stage){
     this.stage=current;
     [...$('graph-stages').children].forEach((item,index)=>{
       const now=current===index,done=!now&&(Boolean(this.verified?.[index])||(current!=null&&index<current));
-      item.classList.toggle('is-current',now);item.classList.toggle('is-done',done);item.querySelector('.step-no').textContent=done?'✓':String(index+1);
+      item.classList.toggle('is-current',now);item.classList.toggle('is-done',done);this.tick(item.querySelector('.step-no'),done,index+1);
       if(now)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
     });
   }

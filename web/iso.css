@@ -984,7 +984,8 @@
 :root[data-theme] .graph-checks .pill { text-transform: uppercase; }
 :root[data-theme] .graph-stages > li:nth-child(4) .step-no { background: var(--sky); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .graph-stages > li:nth-child(5) .step-no { background: var(--coral); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-:root[data-theme] .graph-stages > li.is-done .step-no { background: var(--paper); font-size: 12px; font-weight: 800; }
+:root[data-theme] .graph-stages > li.is-done .step-no { background: var(--paper); }
+:root[data-theme] .graph-stages .step-no .icon { display: block; width: 12px; height: 12px; stroke-width: 3.2; }
 /* Continuous runs, entities across passages and measurement */
 :root[data-theme] .graph-modern { display: flex; flex-direction: column; gap: 14px; }
 :root[data-theme] .graph-modern .field { gap: 8px; }
