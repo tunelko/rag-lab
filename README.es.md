@@ -7,25 +7,11 @@
 Haz preguntas sobre tus propios documentos (PDF, texto, imágenes) desde una página
 web en tu equipo. Los documentos se indexan en tu máquina y las respuestas citan su fuente.
 
-## Pantallas
+## Chat
 
-### Biblioteca
+<img src="docs/images/chat-es.png" alt="La pantalla Chat: Musa, tres preguntas de ejemplo y la caja de preguntar con la colección y top-k" width="860">
 
-<img src="docs/images/library-es.png" alt="La pantalla Biblioteca: la cabecera con sus botones, el dibujo de las seis etapas y la tabla de documentos" width="860">
-
-Tus documentos y su estado. Pulsa **Añadir documentos** para subirlos; el dibujo muestra las seis etapas por las que pasa cada documento, de la ingesta al modelo, con la cifra actual de cada una. La tabla de abajo lista cada documento con sus fragmentos y si está **Indexado**.
-
-### Grafo
-
-<img src="docs/images/graph-es.png" alt="La pantalla Grafo: la fila de etapas, el mapa de entidades y relaciones y el panel Evidencia" width="860">
-
-Las conexiones encontradas entre las entidades que nombran tus documentos. Elige las fuentes, pulsa **Procesar selección** y sigue las cinco etapas de arriba. En el mapa, selecciona una tarjeta o una línea para leer en **Evidencia** el pasaje que la respalda.
-
-### Configuración
-
-<img src="docs/images/settings-es.png" alt="La pantalla Configuración: el dibujo de etapas y las tarjetas de documentos multimodales, índice y recuperación" width="860">
-
-Una tarjeta por etapa del flujo: qué se describe al indexar (**Documentos multimodales**), el índice en uso (**Índice**, solo lectura), cuántos fragmentos llegan al modelo (**Retrieval**) y, debajo, qué modelo responde (**Modelo**). Los cambios se guardan al instante.
+Pregunta con tus palabras. Musa responde con los documentos de la colección o categoría elegida en la caja de preguntar, y cada respuesta cita sus fuentes: **Contexto** abre los fragmentos que usó.
 
 ## Requisitos
 
@@ -115,3 +101,21 @@ Las respuestas usan Ollama local salvo que elijas un proveedor en la nube en
 **Configuración**; consulta [qué recibe un proveedor en la nube](docs/CLOUD_VISION.md).
 La indexación es siempre local. Los límites de seguridad están en [SECURITY.md](SECURITY.md).
 Las pruebas reales de seguridad y sus comandos están en [tests/README.md](tests/README.md).
+
+## Biblioteca
+
+<img src="docs/images/library-es.png" alt="La pantalla Biblioteca: la cabecera con sus botones, el dibujo de las seis etapas y la tabla de documentos" width="860">
+
+Tus documentos y su estado. Pulsa **Añadir documentos** para subirlos; el dibujo muestra las seis etapas por las que pasa cada documento, de la ingesta al modelo, con la cifra actual de cada una. La tabla de abajo lista cada documento con sus fragmentos y si está **Indexado**.
+
+## Grafo
+
+<img src="docs/images/graph-es.png" alt="La pantalla Grafo: la fila de etapas, el mapa de entidades y relaciones y el panel Evidencia" width="860">
+
+Las conexiones encontradas entre las entidades que nombran tus documentos. Elige las fuentes, pulsa **Procesar selección** y sigue las cinco etapas de arriba. En el mapa, selecciona una tarjeta o una línea para leer en **Evidencia** el pasaje que la respalda.
+
+## Configuración
+
+<img src="docs/images/settings-es.png" alt="La pantalla Configuración: el dibujo de etapas y las tarjetas de documentos multimodales, índice y recuperación" width="860">
+
+Una tarjeta por etapa del flujo: qué se describe al indexar (**Documentos multimodales**), el índice en uso (**Índice**, solo lectura), cuántos fragmentos llegan al modelo (**Retrieval**) y, debajo, qué modelo responde (**Modelo**). Los cambios se guardan al instante.

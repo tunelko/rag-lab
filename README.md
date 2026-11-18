@@ -7,25 +7,11 @@
 Ask questions about your own documents (PDF, text, images) from a web page on your
 computer. Documents are indexed on your machine and answers cite their source.
 
-## Screens
+## Chat
 
-### Library
+<img src="docs/images/chat-en.png" alt="The Chat screen: Musa, three example questions and the question box with the collection and top-k" width="860">
 
-<img src="docs/images/library-en.png" alt="The Library screen: the heading with its buttons, the diagram of the six stages and the table of documents" width="860">
-
-Your documents and their state. Click **Add documents** to upload them; the diagram shows the six stages every document goes through, from ingestion to the model, with the figure of each one now. The table below lists every document with its chunks and whether it is **Indexed**.
-
-### Graph
-
-<img src="docs/images/graph-en.png" alt="The Graph screen: the row of stages, the map of entities and relations, and the Evidence panel" width="860">
-
-The connections found between the entities named in your documents. Choose the sources, click **Process selection** and follow the five stages at the top. On the map, select a card or a line to read the passage that supports it under **Evidence**.
-
-### Settings
-
-<img src="docs/images/settings-en.png" alt="The Settings screen: the diagram of stages and the cards of multimodal documents, index and retrieval" width="860">
-
-One card per stage of the pipeline: what is described when indexing (**Multimodal documents**), the index in use (**Index**, read-only), how many chunks reach the model (**Retrieval**) and, below, which model answers (**Model**). Changes are saved at once.
+Ask in your own words. Musa answers with the documents of the collection or category chosen in the question box, and every answer cites its sources: **Context** opens the fragments it used.
 
 ## Requirements
 
@@ -115,3 +101,21 @@ Answers use local Ollama unless you choose a cloud provider in **Settings**; see
 [what a cloud provider receives](docs/CLOUD_VISION.md). Indexing is always local.
 Security boundaries are in [SECURITY.md](SECURITY.md).
 Real security checks and commands are in [tests/README.md](tests/README.md).
+
+## Library
+
+<img src="docs/images/library-en.png" alt="The Library screen: the heading with its buttons, the diagram of the six stages and the table of documents" width="860">
+
+Your documents and their state. Click **Add documents** to upload them; the diagram shows the six stages every document goes through, from ingestion to the model, with the figure of each one now. The table below lists every document with its chunks and whether it is **Indexed**.
+
+## Graph
+
+<img src="docs/images/graph-en.png" alt="The Graph screen: the row of stages, the map of entities and relations, and the Evidence panel" width="860">
+
+The connections found between the entities named in your documents. Choose the sources, click **Process selection** and follow the five stages at the top. On the map, select a card or a line to read the passage that supports it under **Evidence**.
+
+## Settings
+
+<img src="docs/images/settings-en.png" alt="The Settings screen: the diagram of stages and the cards of multimodal documents, index and retrieval" width="860">
+
+One card per stage of the pipeline: what is described when indexing (**Multimodal documents**), the index in use (**Index**, read-only), how many chunks reach the model (**Retrieval**) and, below, which model answers (**Model**). Changes are saved at once.
