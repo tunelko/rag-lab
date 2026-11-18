@@ -1265,5 +1265,6 @@
   "graph.check_model": "choose a model",
   "graph.check_assessment_none": "no relations to assess",
   "graph.check_connection_none": "no repeated entities",
-  "graph.checks_settled": "Nothing pending · {verified} verified"
+  "graph.checks_settled": "Nothing pending · {verified} verified",
+  "graph.checks_collection": "Checks for the collection"
 }

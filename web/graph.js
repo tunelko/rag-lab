@@ -56,7 +56,7 @@ export class Graph{
     $('graph-verification-close').addEventListener('click',()=>$('graph-verification-dialog').close());
     $('graph-verification-dialog').addEventListener('close',()=>this.verifyTrigger?.focus());
     $('graph-verification-form').addEventListener('submit',async event=>{event.preventDefault();try{await this.api('/api/graph/assertions/'+this.verifyRow.id+'/verification',post({status:$('graph-verification-status').value,note:$('graph-verification-note').value}));$('graph-verification-dialog').close();await this.refresh();}catch(error){toast(error.message);}});
-    window.addEventListener('rag:languagechange',()=>{if(this.snapshot)this.render(this.snapshot);this.sources();this.renderAudit();this.identity();if(this.task)this.renderTask(this.task);if(this.checks)this.renderChecks(this.checks);});
+    window.addEventListener('rag:languagechange',()=>{if(this.snapshot)this.render(this.snapshot);this.sources();this.renderAudit();this.identity();if(this.task)this.renderTask(this.task);if(this.checks)this.renderChecks(this.checks,this.checkScope);});
     this.stages(null);this.controls();
   }
   // The next sources still to process, as the server lists them; on an older server, the first ones of the list.
@@ -111,12 +111,15 @@ export class Graph{
   check(){clearTimeout(this.checkTimer);this.checkTimer=setTimeout(()=>this.runCheck(),350);}
   async runCheck(){
     const files=this.chosen(),ticket=this.checkTicket=(this.checkTicket||0)+1;
+    // With nothing chosen the checks describe the whole collection, from the page of documents already read.
+    if(this.modern&&!files.length&&this.documents?.selection_checks){this.renderChecks(this.documents,'collection');return;}
     if(!this.modern||!files.length||files.length>this.max){this.renderChecks(null);return;}
     try{const data=await this.api('/api/graph/documents/check',post({files,provider:$('graph-provider').value,model:$('graph-model').value.trim()}));if(ticket===this.checkTicket)this.renderChecks(data);}
     catch{if(ticket===this.checkTicket)this.renderChecks(null);}
   }
-  renderChecks(data){
-    this.checks=data;$('graph-checks').hidden=!data;this.states=[];
+  renderChecks(data,scope='selection'){
+    this.checks=data;this.checkScope=scope;$('graph-checks').hidden=!data;this.states=[];
+    $('graph-checks-title').textContent=label(scope==='collection'?'checks_collection':'checks_title');
     if(!data){this.stages();return;}
     const rows=CHECKS.map(key=>({key,...data.selection_checks[key]}));
     rows.push({key:'connection',state:data.reconciliation_state||(data.reconciliation_checked?'verified':'pending')});

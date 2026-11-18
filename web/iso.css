@@ -1046,13 +1046,13 @@
 }
 
 /* ---------- 12. Widths ---------- */
-/* The launcher is an icon with its shortcut, the status an icon with one word and the language has no flag,
+/* The launcher is an icon with its shortcut, the status an icon with one word and the language its flag and code,
    so seven tabs fit in one row. When the row tightens the idle tabs lose their icon, then the mark keeps
    only its cube; the tab labels are the last thing to give way. */
 :root[data-theme] .cmdk__label { display: none; }
-:root[data-theme] .topbar-language img { display: none; }
-:root[data-theme] .topbar-language, :root[data-theme] .topbar-language .langbtn { width: 60px; }
-:root[data-theme] .topbar-language .langbtn { padding: 0 2px 0 8px; }
+:root[data-theme] .topbar-language, :root[data-theme] .topbar-language .langbtn { width: 92px; }
+:root[data-theme] .topbar-language .langbtn { padding: 0 2px 0 30px; }
+:root[data-theme] .topbar-language img { left: 9px; border: 1px solid var(--edge); border-radius: 2px; box-sizing: content-box; }
 /* The native list of a select opens with the system's colours, whatever fill the control has. */
 :root[data-theme] option { background-color: Canvas; color: CanvasText; }
 @media (max-width: 1299px) {

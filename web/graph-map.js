@@ -91,7 +91,7 @@ export class GraphMap {
       control.addEventListener('click', open); tag.addEventListener('click', open);
       control.addEventListener('focus', () => tag.classList.add('is-near')); control.addEventListener('blur', () => tag.classList.remove('is-near'));
       control.addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); open(); } });
-      drawing.append(control); this.lines.push({edge, control, line, hit, tag});
+      drawing.append(control); this.lines.push({edge, control, line, hit, tag, width});
     }
     // Entities: a card with the type in small capitals over the name, in the pastel of its type.
     this.cards = [];
@@ -174,12 +174,16 @@ export class GraphMap {
 
   paint() {
     for (const {item, control} of this.cards) control.setAttribute('transform', `translate(${item.x} ${item.y})`);
-    for (const {edge, line, hit, tag} of this.lines) {
+    for (const {edge, line, hit, tag, width} of this.lines) {
       const a = this.positions.get(edge.source), b = this.positions.get(edge.target), from = border(b, a, a.half), to = border(a, b, b.half);
-      if (edge.shift) { const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy) || 1, ox = -dy / length * edge.shift, oy = dx / length * edge.shift; from.x += ox; from.y += oy; to.x += ox; to.y += oy; }
+      const dx = to.x - from.x, dy = to.y - from.y, length = Math.hypot(dx, dy) || 1, nx = -dy / length, ny = dx / length;
+      if (edge.shift) { from.x += nx * edge.shift; from.y += ny * edge.shift; to.x += nx * edge.shift; to.y += ny * edge.shift; }
       for (const [key, value] of Object.entries({x1: from.x, y1: from.y, x2: to.x, y2: to.y})) { line.setAttribute(key, value); hit.setAttribute(key, value); }
-      // The label sits at the middle of the visible stretch, between the two cards.
-      tag.setAttribute('transform', `translate(${(from.x + to.x) / 2} ${(from.y + to.y) / 2})`);
+      // The label sits at the middle of the visible stretch, between the two cards. On a stretch shorter than the label
+      // it steps aside (upwards, or outwards between parallel relations), so the line and its arrow stay in view.
+      let x = (from.x + to.x) / 2, y = (from.y + to.y) / 2;
+      if (length < width + 34) { const side = edge.shift ? Math.sign(edge.shift) : ny > 0 ? -1 : 1, reach = Math.abs(nx) * width / 2 + Math.abs(ny) * 10 + 6; x += nx * side * reach; y += ny * side * reach; }
+      tag.setAttribute('transform', `translate(${x} ${y})`);
     }
     // A bridge arcs over the map between the two cards of one entity.
     for (const {a, b, path, hit} of this.links || []) { const d = `M${a.x} ${a.y - a.half.h} Q${(a.x + b.x) / 2} ${Math.min(a.y, b.y) - 150} ${b.x} ${b.y - b.half.h}`; path.setAttribute('d', d); hit.setAttribute('d', d); }

@@ -1265,5 +1265,6 @@
   "graph.check_model": "elige un modelo",
   "graph.check_assessment_none": "no hay relaciones que contrastar",
   "graph.check_connection_none": "no hay entidades repetidas",
-  "graph.checks_settled": "Nada pendiente · {verified} verificados"
+  "graph.checks_settled": "Nada pendiente · {verified} verificados",
+  "graph.checks_collection": "Comprobaciones de la colección"
 }
