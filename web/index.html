@@ -410,7 +410,6 @@
       <li class="sys__row sys__row--gpu" hidden="" id="system-gpu-row">
        <div class="sys__top">
         <span class="sys__label">GPU</span>
-        <span class="sys__tag num" id="system-gpu-usage"></span>
        </div>
        <div class="gpu">
         <svg aria-hidden="true" class="gpu__card" id="system-gpu-card" viewBox="0 0 150 78">
@@ -426,7 +425,11 @@
         </svg>
         <div class="gpu__side">
          <p class="sys__value" id="system-gpu">—</p>
-         <p class="sys__metrics" id="system-gpu-metrics"></p>
+         <dl class="gpu__now" id="system-gpu-metrics">
+          <div><dd id="gpu-now-use">—</dd><dt data-i18n="system.gpu_use">Uso</dt></div>
+          <div><dd id="gpu-now-heat">—</dd><dt data-i18n="system.gpu_heat">Temp.</dt></div>
+          <div><dd id="gpu-now-power">—</dd><dt data-i18n="system.gpu_power">Consumo</dt></div>
+         </dl>
         </div>
        </div>
        <div class="gpu__history" hidden="" id="system-gpu-history">
@@ -649,7 +652,7 @@
        <header class="page-head card__head chat-toolbar">
         <div class="chat-heading">
          <p class="chat-crumb" id="chat-crumb"></p>
-         <h1 class="page-title"><span class="chat-title-short" data-i18n="sentinel.chat">Chat</span><span class="chat-title-long" data-i18n="journey.page_title">Consultas en el chat</span></h1>
+         <h1 class="page-title"><span class="chat-title-short" data-i18n="sentinel.chat">Chat</span><span class="chat-title-long" data-i18n="journey.page_title">Consultas</span></h1>
          <span class="chat-summary" id="conversation-count"></span>
          <span class="meta" id="settings-sync" role="status"></span>
         </div>

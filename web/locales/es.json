@@ -1033,7 +1033,7 @@
   "scene.retrieval": "Retrieval",
   "scene.model": "Modelo",
   "journey.aside_label": "Cómo se respondió",
-  "journey.page_title": "Consultas en el chat",
+  "journey.page_title": "Consultas",
   "journey.step": "PASO {step} / 6",
   "journey.state_queued": "EN COLA",
   "journey.state_retrieving": "RECUPERANDO",
@@ -1282,5 +1282,7 @@
   "system.perf_cpu": "Uso de CPU",
   "system.perf_cpu_history": "Historial de uso de CPU",
   "system.perf_memory": "Uso de mem.",
-  "system.perf_memory_history": "Historial de uso de memoria"
+  "system.perf_memory_history": "Historial de uso de memoria",
+  "system.gpu_heat": "Temp.",
+  "system.gpu_power": "Consumo"
 }

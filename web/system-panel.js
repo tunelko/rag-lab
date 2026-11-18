@@ -54,7 +54,9 @@ export class SystemPanel {
     // A long model is squeezed into the plate instead of running over its edge.
     if (label.model.length > 6) { model.setAttribute('textLength', '31'); model.setAttribute('lengthAdjust', 'spacingAndGlyphs'); } else { model.removeAttribute('textLength'); model.removeAttribute('lengthAdjust'); }
     $('system-gpu-card').classList.toggle('is-busy', (device.utilization_percent ?? 0) >= 15);
-    $('system-gpu-usage').textContent = device.utilization_percent == null ? '' : number(device.utilization_percent) + ' %';
+    // Each reading has its own slot of fixed width and whole numbers, so nothing moves when a value changes.
+    const slot = (id, value, unit) => { $(id).textContent = value == null ? '—' : number(value) + unit; };
+    slot('gpu-now-use', device.utilization_percent, ' %'); slot('gpu-now-heat', device.temperature_c, ' °C'); slot('gpu-now-power', device.power_w, ' W');
   }
 
   // The last minute, from the history the server sends with every reading: use of the device and of its memory.
