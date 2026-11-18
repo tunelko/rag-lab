@@ -1,4 +1,5 @@
 import {t, intlLocale, serverText} from './i18n.js';
+import {writeClipboard} from './clipboard.js';
 import {renderMarkdown} from './markdown.js';
 import {collectionUrl} from './collection-scope.js';
 
@@ -35,7 +36,7 @@ export function errorData(input = {}) {
   const [message, hint, retryable] = catalog[code] || catalog.UNEXPECTED;
   return {code, message: serverText(input.message) || message, hint: serverText(input.hint) || hint, detail: input.detail || '', retryable: input.retryable ?? retryable};
 }
-export async function copyText(text, message = t("ui.answer_copied_41e1be")) { try { await navigator.clipboard.writeText(text); toast(message); } catch { toast(t("ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3")); } }
+export async function copyText(text, message = t("ui.answer_copied_41e1be")) { toast(await writeClipboard(text) ? message : t("ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3")); }
 
 export function renderText(container, text, citations = new Set(), prefix = 'src') {
   renderMarkdown(container,text,citations,prefix);
@@ -141,7 +142,7 @@ export function showResult(result, opener = document.activeElement) {
   $('dialog-technical').hidden = !failed; $('dialog-technical').open = false;
   const details = failures.map((item) => `${item.name}\n${item.error.code}: ${item.error.detail || item.error.message}`).join('\n\n');
   $('dialog-technical').querySelector('pre').textContent = details;
-  $('copy-details').onclick = async () => { try { await navigator.clipboard.writeText(details); toast(t("ui.details_copied_ab487a")); } catch { toast(t("ui.select_the_details_and_use_ctrl_c_31bdce")); } };
+  $('copy-details').onclick = async () => { toast(t(await writeClipboard(details) ? "ui.details_copied_ab487a" : "ui.select_the_details_and_use_ctrl_c_31bdce")); };
   $('dialog-actions').replaceChildren();
   const close = button(failed ? t("ui.close_aeccae") : t("ui.add_more_1fe414"), 'button secondary', () => dialog.close()); $('dialog-actions').append(close);
   let primary;

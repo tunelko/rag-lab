@@ -1,6 +1,7 @@
 import {t} from './i18n.js';
 import {Marked} from './vendor/marked/marked.esm.js';
 import DOMPurify from './vendor/dompurify/purify.es.js';
+import {writeClipboard} from './clipboard.js';
 
 const escape=text=>String(text).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const parser=new Marked({gfm:true,breaks:false,async:false});
@@ -60,8 +61,7 @@ function decorateCode(fragment){
     const label=document.createElement('span');label.textContent=language;
     const copy=document.createElement('button');copy.type='button';copy.textContent=t("ui.copy_39dcf1");copy.className='text-button';copy.setAttribute('aria-label',t("ui.copy_code_block_91ce14"));
     copy.addEventListener('click',async()=>{
-      try{await navigator.clipboard.writeText(code.textContent);copy.textContent=t("ui.copied_d8dd87");}
-      catch{copy.textContent=t("ui.could_not_copy_2af300");}
+      copy.textContent=t(await writeClipboard(code.textContent)?"ui.copied_d8dd87":"ui.could_not_copy_2af300");
       setTimeout(()=>{copy.textContent=t("ui.copy_39dcf1");},2000);
     });
     header.append(label,copy);pre.replaceWith(section);section.append(header,pre);

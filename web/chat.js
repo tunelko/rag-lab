@@ -8,6 +8,7 @@ import {groupSources,relevance} from './chat-sources.js';
 import {sessionKey} from './collection-scope.js';
 import {PipelineScene} from './pipeline-scene.js';
 import {journey} from './chat-journey.js';
+import {writeClipboard} from './clipboard.js';
 
 const STORE=sessionKey('rag-local-chat-v3'),s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
@@ -153,7 +154,7 @@ export class Chat{
     if(showHow)this.howPanel(turn,e);
   }
   async copy(turn,button){
-    try{await navigator.clipboard.writeText(turn.answer||'');}catch{toast(t('ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3'));return;}
+    if(!await writeClipboard(turn.answer||'')){toast(t('ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3'));return;}
     const label=button.querySelector('span');label.textContent=s('copied');button.classList.add('is-done');announce(s('copied'),'query-announcements');
     clearTimeout(button.timer);button.timer=setTimeout(()=>{label.textContent=s('copy');button.classList.remove('is-done');},2000);
   }
