@@ -12,7 +12,7 @@ const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4
 const card=(anchor,key,note)=>({anchor,key,note,element:()=>document.getElementById(anchor).closest('section')});
 const index=()=>card('settings-index-title','scene.go_index','scene.note_fixed');
 const place=(anchor,key)=>({anchor,key,element:()=>document.getElementById(anchor).closest('section')}),settings=()=>({href:'/configuracion',key:'scene.go_configuration'});
-const sceneTargets={laboratory:{1:settings(),2:settings(),3:settings(),4:settings(),5:settings()},library:{1:place('upload-card-head','scene.go_upload'),2:settings(),3:settings(),4:place('library-location','scene.go_documents'),5:settings(),6:settings()},settings:{1:card('settings-multimodal-title','scene.go_settings'),2:index(),3:index(),4:index(),5:card('settings-retrieval-title','scene.go_settings'),6:card('settings-generation-title','scene.go_settings')}};
+const sceneTargets={laboratory:{1:settings(),2:settings(),3:settings(),4:settings(),5:settings()},library:{2:settings(),3:settings(),4:place('library-location','scene.go_documents'),5:settings(),6:settings()},settings:{1:card('settings-multimodal-title','scene.go_settings'),2:index(),3:index(),4:index(),5:card('settings-retrieval-title','scene.go_settings'),6:card('settings-generation-title','scene.go_settings')}};
 export class Shell {
   constructor(api){
     Object.assign(this,{api,status:null,settings:null,view:'query',loading:false,finished:new Set()});
