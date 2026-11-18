@@ -119,3 +119,9 @@ Las conexiones encontradas entre las entidades que nombran tus documentos. Elige
 <img src="docs/images/settings-es.png" alt="La pantalla Configuración: el dibujo de etapas y las tarjetas de documentos multimodales, índice y recuperación" width="860">
 
 Una tarjeta por etapa del flujo: qué se describe al indexar (**Documentos multimodales**), el índice en uso (**Índice**, solo lectura), cuántos fragmentos llegan al modelo (**Retrieval**) y, debajo, qué modelo responde (**Modelo**). Los cambios se guardan al instante.
+
+## Vídeo
+
+<a href="https://youtu.be/mW0idEUoc0Y"><img src="docs/images/video-es.png" alt="Vídeo de RAG Local en YouTube; la imagen lo abre" width="860"></a>
+
+La aplicación en uso: [RAG system - A RAG proposal for search documents with open and cloud models](https://youtu.be/mW0idEUoc0Y). La imagen abre el vídeo en YouTube.

@@ -119,3 +119,9 @@ The connections found between the entities named in your documents. Choose the s
 <img src="docs/images/settings-en.png" alt="The Settings screen: the diagram of stages and the cards of multimodal documents, index and retrieval" width="860">
 
 One card per stage of the pipeline: what is described when indexing (**Multimodal documents**), the index in use (**Index**, read-only), how many chunks reach the model (**Retrieval**) and, below, which model answers (**Model**). Changes are saved at once.
+
+## Video
+
+<a href="https://youtu.be/mW0idEUoc0Y"><img src="docs/images/video-en.png" alt="Video of RAG Local on YouTube; the image opens it" width="860"></a>
+
+The application in use: [RAG system - A RAG proposal for search documents with open and cloud models](https://youtu.be/mW0idEUoc0Y). The image opens the video on YouTube.
