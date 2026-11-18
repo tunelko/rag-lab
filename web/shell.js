@@ -4,6 +4,7 @@ import {CommandPalette} from './command-palette.js';
 import {vramLevel} from './system-state.js';
 import {ingestionState,selectIngestionJob} from './ingestion-state.js';
 import {PipelineScene} from './pipeline-scene.js';
+import {SystemPanel} from './system-panel.js';
 const h=(key,values={})=>t(`header.${key}`,values),s=(key,values={})=>t(`sentinel.${key}`,values);
 const compact=value=>new Intl.NumberFormat(intlLocale(),{maximumFractionDigits:1}).format(value);
 const viewStages={query:[5,6],library:[1,2,3,4],settings:[2,3,5,6],statistics:[4],console:[],laboratory:[3,4,5]};
@@ -22,7 +23,7 @@ export class Shell {
     $('system-popover').addEventListener('toggle',event=>{$('system-button').setAttribute('aria-expanded',String(event.newState==='open'));const active=document.activeElement;if(event.newState==='closed'&&(this.systemFocus||!active||active===document.body))$('system-button').focus({preventScroll:true});this.systemFocus=false;});
     $('system-close').addEventListener('click',()=>{this.systemFocus=true;});
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('system-popover').matches(':popover-open')){this.systemFocus=true;$('system-popover').hidePopover();}});
-    $('system-popover').querySelectorAll('a,button').forEach(control=>control.addEventListener('click',()=>{if(control.id!=='refresh-button')$('system-popover').hidePopover();}));
+    $('system-popover').querySelectorAll('a,button').forEach(control=>control.addEventListener('click',()=>{if(control.id!=='refresh-button'&&!control.closest('.taskman'))$('system-popover').hidePopover();}));
     window.addEventListener('rag:languagechange',()=>{this.render();if(this.telemetry)this.hardware(this.telemetry);});
     window.addEventListener('rag:telemetry',event=>this.hardware(event.detail));
     window.addEventListener('rag:job',event=>{this.liveJob=event.detail;if(['done','error','cancelled'].includes(this.liveJob.status)){this.finished.add(this.liveJob.id);clearTimeout(this.jobTimer);this.jobTimer=setTimeout(()=>{this.liveJob=null;this.render();},1500);}this.render();});
@@ -56,9 +57,9 @@ export class Shell {
     $('system-gpu-row').hidden=!device;$('system-gpu').textContent=$('system-gpu').title=device?.name||'';
     const metrics=device?[[device.utilization_percent,' %',h('usage')],[device.temperature_c,' °C',''],[device.power_w,' W','']].filter(([value])=>value!=null).map(([value,unit,label])=>{const item=node('span');item.append(node('b','',compact(value)+unit));if(label)item.append(' '+label);return item;}):[];
     $('system-gpu-metrics').replaceChildren(...metrics);$('system-gpu-metrics').hidden=!metrics.length;
-    // The processes of the RAG server and Ollama, with the readings of the same sample.
-    const processes=(data?.processes||[]).map(process=>{const row=node('li','sys__process');row.append(node('span','sys__process-role',process.role==='rag'?t('ui.rag_server_1f279b'):'Ollama'),node('span','sys__process-use',`CPU ${process.cpu_percent==null?'—':number(process.cpu_percent,1)+' %'} · RAM ${number(process.ram_bytes/1024**3,2)} GiB`),node('span','sys__process-name',`${process.name} · PID ${process.pid}`));return row;});
-    $('hardware-processes').replaceChildren(...processes);$('system-processes-row').hidden=!processes.length;this.level();
+    // The drawn card, its chart and log, and the task manager with the processes of the RAG server and Ollama.
+    this.panel=this.panel||new SystemPanel();this.panel.render(data);
+    $('system-processes-row').hidden=!(data?.processes||[]).length;this.level();
   }
   ingestion(job){
     const state=ingestionState(job),active=job&&['running','queued'].includes(job.status);

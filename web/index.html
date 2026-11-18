@@ -279,7 +279,6 @@
         0
        </span>
       </a>
-      <a class="nav-item nav-settings-tab" href="/configuracion" id="nav-settings"><svg aria-hidden="true" class="icon"><use href="#i-settings"></use></svg><span data-i18n="sentinel.nav_settings">Configuración</span></a>
       <a class="nav-item" href="/estadisticas" id="nav-statistics">
        <svg aria-hidden="true" class="icon">
         <use href="#i-cpu">
@@ -346,6 +345,7 @@
        </option>
       </select>
      </label>
+     <a aria-label="Configuración" class="nav-item themebtn settingsbtn" data-i18n-aria-label="sentinel.nav_settings" data-i18n-title="sentinel.nav_settings" href="/configuracion" id="nav-settings" title="Configuración"><svg aria-hidden="true" class="icon"><use href="#i-gear"></use></svg></a>
     </div>
     <section aria-labelledby="system-title" class="sys" id="system-popover" popover="auto" role="dialog">
      <header class="sys__head">
@@ -407,17 +407,37 @@
         </i>
        </div>
       </li>
-      <li class="sys__row" hidden="" id="system-gpu-row">
+      <li class="sys__row sys__row--gpu" hidden="" id="system-gpu-row">
        <div class="sys__top">
-        <span class="sys__label">
-         GPU
-        </span>
+        <span class="sys__label">GPU</span>
+        <span class="sys__tag num" id="system-gpu-usage"></span>
        </div>
-       <p class="sys__value" id="system-gpu">
-        —
-       </p>
-       <p class="sys__metrics" id="system-gpu-metrics">
-       </p>
+       <div class="gpu">
+        <svg aria-hidden="true" class="gpu__card" id="system-gpu-card" viewBox="0 0 150 78">
+         <rect class="gpu__shade" x="11" y="13" width="136" height="52" rx="7"/>
+         <rect class="gpu__bracket" x="2" y="5" width="7" height="66" rx="1.5"/>
+         <rect class="gpu__pins" x="24" y="58" width="62" height="11" rx="1.5"/>
+         <rect class="gpu__body" x="9" y="9" width="136" height="52" rx="7"/>
+         <g class="gpu__fan"><circle cx="36" cy="35" r="19"/><path d="M36 35V18M36 35l14.7-8.5M36 35l14.7 8.5M36 35v17M36 35l-14.7 8.5M36 35l-14.7-8.5"/><circle class="gpu__hub" cx="36" cy="35" r="5"/></g>
+         <g class="gpu__fan"><circle cx="80" cy="35" r="19"/><path d="M80 35V18M80 35l14.7-8.5M80 35l14.7 8.5M80 35v17M80 35l-14.7 8.5M80 35l-14.7-8.5"/><circle class="gpu__hub" cx="80" cy="35" r="5"/></g>
+         <rect class="gpu__plate" x="104" y="17" width="35" height="36" rx="4"/>
+         <text class="gpu__series" id="system-gpu-series" text-anchor="middle" x="121.5" y="33">GPU</text>
+         <text class="gpu__model" id="system-gpu-model" text-anchor="middle" x="121.5" y="45"></text>
+        </svg>
+        <div class="gpu__side">
+         <p class="sys__value" id="system-gpu">—</p>
+         <p class="sys__metrics" id="system-gpu-metrics"></p>
+        </div>
+       </div>
+       <div class="gpu__history" hidden="" id="system-gpu-history">
+        <svg aria-label="Uso de la GPU y de su memoria en el último minuto" class="gpu__chart" data-i18n-aria-label="system.gpu_chart" preserveAspectRatio="none" role="img" viewBox="0 0 300 56">
+         <polyline class="gpu__line gpu__line--vram" id="system-gpu-chart-vram" points=""/>
+         <polyline class="gpu__line gpu__line--use" id="system-gpu-chart-use" points=""/>
+        </svg>
+        <p class="gpu__legend"><span class="gpu__key gpu__key--use" data-i18n="system.gpu_use">Uso</span><span class="gpu__key gpu__key--vram">VRAM</span><span class="gpu__span" data-i18n="system.gpu_minute">último minuto</span></p>
+       </div>
+       <p class="sys__label" data-i18n="system.gpu_log">Registro</p>
+       <ol class="gpu__log" id="system-gpu-log"></ol>
       </li>
       <li class="sys__row">
        <div class="sys__top">
@@ -451,14 +471,37 @@
         —
        </p>
       </li>
-      <li class="sys__row" hidden="" id="system-processes-row">
-       <div class="sys__top">
-        <span class="sys__label" data-i18n="sentinel.processes">
-         Procesos
-        </span>
-       </div>
-       <ul class="sys__processes" id="hardware-processes">
-       </ul>
+      <li class="sys__row sys__row--tasks" hidden="" id="system-processes-row">
+       <section aria-labelledby="taskman-title" class="taskman">
+        <header class="taskman__bar"><i aria-hidden="true" class="taskman__icon"></i><h3 class="taskman__title" data-i18n="system.taskman" id="taskman-title">Administrador de tareas</h3><span aria-hidden="true" class="taskman__caps"><i>_</i><i>□</i><i>×</i></span></header>
+        <div aria-labelledby="taskman-title" class="taskman__tabs" id="taskman-tabs" role="tablist">
+         <button aria-controls="taskman-processes" aria-selected="true" class="taskman__tab" data-i18n="sentinel.processes" data-tab="processes" id="taskman-tab-processes" role="tab" type="button">Procesos</button>
+         <button aria-controls="taskman-performance" aria-selected="false" class="taskman__tab" data-i18n="system.taskman_performance" data-tab="performance" id="taskman-tab-performance" role="tab" tabindex="-1" type="button">Rendimiento</button>
+        </div>
+        <div aria-labelledby="taskman-tab-processes" class="taskman__pane" id="taskman-processes" role="tabpanel">
+         <div class="taskman__list">
+          <table>
+           <thead id="taskman-head">
+            <tr>
+             <th aria-sort="none"><button data-i18n="system.taskman_name" data-sort="name" type="button">Nombre de imagen</button></th>
+             <th data-i18n="system.taskman_role">Tipo</th>
+             <th aria-sort="none"><button data-sort="pid" type="button">PID</button></th>
+             <th aria-sort="none"><button data-sort="cpu_percent" type="button">CPU</button></th>
+             <th aria-sort="none"><button data-i18n="system.taskman_mem" data-sort="ram_bytes" type="button">Uso de mem.</button></th>
+            </tr>
+           </thead>
+           <tbody id="hardware-processes"></tbody>
+          </table>
+         </div>
+        </div>
+        <div aria-labelledby="taskman-tab-performance" class="taskman__pane perf" hidden="" id="taskman-performance" role="tabpanel">
+         <figure class="perf__box"><figcaption data-i18n="system.perf_cpu">Uso de CPU</figcaption><div class="perf__screen perf__gauge" id="perf-cpu-gauge"><i></i><b id="perf-cpu-value"></b></div></figure>
+         <figure class="perf__box"><figcaption data-i18n="system.perf_cpu_history">Historial de uso de CPU</figcaption><div class="perf__screen"><svg aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 200 60"><polyline id="perf-cpu-line" points=""/></svg></div></figure>
+         <figure class="perf__box"><figcaption data-i18n="system.perf_memory">Uso de mem.</figcaption><div class="perf__screen perf__gauge" id="perf-memory-gauge"><i></i><b id="perf-memory-value"></b></div></figure>
+         <figure class="perf__box"><figcaption data-i18n="system.perf_memory_history">Historial de uso de memoria</figcaption><div class="perf__screen"><svg aria-hidden="true" preserveAspectRatio="none" viewBox="0 0 200 60"><polyline id="perf-memory-line" points=""/></svg></div></figure>
+        </div>
+        <footer class="taskman__status"><span id="taskman-count"></span><span id="taskman-cpu"></span><span id="taskman-memory"></span></footer>
+       </section>
       </li>
      </ul>
      <footer class="sys__foot">
@@ -1477,13 +1520,13 @@
         <span class="only-dark" data-i18n="sentinel.settings">
          Configuración
         </span>
-        <span class="only-light" data-i18n="settings.hero_title">Ajusta cada etapa</span>
+        <span class="only-light" data-i18n="settings.hero_title">Configuración</span>
        </h1>
        <p class="meta">
         <span class="only-dark" data-i18n="sentinel.settings_sub">
          Modelos, recuperación e índice
         </span>
-        <span class="only-light" data-i18n="settings.hero_sub">Cada tarjeta lleva el número de su etapa. Se guarda al instante en este equipo.</span>
+        <span class="only-light" data-i18n="settings.hero_sub">Tres etapas se ajustan aquí; las del índice se muestran para consulta. Se guarda al instante en este equipo.</span>
        </p>
       </div>
       <span aria-live="polite" class="cfg__save" id="settings-save" role="status">
