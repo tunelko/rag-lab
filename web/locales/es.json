@@ -1059,7 +1059,7 @@
   "journey.target_visual": "al modelo de visión",
   "journey.target_cloud": "al modelo en la nube",
   "journey.key_title": "IDEA CLAVE",
-  "journey.key_text": "La respuesta solo usa lo que hay en los fragmentos recuperados. Si falta algo, sube top-k o revisa la colección.",
+  "journey.key_text": "Top-k regula los fragmentos de una pregunta puntual. Los listados recorren las fuentes seleccionadas y eliminan duplicados antes de aplicar el límite solicitado.",
   "journey.list_title": "EN ESTA CONSULTA",
   "journey.check_vector": "Consulta vectorizada",
   "journey.check_fragments": "Fragmentos recuperados",

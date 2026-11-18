@@ -71,6 +71,8 @@ bash install/linux/configurar.sh
 3. In **Library**, click **Upload and index** and wait for **Indexed**. Follow progress in the menu strip; click it to open **System status** with page and image-description counts.
 4. In **Chat**, ask your question. **Retrieved context** shows the source of the answer. Open a source in the document viewer to read it in a modal or expand it to the full app window; PDFs open on the cited page.
 
+To request a list, select the collection and optionally a category. “List up to 100 catalog titles” reads the records locally. “List up to 100 suppliers mentioned in the minutes” checks indexed passages in the selection with the response model. Musa removes duplicate names, applies the limit and cites each result. The passage count (top-k) applies to focused questions. With a cloud provider, passages that require extraction are sent to that provider in batches. Ollama processes them locally.
+
 Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate adapter; the general document RAG and active library remain unchanged.
 
 **CTI / APT datasets:** in **Library**, click **Add CTI · APTs**, select the new collection and click **Sync CTI · ATT&CK 20.1**. The default semantic sample is 5,000 documents; complete documented relationships are stored separately in SQLite. Switch collections in Library to return to your existing documents. Downloads, originals, Markdown evidence, JSONL exports and licenses are kept in `datasets/cti/`; collection indexes and history are in `data/collections/`. Chat uses the configured model to interpret structured questions and cites the actual evidence; a group's techniques do not establish an incident's sequence.

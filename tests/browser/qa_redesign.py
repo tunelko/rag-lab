@@ -1000,7 +1000,7 @@ def run_browser(url):
         inventory = page.request.get(url + '/api/statistics').json()['recent'][0]['metrics']
         assert inventory['backend'] == 'catalog', inventory
         previous_turns = page.locator('.chat-turn').count()
-        page.locator('#question').fill('Dame la lista de cpus admitidas')
+        page.locator('#question').fill('Dame la lista de cpus admitidas por cada documento')
         page.locator('#ask-button').click()
         expect(page.locator('.chat-turn')).to_have_count(previous_turns + 1)
         expect(page.locator('.chat-turn').last).to_have_attribute('aria-busy','false')

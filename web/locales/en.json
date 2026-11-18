@@ -1059,7 +1059,7 @@
   "journey.target_visual": "to the vision model",
   "journey.target_cloud": "to the cloud model",
   "journey.key_title": "KEY IDEA",
-  "journey.key_text": "The answer only uses what is in the retrieved fragments. If something is missing, raise top-k or check the collection.",
+  "journey.key_text": "Top-k controls how many passages a focused question retrieves. Lists scan the selected sources and remove duplicates before applying the requested limit.",
   "journey.list_title": "IN THIS QUERY",
   "journey.check_vector": "Query vectorised",
   "journey.check_fragments": "Fragments retrieved",

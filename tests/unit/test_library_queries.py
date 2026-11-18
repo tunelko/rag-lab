@@ -117,7 +117,7 @@ class CatalogApiTests(unittest.TestCase):
             return json.dumps({key:'CPU soportadas en esta fuente.' for key in response_format['required']}), {'model':model}
         with patch('rag.generate_ollama',side_effect=generate):
             response=self.client.post('/api/query',headers=self.headers,json={
-                'question':'Dame la lista de cpus admitidas','k':2})
+                'question':'Dame la lista de cpus admitidas por cada documento','k':2})
             job=self.wait(response.json()['job_id'])
         self.assertEqual(len(job['sources']),6)
         self.assertEqual(job['metrics']['documents_retrieved'],6)

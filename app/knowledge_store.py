@@ -21,7 +21,7 @@ class KnowledgeQuery(BaseModel):
     targets: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=4)
     direction: Literal['outgoing', 'incoming', 'both'] = 'outgoing'
     relationship: str = Field(default='uses', max_length=80)
-    limit: int = Field(default=100, ge=1, le=100)
+    limit: int | None = Field(default=100, ge=0)
 
     @model_validator(mode='after')
     def check_list(self):
@@ -41,13 +41,22 @@ _LIST_WORDS = set('nombres nombre nombrs names name lista listado listar listame
                   'please documentados documentadas disponibles documented available todos todas all'.split())
 
 
+def cti_list_candidate(question, scope_label):
+    words = set(re.findall(r'\w+', normalize(question)))
+    if any(words & labels for labels in _CATALOG_TYPES.values()) or re.search(r'\b[GTSC]\d{4}\b', question, re.I):
+        return True
+    # A generic request for names may rely on the category to identify the type.
+    return (bool(scope_label) and bool(words & {'nombres', 'names', 'nombrs'})
+            and not (words - _LIST_WORDS - {'hasta', 'up', 'to'} - {word for word in words if word.isdecimal()}))
+
+
 def direct_name_list(question):
     """Only complete, unqualified catalogue requests take the model-free path."""
     words = normalize(question)
     if re.search(r'\b(?:apt|group|grupo)\s*[-#]?\s*\d', words):
         return None  # An actor identifier such as "APT 29" is not a result limit.
     numbers = re.findall(r'\b\d+\b', words)
-    if len(numbers) > 1 or (numbers and (len(numbers[0]) > 4 or int(numbers[0]) == 0)):
+    if len(numbers) > 1 or (numbers and len(numbers[0]) > 7):
         return None
     words = re.sub(r'\b(?:(?:hasta|up to|at most|maximo(?: de)?)\s+)?\d+\b', ' ', words)
     words = set(re.findall(r'\w+', words))
@@ -58,7 +67,7 @@ def direct_name_list(question):
                                  'listame', 'list', 'enumera', 'enumerate', 'todos', 'todas', 'all', 'dame', 'show'}):
         return None
     return KnowledgeQuery(operation='list_names', target_type=kinds[0], source='all',
-                          limit=min(100, int(numbers[0])) if numbers else 100)
+                          limit=int(numbers[0]) if numbers else None if words & {'todos', 'todas', 'all'} else 100)
 
 
 def list_names(db, plan, documents):
