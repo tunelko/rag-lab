@@ -176,7 +176,8 @@ export class Chat{
       label=doing.replace(/[.…]+$/,'')+(seconds==null?'':' · '+number(seconds,1)+' s');kind='run';
     }
     if(e.state.textContent!==label)e.state.textContent=label;e.state.hidden=!label;e.state.className='a__state chat-state'+(kind?' a__state--'+kind:'');
-    const finished=busy?[]:[turn.model||metrics.model,turn.elapsed_seconds!=null&&turn.status!=='error'?number(turn.elapsed_seconds,1)+' s':''].filter(Boolean);
+    // Beside the name: the model, how long it took and, when the answer was generated and measured, its speed.
+    const finished=busy?[]:[turn.model||metrics.model,turn.elapsed_seconds!=null&&turn.status!=='error'?number(turn.elapsed_seconds,1)+' s':'',metrics.generation_tok_s!=null&&turn.status!=='error'?number(metrics.generation_tok_s,2)+' tok/s':''].filter(Boolean);
     e.model.textContent=finished.join(' · ');e.model.hidden=!finished.length;
     const key=getLanguage()+JSON.stringify(sources);if(e.sourceKey!==key){this.renderSourceList(turn,e.sources,sources);e.sourceKey=key;}
     // The route, the images and the speed of the answer are told in «how it was answered», not in its heading.
