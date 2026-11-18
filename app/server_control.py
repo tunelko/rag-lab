@@ -93,16 +93,16 @@ def matching_processes(root, port):
     return [(process, managed) for process, managed in matched if process.pid not in parents]
 
 
-def active_jobs(port,host='127.0.0.1'):
+def active_jobs(port,host='127.0.0.1', *, allow_disconnected=True):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open(f'http://{host}:{port}/api/jobs?active=1&all_collections=1', timeout=3) as response:
             payload = json.load(response)
-        if not isinstance(payload.get('jobs'), list):
+        if not isinstance(payload, dict) or not isinstance(payload.get('jobs'), list):
             raise RuntimeError('No se puede verificar la cola del servidor; no se detendra.')
         return payload['jobs']
     except urllib.error.URLError as error:
-        if isinstance(error.reason, (ConnectionRefusedError, ConnectionResetError)):
+        if allow_disconnected and isinstance(error.reason, (ConnectionRefusedError, ConnectionResetError)):
             return []
         raise RuntimeError(f'No se puede comprobar la cola: {error}') from error
 
@@ -111,6 +111,45 @@ def port_in_use(port,host='127.0.0.1'):
     with socket.socket() as connection:
         connection.settimeout(.25)
         return connection.connect_ex((host, port)) == 0
+
+
+def server_status(root, port, host, *, include_jobs=False):
+    processes = matching_processes(root, port)
+    pid = None
+    if processes:
+        process = processes[0][0]
+        try:
+            host = validate_host(argument(process.cmdline(), '--host') or '127.0.0.1')
+            pid = process.pid
+        except psutil.NoSuchProcess:
+            pass
+    listening = port_in_use(port, host)
+    if pid:
+        state = 'running' if listening else 'starting'
+    else:
+        state = 'occupied' if listening else 'stopped'
+    status = {'state': state, 'host': host, 'port': port, 'pid': pid, 'jobs': None}
+    if include_jobs and state == 'running':
+        try:
+            status['jobs'] = len(active_jobs(port, host, allow_disconnected=False))
+        except (OSError, ValueError, RuntimeError) as error:
+            status['queue_error'] = str(error)
+    return status
+
+
+def open_panel(root, port, host):
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        raise ValueError('El panel necesita una terminal interactiva. Usa start, stop, restart o status en scripts.')
+    install = ROOT / 'install'
+    sys.path.insert(0, str(install))
+    from configure_lab import interface_python, saved_language, set_language
+    from setup_texts import resolve
+    language = set_language(resolve(saved=saved_language(root)))
+    command = [str(interface_python()), str(install / 'server_panel.py'), '--root', str(root),
+               '--port', str(port), '--lang', language, '--python', sys.executable]
+    if host:
+        command.extend(['--host', host])
+    return subprocess.call(command)
 
 
 def atomic_json(path, value):
@@ -297,44 +336,56 @@ def run_server(root, port,host='127.0.0.1'):
 
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] in ('--start', '--stop', '--restart', '--status'):
+    if argv and argv[0] in ('--start', '--stop', '--restart', '--status', '--panel'):
         argv[0] = argv[0][2:]
     parser = argparse.ArgumentParser(description='Control del servidor RAG local; no modifica Ollama.')
-    parser.add_argument('action', nargs='?', default='start', choices=('start', 'stop', 'restart', 'status', '_run'))
+    parser.add_argument('action', nargs='?', choices=('start', 'stop', 'restart', 'status', 'panel', '_run'),
+                        help='Sin acción: panel en una terminal interactiva, start en scripts.')
+    parser.add_argument('--json', action='store_true', help='Estado y número de tareas en JSON (status).')
     parser.add_argument('--port', type=int, help='Puerto; por defecto RAG_WEB_PORT en .env o 8765.')
     parser.add_argument('--host',type=validate_host,help='IPv4 local en la que escuchar; por defecto 127.0.0.1. Requiere una red de confianza.')
     parser.add_argument('--when-idle',action='store_true',help='Esperar a que termine la cola antes de stop/restart.')
     parser.add_argument('--root', type=Path, default=ROOT, help=argparse.SUPPRESS)
     arguments = parser.parse_args(argv)
+    if arguments.action is None:
+        arguments.action = 'panel' if sys.stdin.isatty() and sys.stdout.isatty() else 'start'
     root = arguments.root.resolve()
     try:
         port = arguments.port if arguments.port is not None else default_port(root)
-        host=arguments.host or (running_host(root,port) if matching_processes(root,port) else validate_host(os.getenv('RAG_WEB_HOST','127.0.0.1')))
         if not 1024 <= port <= 65535:
             raise ValueError('El puerto debe estar entre 1024 y 65535.')
         if arguments.when_idle and arguments.action not in ('stop','restart'):
             raise ValueError('--when-idle solo se usa con stop/restart.')
+        if arguments.json and arguments.action != 'status':
+            raise ValueError('--json solo se usa con status.')
+        if arguments.action == 'panel':
+            return open_panel(root, port, arguments.host)
+        default_host = arguments.host or validate_host(os.getenv('RAG_WEB_HOST', '127.0.0.1'))
+        if arguments.action == 'status':
+            status = server_status(root, port, default_host, include_jobs=arguments.json)
+            if arguments.json:
+                print(json.dumps(status))
+            elif status['pid']:
+                print(f"Servidor iniciado (PID {status['pid']}): http://{status['host']}:{port}")
+            elif status['state'] == 'occupied':
+                print(f'Servidor RAG detenido; el puerto {port} esta ocupado por otro proceso.')
+            else:
+                print(f'Servidor detenido (puerto {port}).')
+            return 0
+        host = arguments.host or (running_host(root,port) if matching_processes(root,port) else default_host)
         if arguments.action == 'restart':
             check_credentials_access(root, restarting=True)
         if arguments.when_idle and not wait_for_idle(root,port):
             return 0
         if arguments.action == '_run':
             run_server(root, port,host)
-        elif arguments.action == 'status':
-            processes = matching_processes(root, port)
-            if processes:
-                print(f'Servidor iniciado (PID {processes[0][0].pid}): http://{running_host(root,port)}:{port}')
-            elif port_in_use(port,host):
-                print(f'Servidor RAG detenido; el puerto {port} esta ocupado por otro proceso.')
-            else:
-                print(f'Servidor detenido (puerto {port}).')
         else:
             if arguments.action in ('stop', 'restart'):
                 stop(root, port)
             if arguments.action in ('start', 'restart'):
                 start(root, port,host=host)
         return 0
-    except (OSError, ValueError, RuntimeError, psutil.Error) as error:
+    except (OSError, ValueError, RuntimeError, psutil.Error, subprocess.CalledProcessError) as error:
         print(f'Error: {error}', file=sys.stderr)
         return 1
 

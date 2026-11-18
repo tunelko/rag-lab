@@ -81,10 +81,11 @@ Opcional: [preparar un corpus de recetas](tools/recipes/README.md) con un adapta
 
 ## Arrancar y parar
 
-Ejecuta estas órdenes desde la carpeta del proyecto. El servidor sigue en marcha al cerrar la terminal.
+Abre el panel desde la carpeta del proyecto para iniciar, parar o reiniciar el servidor. Muestra la dirección, el PID y las tareas activas. Cuando termina la cola se habilitan **Parar** y **Reiniciar**. **Salir** cierra el panel y deja el servidor en su estado actual.
 
 | Acción | Windows | Linux |
 |---|---|---|
+| Abrir panel | `.\install\windows\Start-Web.ps1` | `bash install/linux/web.sh` |
 | Arrancar | `.\install\windows\Start-Web.ps1 start` | `bash install/linux/web.sh start` |
 | Parar | `.\install\windows\Start-Web.ps1 stop` | `bash install/linux/web.sh stop` |
 | Reiniciar | `.\install\windows\Start-Web.ps1 restart` | `bash install/linux/web.sh restart` |

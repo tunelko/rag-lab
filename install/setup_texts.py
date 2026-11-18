@@ -78,6 +78,14 @@ TEXTS = {
         'help_done': 'La instalación y la configuración están separadas del arranque. Iniciar web vuelve a la consola y ejecuta '
                      'el servidor en primer plano, donde Ctrl+C lo cierra. No se detienen instancias existentes.',
         'welcome_title': 'Requisitos de instalación',
+        'panel_title': 'Musa · Control del servidor', 'panel_state': 'Estado del servidor',
+        'panel_actions': 'Acciones', 'panel_activity': 'Actividad',
+        'panel_start': 'Iniciar', 'panel_stop': 'Parar', 'panel_restart': 'Reiniciar',
+        'panel_refresh': 'Actualizar', 'panel_exit': 'Salir', 'panel_unknown': 'Sin verificar',
+        'panel_running': 'En marcha', 'panel_starting': 'Arrancando', 'panel_stopped': 'Detenido',
+        'panel_occupied': 'Puerto ocupado por otro proceso', 'panel_jobs': 'Tareas activas',
+        'panel_wait': 'Espera a que terminen las tareas para parar o reiniciar.',
+        'panel_working': '{action} en curso…', 'panel_error': 'Error',
         'welcome_description': '1. Windows x64 con PowerShell o Linux x86_64 con Bash.\n'
                                '2. CPython 3.13.x de 64 bits, con venv y ensurepip para crear los entornos con pip. '
                                'Comprueba la versión con «py -3.13 -V» (Windows) o «python3.13 -V» (Linux).\n'
@@ -210,6 +218,14 @@ TEXTS = {
         'help_done': 'Installation and configuration are separate from starting. Start web returns to the console and runs '
                      'the server in the foreground, where Ctrl+C stops it. Existing instances are not stopped.',
         'welcome_title': 'Installation requirements',
+        'panel_title': 'Musa · Server control', 'panel_state': 'Server status',
+        'panel_actions': 'Actions', 'panel_activity': 'Activity',
+        'panel_start': 'Start', 'panel_stop': 'Stop', 'panel_restart': 'Restart',
+        'panel_refresh': 'Refresh', 'panel_exit': 'Exit', 'panel_unknown': 'Unverified',
+        'panel_running': 'Running', 'panel_starting': 'Starting', 'panel_stopped': 'Stopped',
+        'panel_occupied': 'Port in use by another process', 'panel_jobs': 'Active jobs',
+        'panel_wait': 'Wait for active jobs to finish before stopping or restarting.',
+        'panel_working': '{action} in progress…', 'panel_error': 'Error',
         'welcome_description': '1. Windows x64 with PowerShell or x86_64 Linux with Bash.\n'
                                '2. 64-bit CPython 3.13.x with venv and ensurepip to create environments with pip. '
                                'Check the version with “py -3.13 -V” (Windows) or “python3.13 -V” (Linux).\n'

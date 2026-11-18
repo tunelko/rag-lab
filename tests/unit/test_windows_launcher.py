@@ -28,7 +28,8 @@ class WindowsLauncherTests(unittest.TestCase):
             venv.EnvBuilder(with_pip=False).create(root/'.venv')
             (root/'app').mkdir()
             (root/'app/server_control.py').write_text('import json, sys\nprint(json.dumps(sys.argv[1:]))\n',encoding='utf-8')
-            for action in ('start','stop','restart','status'):
+            self.assertEqual(json.loads(invoke().stdout), [])
+            for action in ('start','stop','restart','status','panel'):
                 for option in (action,'--'+action,'-'+action):
                     with self.subTest(option=option):
                         result=invoke(option,'-Port','9876')

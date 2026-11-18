@@ -81,10 +81,11 @@ Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate ada
 
 ## Start and stop
 
-Run these from the project folder. The server keeps running after you close the terminal.
+Open the panel from the project folder to start, stop or restart the server. It shows the address, PID and active jobs. When the queue is empty, **Stop** and **Restart** become available. **Exit** closes the panel and leaves the server in its current state.
 
 | Action | Windows | Linux |
 |---|---|---|
+| Open panel | `.\install\windows\Start-Web.ps1` | `bash install/linux/web.sh` |
 | Start | `.\install\windows\Start-Web.ps1 start` | `bash install/linux/web.sh start` |
 | Stop | `.\install\windows\Start-Web.ps1 stop` | `bash install/linux/web.sh stop` |
 | Restart | `.\install\windows\Start-Web.ps1 restart` | `bash install/linux/web.sh restart` |

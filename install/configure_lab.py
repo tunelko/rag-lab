@@ -706,7 +706,7 @@ def make_app(root=ROOT, inspect=probe, installer=install_environment):
     return ConfigurationApp()
 
 
-def bootstrap():
+def interface_python():
     directory = '.cache/wizard-venv'
     python = venv_python(ROOT, directory)
     if not python.exists() or not venv_python(ROOT).exists():
@@ -721,6 +721,11 @@ def bootstrap():
         subprocess.run([str(python), '-m', 'pip', 'install', '--disable-pip-version-check', '--only-binary=:all:',
                         '-r', str(ROOT / 'requirements/wizard.txt')], check=True,
                        env=dict(os.environ, PIP_CACHE_DIR=str(ROOT / '.cache/pip'), PYTHONUTF8='1'))
+    return python
+
+
+def bootstrap():
+    python = interface_python()
     # The wizard runs in its own interpreter: hand it the language already resolved here.
     return subprocess.call([str(python), str(Path(__file__).resolve()), '--lang', LANGUAGE], cwd=ROOT)
 
