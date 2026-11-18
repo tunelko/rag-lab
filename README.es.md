@@ -7,9 +7,25 @@
 Haz preguntas sobre tus propios documentos (PDF, texto, imágenes) desde una página
 web en tu equipo. Los documentos se indexan en tu máquina y las respuestas citan su fuente.
 
-| Biblioteca | Grafo | Configuración |
-|---|---|---|
-| [![Biblioteca](docs/images/biblioteca.png)](docs/images/biblioteca.png) | [![Grafo](docs/images/grafo.png)](docs/images/grafo.png) | [![Configuración](docs/images/configuracion.png)](docs/images/configuracion.png) |
+## Pantallas
+
+### Biblioteca
+
+<img src="docs/images/library-es.png" alt="La pantalla Biblioteca: la cabecera con sus botones, el dibujo de las seis etapas y la tabla de documentos" width="860">
+
+Tus documentos y su estado. Pulsa **Añadir documentos** para subirlos; el dibujo muestra las seis etapas por las que pasa cada documento, de la ingesta al modelo, con la cifra actual de cada una. La tabla de abajo lista cada documento con sus fragmentos y si está **Indexado**.
+
+### Grafo
+
+<img src="docs/images/graph-es.png" alt="La pantalla Grafo: la fila de etapas, el mapa de entidades y relaciones y el panel Evidencia" width="860">
+
+Las conexiones encontradas entre las entidades que nombran tus documentos. Elige las fuentes, pulsa **Procesar selección** y sigue las cinco etapas de arriba. En el mapa, selecciona una tarjeta o una línea para leer en **Evidencia** el pasaje que la respalda.
+
+### Configuración
+
+<img src="docs/images/settings-es.png" alt="La pantalla Configuración: el dibujo de etapas y las tarjetas de documentos multimodales, índice y recuperación" width="860">
+
+Una tarjeta por etapa del flujo: qué se describe al indexar (**Documentos multimodales**), el índice en uso (**Índice**, solo lectura), cuántos fragmentos llegan al modelo (**Retrieval**) y, debajo, qué modelo responde (**Modelo**). Los cambios se guardan al instante.
 
 ## Requisitos
 
