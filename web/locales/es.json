@@ -695,7 +695,7 @@
   "sentinel.filter_indexed": "Indexados",
   "sentinel.filter_processing": "En proceso",
   "sentinel.filter_error": "Con error",
-  "sentinel.table_caption": "{shown} de {total} documentos · 50 por página",
+  "sentinel.table_caption": "{shown} de {total} documentos · {size} por página",
   "sentinel.ollama_connected": "Ollama conectado",
   "sentinel.ollama_offline": "Ollama sin conexión",
   "sentinel.ollama_hint": "Los modelos se cargan al consultar; el estado no ejecuta inferencias.",

@@ -92,12 +92,14 @@ function relativeTime(value){
   if(!value)return '—';const seconds=Math.max(0,(Date.now()-Date.parse(value))/1000);
   if(seconds<60)return t("ui.now_078f91");if(seconds<3600)return t("ui.min_ago_7ddff1", {value1: (Math.floor(seconds/60))});if(seconds<86400)return t("ui.h_ago_27eb8e", {value1: (Math.floor(seconds/3600))});return t("ui.days_ago_50545b", {value1: (Math.floor(seconds/86400))});
 }
+// The Library table shows this many documents on a page (the user's choice).
+const DOCUMENTS_PER_PAGE=20;
 function renderDocuments(){
   const docs=state.status?.documents||[],matching=docs.filter(doc=>(!topics||topics.includes(doc))&&normalize(doc.name).includes(normalize(state.search))),status=doc=>doc.status||(doc.indexed?'indexed':'pending');
   const counts={all:matching.length,indexed:matching.filter(doc=>status(doc)==='indexed').length,processing:matching.filter(doc=>status(doc)==='processing').length,error:matching.filter(doc=>status(doc)==='error').length};
   $('library-count').textContent=number(matching.length);
   for(const control of document.querySelectorAll('[data-filter]')){control.textContent=s('filter_'+control.dataset.filter)+' · '+number(counts[control.dataset.filter]);control.setAttribute('aria-pressed',String(state.filter===control.dataset.filter));}
-  const filtered=matching.filter(doc=>state.filter==='all'||status(doc)===state.filter),pages=Math.max(1,Math.ceil(filtered.length/50));state.page=Math.min(state.page,pages);const visible=filtered.slice((state.page-1)*50,state.page*50),maximum=Math.max(1,...docs.map(doc=>doc.chunks||0));
+  const filtered=matching.filter(doc=>state.filter==='all'||status(doc)===state.filter),pages=Math.max(1,Math.ceil(filtered.length/DOCUMENTS_PER_PAGE));state.page=Math.min(state.page,pages);const visible=filtered.slice((state.page-1)*DOCUMENTS_PER_PAGE,state.page*DOCUMENTS_PER_PAGE),maximum=Math.max(1,...docs.map(doc=>doc.chunks||0));
   const signature=JSON.stringify([visible,maximum,state.page,pages,filtered.length,s('documents'),[...state.newDocuments],topics?.topics.map(item=>[item.id,item.name,item.parent_id])]);
   if(state.documentRenderSignature===signature){
     for(const [index,row]of [...$('documents-table').children].entries()){const select=row.querySelector('.document-select');if(select)select.checked=topics.selected.has(visible[index].name);const updated=row.querySelector('.updated-time');if(updated)updated.textContent=relativeTime(visible[index].updated_at);}
@@ -117,7 +119,7 @@ function renderDocuments(){
     row.append(name,bytes,chunks,stateCell,updated,actions);$('documents-table').append(row);
   }
   $('library-empty').hidden=visible.length>0;$('library-empty').textContent=s(docs.length?'no_matches':'library_empty');$('page-label').textContent=state.page+' / '+pages;$('previous-page').disabled=state.page<=1;$('next-page').disabled=state.page>=pages;
-  $('table-caption').textContent=s('table_caption',{shown:visible.length,total:filtered.length});
+  $('table-caption').textContent=s('table_caption',{shown:visible.length,total:filtered.length,size:DOCUMENTS_PER_PAGE});
   topics?.selection(visible.map(doc=>doc.name));
 }
 function renderProcess(){

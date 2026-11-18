@@ -695,7 +695,7 @@
   "sentinel.filter_indexed": "Indexed",
   "sentinel.filter_processing": "Processing",
   "sentinel.filter_error": "With errors",
-  "sentinel.table_caption": "{shown} of {total} documents · 50 per page",
+  "sentinel.table_caption": "{shown} of {total} documents · {size} per page",
   "sentinel.ollama_connected": "Ollama connected",
   "sentinel.ollama_offline": "Ollama offline",
   "sentinel.ollama_hint": "Models load on demand; checking status does not run inference.",
