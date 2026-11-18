@@ -167,6 +167,8 @@ $('prepare-button').addEventListener('click',async()=>{const control=$('prepare-
 $('queue-result-button').addEventListener('click',()=>state.lastResult&&showResult(state.lastResult,$('queue-result-button')));
 // Emptying moves the library to a dated backup on the server; the typed word guards against a stray click.
 const emptyDialog=$('empty-library-dialog');
+// Adding documents starts at the upload card: the page goes there and the button that chooses files takes the focus.
+$('add-documents-button').addEventListener('click',()=>{$('upload-card-head').scrollIntoView({behavior:'smooth',block:'start'});$('select-files').focus({preventScroll:true});});
 $('empty-library-button').addEventListener('click',()=>{
   const status=state.status||{};
   $('empty-library-description').textContent=s('empty_description',{documents:number(status.document_count||0),chunks:number(status.chunk_count||0)});
