@@ -169,8 +169,20 @@ export class Graph{
     box.append(node('span','pill num',label('identity_entities',{count:number(data.canonical_entities)})),node('span','pill pill--mint num',label('identity_links',{count:number(data.identity_links.length)})),node('span','pill num',label('identity_conflicts',{count:number(data.identity_conflicts)})));
   }
   // The state of the continuous run: coverage of the chosen sources, what this run has spent, and what can be done next.
+  // The batch of pairs being joined now: three steps, the working one in lime. A batch is not the whole work: how many
+  // pairs are already decided and how many are left is told apart, in its own line.
+  paintJoin(box,batch){
+    box.hidden=!batch;if(!batch)return;
+    const done=batch.steps_done||0,saved=batch.phase==='published';
+    [...box.querySelectorAll('li')].forEach((item,index)=>{const now=!saved&&index===done;item.classList.toggle('is-done',index<done||saved);item.classList.toggle('is-current',now);if(now)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');});
+    box.querySelector('p').textContent=saved?label('join_saved',{pairs:number(batch.batch_pairs||0)}):label('join_batch',{pairs:number(batch.batch_pairs||0),step:Math.min(done+1,batch.steps_total||3),total:batch.steps_total||3});
+  }
   renderTask(task){
     this.task=task;$('graph-continuous').hidden=!task;if(!task){this.controls();return;}
+    // Passages processed and pairs joined are different counts: full coverage of passages is not the end of the joining.
+    const joining=task.reconciliation_progress,pairs=joining?joining.assessed_pairs+joining.pending_pairs:0;
+    $('graph-continuous-join').hidden=!pairs;if(pairs)$('graph-continuous-join').textContent=label('join_counts',{assessed:number(joining.assessed_pairs),pending:number(joining.pending_pairs)});
+    this.paintJoin($('graph-continuous-batch'),joining?.batch||null);
     const state=$('graph-continuous-state'),running=RUNNING.includes(task.status),total=task.units_total||0,done=task.units_done||0,left=Math.max(0,total-done);
     state.textContent=label('task_'+task.status);state.className='pill pill--sm'+(running?' pill--lima':task.status==='done'?' pill--mint':task.status==='paused_budget'?' pill--butter':'');
     const [filled,rest]=$('graph-continuous-bar').children;filled.style.flexGrow=String(done);rest.style.flexGrow=String(left);filled.hidden=!done;rest.hidden=!left;
@@ -287,7 +299,7 @@ export class Graph{
     }
     // A continuous run is not one job: the server queues a passage at a time, and the screen watches the run.
     if(action==='continuous'){try{const started=await this.api('/api/graph/continuous',post(body));this.watching=null;this.active=true;await this.watch(started.task_id);}catch(error){toast(error.message);}return;}
-    this.busy=true;this.action=action;this.controls();
+    this.busy=true;this.action=action;this.controls();this.paintJoin($('graph-join'),null);
     try{const queued=await this.api('/api/graph/'+action,post(body));sessionStorage.setItem(STORE,queued.job_id);await this.follow(queued.job_id);}catch(error){toast(error.message);this.busy=false;this.controls();}
   }
   batchHint(){$('graph-batch-hint').textContent=label('batch_hint',{limit:$('graph-unit-limit').value});}
@@ -322,6 +334,8 @@ export class Graph{
     try{while(true){const job=await this.api('/api/jobs/'+id),ended=['done','error','cancelled'].includes(job.status);$('graph-progress').value=ended?job.progress||0:Math.min(job.progress||0,99);$('graph-message').textContent=serverText(job.phase);$('graph-message').title='';window.dispatchEvent(new CustomEvent('rag:job',{detail:job}));
       // The stage comes from the server when it reports one; preparing evidence is always the first.
       this.stages(job.graph_stage in STAGE?STAGE[job.graph_stage]:this.action==='prepare'?0:null);
+      // Joining reports its own three steps: they are shown under its button while the job lasts and once it has saved.
+      if(job.graph_reconciliation)this.paintJoin($('graph-join'),job.graph_reconciliation);
       if(['done','error','cancelled'].includes(job.status)){sessionStorage.removeItem(STORE);if(job.error_info||job.error){$('graph-message').textContent=serverText(job.error_info?.message||job.error);$('graph-message').title=job.error_info?.detail||'';}await this.refresh();return job;}await new Promise(resolve=>setTimeout(resolve,1500));}
     }catch(error){$('graph-message').textContent=error.message;if(error.status===404){sessionStorage.removeItem(STORE);await this.refresh();}}finally{this.job=null;this.busy=false;this.action=null;this.stages(null);$('graph-progress').hidden=true;this.controls();}
   }

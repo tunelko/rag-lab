@@ -1284,5 +1284,11 @@
   "system.perf_memory": "Uso de mem.",
   "system.perf_memory_history": "Historial de uso de memoria",
   "system.gpu_heat": "Temp.",
-  "system.gpu_power": "Consumo"
+  "system.gpu_power": "Consumo",
+  "graph.join_step_1": "Comparar menciones",
+  "graph.join_step_2": "Contrastar con las fuentes",
+  "graph.join_step_3": "Guardar",
+  "graph.join_batch": "Tanda de {pairs} parejas · paso {step} de {total}",
+  "graph.join_saved": "Tanda de {pairs} parejas guardada",
+  "graph.join_counts": "Unión de entidades: {assessed} parejas decididas · {pending} pendientes"
 }

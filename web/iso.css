@@ -994,6 +994,11 @@
 :root[data-theme] .graph-checks [data-state="skip"] > .check { border-style: dashed; }
 :root[data-theme] .graph-stages > li.is-skipped { border-style: dashed; }
 :root[data-theme] .graph-stages > li.is-skipped:nth-child(n) .step-no { background: var(--card); color: var(--ink); }
+/* Joining repeated entities: the three steps of the batch in hand, and a line with the pairs decided and left */
+:root[data-theme] .graph-join { display: flex; flex-direction: column; gap: 6px; }
+:root[data-theme] .graph-join[hidden] { display: none; }
+:root[data-theme] .graph-stages--join { gap: 6px 20px; }
+:root[data-theme] .graph-stages--join > li { padding: 2px 10px; font-size: 11px; line-height: 18px; }
 /* The checks of the selection: one row per stage, ticked when the server has verified it */
 :root[data-theme] .graph-checks { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--stage); border: var(--bw) solid var(--edge); border-radius: 12px; }
 :root[data-theme] .graph-checks .checks { gap: 8px; }

@@ -1284,5 +1284,11 @@
   "system.perf_memory": "Mem Usage",
   "system.perf_memory_history": "Memory Usage History",
   "system.gpu_heat": "Temp.",
-  "system.gpu_power": "Power"
+  "system.gpu_power": "Power",
+  "graph.join_step_1": "Compare mentions",
+  "graph.join_step_2": "Check against the sources",
+  "graph.join_step_3": "Save",
+  "graph.join_batch": "Batch of {pairs} pairs · step {step} of {total}",
+  "graph.join_saved": "Batch of {pairs} pairs saved",
+  "graph.join_counts": "Joining entities: {assessed} pairs decided · {pending} left"
 }

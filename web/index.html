@@ -1008,6 +1008,8 @@
          <div class="journey__top"><span class="eyebrow" id="graph-continuous-title" data-i18n="graph.continuous_title">Estado del proceso</span><span class="pill pill--sm" id="graph-continuous-state" role="status"></span></div>
          <div class="ratio" id="graph-continuous-bar" role="img"><i class="ratio__accepted"></i><i></i></div>
          <p class="meta num" id="graph-continuous-figures"></p>
+         <p class="meta num" hidden="" id="graph-continuous-join"></p>
+         <div class="graph-join" hidden="" id="graph-continuous-batch"><ol class="graph-stages graph-stages--join"><li data-i18n="graph.join_step_1">Comparar menciones</li><li data-i18n="graph.join_step_2">Contrastar con las fuentes</li><li data-i18n="graph.join_step_3">Guardar</li></ol><p class="meta num"></p></div>
          <p class="graph-reason" id="graph-continuous-error" hidden></p>
          <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-continuous-pause" type="button" data-i18n="graph.pause">Pausar</button><button class="btn btn--secondary btn--sm" id="graph-continuous-resume" type="button" data-i18n="graph.resume">Reanudar</button><button class="btn btn--secondary btn--sm" id="graph-continuous-again" type="button" data-i18n="graph.task_again" hidden>Seguir con otra tanda</button></div>
         </section>
@@ -1033,7 +1035,8 @@
         <p class="field-label" data-i18n="graph.identity_title">Entidades entre pasajes</p>
         <div class="graph-pills" id="graph-identity" role="status"></div>
         <p class="meta" data-i18n="graph.identity_note">Une menciones de distintos pasajes solo cuando el modelo decide que son la misma entidad y el contraste lo respalda. Cada origen conserva su evidencia.</p>
-        <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-reconcile" type="button" data-i18n="graph.reconcile">Conectar entre pasajes</button></div>
+        <div class="graph-actions"><button class="btn btn--secondary btn--sm" id="graph-reconcile" type="button" data-i18n="graph.reconcile">Unir entidades repetidas</button></div>
+        <div class="graph-join" hidden="" id="graph-join" role="status"><ol class="graph-stages graph-stages--join"><li data-i18n="graph.join_step_1">Comparar menciones</li><li data-i18n="graph.join_step_2">Contrastar con las fuentes</li><li data-i18n="graph.join_step_3">Guardar</li></ol><p class="meta num"></p></div>
        </div>
        <div class="callout">
         <svg aria-hidden="true" class="icon"><use href="#i-info"></use></svg>
