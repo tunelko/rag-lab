@@ -10,7 +10,7 @@ import unittest
 from fastapi.testclient import TestClient
 
 from file_fingerprints import sha256_file
-from graph_engine import augment, canonical_groups, current_rows, identity_candidates, mentions
+from graph_engine import POLICY, augment, canonical_groups, current_rows, identity_candidates, mentions
 from graph_jobs import generate_passage, graph_store
 from graph_store import identifier
 from rag import Config
@@ -186,6 +186,24 @@ class GraphEngineTests(unittest.TestCase):
         jobs = self.client.get('/api/jobs?active=1&all_collections=1').json()['jobs']
         self.assertFalse(any(job.get('graph_task') == task for job in jobs))
 
+    def test_reconciliation_progress_counts_persisted_pairs_within_current_sources_and_model(self):
+        a = publish(self.service, 'a.md', 'Alpha', 'DDR4')
+        b = publish(self.service, 'b.md', 'Beta', 'DDR4')
+        store = graph_store(self.service)
+        task = store.task_create({'files': ['a.md', 'b.md'], 'provider': 'ollama', 'model': 'progress-test'})
+        url = '/api/graph/continuous/' + task
+        before = self.client.get(url).json()['reconciliation_progress']
+        self.assertEqual(before, {'assessed_pairs': 0, 'pending_pairs': 1, 'batch': None})
+        link(self.service, a['object'], b['object'], decision='uncertain', policy='other-model')
+        self.assertEqual(self.client.get(url).json()['reconciliation_progress'], before)
+        link(self.service, a['object'], b['object'], decision='uncertain',
+             policy=identifier(POLICY, 'ollama', 'progress-test'))
+        settled = self.client.get(url).json()['reconciliation_progress']
+        self.assertEqual(settled, {'assessed_pairs': 1, 'pending_pairs': 0, 'batch': None})
+        (self.service.documents / 'b.md').write_text('Changed source.', 'utf-8')
+        stale = self.client.get(url).json()['reconciliation_progress']
+        self.assertEqual(stale['assessed_pairs'], 0)
+
     def test_shared_queue_shutdown_closes_default_collection_producers_first(self):
         self.client.post('/api/collections', headers=self.headers, json={'id': 'other', 'name': 'Other'})
         self.client.get('/api/graph?collection=other')
@@ -271,20 +289,24 @@ class GraphEngineTests(unittest.TestCase):
                 pass
 
         publish(self.service, 'alpha.md', 'Board Alpha', 'DDR4')
+        publish(self.service, 'beta.md', 'Board Beta', 'DDR4')
         server = ThreadingHTTPServer(('127.0.0.1', 0), Unavailable)
         worker = threading.Thread(target=lambda: server.serve_forever(poll_interval=.01), daemon=True)
         previous = os.environ.get('RAG_OLLAMA_URL')
         try:
             worker.start()
             os.environ['RAG_OLLAMA_URL'] = f'http://127.0.0.1:{server.server_port}'
-            result = self.service.start('graph', lambda job: generate_passage(self.service, job,
-                [{'role': 'user', 'content': 'No model runs for this transport check.'}],
-                {'provider': 'ollama', 'model': 'not-invoked'}, None, {}))
-            state = wait_job(self.client, result['job_id'])
+            result = self.client.post('/api/graph/reconcile', headers=self.headers, json={
+                'files': ['alpha.md', 'beta.md'], 'provider': 'ollama', 'model': 'not-invoked'})
+            self.assertEqual(result.status_code, 202, result.text)
+            state = wait_job(self.client, result.json()['job_id'])
             self.assertEqual(state['status'], 'error')
             self.assertEqual(state['error_info']['code'], 'GRAPH_OLLAMA_UNAVAILABLE')
             self.assertIn('CUDA', state['error_info']['detail'])
-            self.assertEqual(graph_store(self.service).snapshot()['assessment_counts']['accepted'], 1)
+            self.assertEqual(state['graph_reconciliation'], {
+                'phase': 'proposing', 'steps_done': 0, 'steps_total': 3, 'batch_pairs': 1})
+            self.assertEqual(graph_store(self.service).identity_decisions(), [])
+            self.assertEqual(graph_store(self.service).snapshot()['assessment_counts']['accepted'], 2)
         finally:
             if previous is None:
                 os.environ.pop('RAG_OLLAMA_URL', None)

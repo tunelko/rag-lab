@@ -665,11 +665,15 @@ def install_routes(app, service, require_local):
             units = store.units(set(record['config']['files']))
             cached = store.cached_units(config)
             completed = sum(unit['id'] in cached for unit in units)
-            from graph_engine import POLICY as IDENTITY_POLICY, current_rows, identity_candidates
-            _, pairs = identity_candidates(current_rows(service, set(record['config']['files'])), store.identity_decisions(), 1,
+            from graph_engine import POLICY as IDENTITY_POLICY, current_rows, identity_queue
+            _, pairs, assessed = identity_queue(current_rows(service, set(record['config']['files'])), store.identity_decisions(),
                 identifier(IDENTITY_POLICY, config['provider'], config['model']))
+            with service.lock:
+                active = service.jobs.get(service.active, {})
+                batch = active.get('graph_reconciliation') if active.get('graph_task') == task else None
             return {**record, 'units_total': len(units), 'units_done': completed,
                     'coverage_percent': round(100 * completed / len(units), 1) if units else 0,
+                    'reconciliation_progress': {'assessed_pairs': assessed, 'pending_pairs': len(pairs), 'batch': batch},
                     'coverage_scope': 'extraction_and_source_assessment', 'reconciliation_pending': bool(pairs)}
         except ValueError as error:
             raise HTTPException(404, str(error)) from error

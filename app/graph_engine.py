@@ -116,6 +116,12 @@ def canonical_groups(entities, decisions):
 
 
 def identity_candidates(rows, decisions, limit=6, signature=None):
+    entities, pending, _ = identity_queue(rows, decisions, signature)
+    return entities, pending[:limit]
+
+
+def identity_queue(rows, decisions, signature):
+    """Current candidates and distinct pairs already judged in this source/model scope."""
     entities = mentions(rows)
     groups, _ = canonical_groups(entities, decisions)
     done = {tuple(sorted((row['left_entity'], row['right_entity']))) for row in active_decisions(entities, decisions)
@@ -140,7 +146,7 @@ def identity_candidates(rows, decisions, limit=6, signature=None):
                 score = max(score, .75)
             if score >= .35:
                 candidates[pair] = score
-    return entities, sorted(candidates, key=lambda pair: (-candidates[pair], pair))[:limit]
+    return entities, sorted(candidates, key=lambda pair: (-candidates[pair], pair)), len(done)
 
 
 IDENTITY_PROMPT = '''Decide whether each pair refers to the SAME entity, not merely related entities.
@@ -206,15 +212,26 @@ def reconcile(service, job, config, key, max_pairs=6):
     entities, pairs = identity_candidates(rows, store.identity_decisions(), max_pairs, identity_config['signature'])
     if not pairs:
         return {'pairs': 0, 'same': 0, 'policy': POLICY}
+    start_progress = service.snapshot(job).get('progress') or 0
+
+    def progress(stage, steps_done, phase):
+        service.update(job, phase=f'{phase} · {len(pairs)} parejas', stage='graph',
+                       graph_stage='reconciliation', cancellable=True,
+                       progress=start_progress + (100 - start_progress) * steps_done / 3,
+                       graph_reconciliation={'phase': stage, 'steps_done': steps_done,
+                                             'steps_total': 3, 'batch_pairs': len(pairs)})
+
     payload = {f'P{index}': {
                    'left': {key: entities[left][key] for key in ('label', 'kind', 'file', 'quote')},
                    'right': {key: entities[right][key] for key in ('label', 'kind', 'file', 'quote')},
                    'shared_identifier_choices': sorted(source_identifiers(entities[left]) & source_identifiers(entities[right]))}
                for index, (left, right) in enumerate(pairs)}
-    service.update(job, phase='Reconciliando entidades entre pasajes y documentos', graph_stage='reconciliation', stage='graph', cancellable=True)
+    progress('proposing', 0, 'Comparando menciones de entidades')
     proposed, metrics = identity_call(service, job, payload, config, key)
     # The second call does not receive the first verdict or its reasoning.
+    progress('checking', 1, 'Contrastando identidades con sus fuentes')
     checked, review_metrics = identity_call(service, job, payload, config, key, review=True)
+    progress('publishing', 2, 'Validando las evidencias antes de guardar')
     # Re-check the entire eligible set: a changed source cannot connect live evidence.
     eligible = mentions(current_rows(service, set(config['files'])))
     if any(key not in eligible or eligible[key]['assertion'] != entities[key]['assertion']
@@ -232,6 +249,7 @@ def reconcile(service, job, config, key, max_pairs=6):
             'verification_reason': checked[pair].reason, 'shared_identifier': decision.shared_identifier})
     service.check_cancel(job)
     store.publish_identities(output, identity_config, eligible)
+    progress('published', 3, 'Decisiones de identidad guardadas')
     return {'pairs': len(output), 'same': sum(row['decision'] == 'same' and row['verification'] == 'supported' for row in output),
             'policy': POLICY, 'metrics': metrics, 'verification_metrics': review_metrics}
 
