@@ -212,7 +212,7 @@ export class Chat{
   context(){
     const turn=this.turns.find(turn=>turn.id===this.contextTurnId),sources=turn?.sources||[];
     const signature=JSON.stringify([getLanguage(),turn?.id,turn?.question,sources]);
-    if(signature!==this.contextSignature){this.contextSignature=signature;renderSources(sources,turn?.question||'',$('sources'),`turn-${turn?.id||'empty'}`);$('context-count').textContent=number(sources.length);$('context-empty').hidden=Boolean(sources.length);}
+    if(signature!==this.contextSignature){this.contextSignature=signature;renderSources(sources,turn?.question||'',$('sources'),`turn-${turn?.id||'empty'}`);$('context-count').textContent=plural('fragments',sources.length);$('context-empty').hidden=Boolean(sources.length);}
     const reason=serverText(turn?.metrics?.routing_reason)||s('route_empty');if($('context-route').textContent!==reason)$('context-route').textContent=reason;
     const model=this.status?.embedding_model?.split('/').at(-1),dimensions=this.status?.embedding_dimensions,info=model?model+' · '+s('dimension_count',{count:dimensions==null?'—':number(dimensions)}):'—';if($('query-vector-info').textContent!==info)$('query-vector-info').textContent=info;
   }
