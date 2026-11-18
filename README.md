@@ -7,6 +7,10 @@
 Ask questions about your own documents (PDF, text, images) from a web page on your
 computer. Documents are indexed on your machine and answers cite their source.
 
+| Library | Graph | Settings |
+|---|---|---|
+| [![Library](docs/images/biblioteca.png)](docs/images/biblioteca.png) | [![Graph](docs/images/grafo.png)](docs/images/grafo.png) | [![Settings](docs/images/configuracion.png)](docs/images/configuracion.png) |
+
 ## Requirements
 
 - Windows x64 or Linux x86_64
@@ -62,7 +66,7 @@ Optional: [prepare a recipe corpus](tools/recipes/README.md) with a separate ada
 
 **CTI / APT datasets:** in **Library**, click **Add CTI · APTs**, select the new collection and click **Sync CTI · ATT&CK 20.1**. The default semantic sample is 5,000 documents; complete documented relationships are stored separately in SQLite. Switch collections in Library to return to your existing documents. Downloads, originals, Markdown evidence, JSONL exports and licenses are kept in `datasets/cti/`; collection indexes and history are in `data/collections/`. Chat uses the configured model to interpret structured questions and cites the actual evidence; a group's techniques do not establish an incident's sequence.
 
-**Graph (pilot):** open **Graph**, choose a collection and click **Model next batch**. The application prepares evidence and the model automatically extracts and assesses relationships; no list review is required. The map shows supported connections with access to their sources. Select provider, model and documents in the graph options; remote transmission requires an explicit selection. Continuous mode processes one passage at a time with unit, time and memory limits, and supports pause/resume. Verified identities can extend focused chat sources; a graph path alone does not prove a new fact. Measurement compares normal and graph retrieval using annotated JSONL; it does not grade the truth of generated answers.
+**Graph (pilot):** open **Graph**, choose a collection, click **Select the maximum** and then **Process selection**. The application prepares evidence and the model automatically extracts and assesses relationships; no list review is required. The map shows supported connections with access to their sources. Select provider, model and documents on that screen; remote transmission requires an explicit selection. Processing goes one passage at a time with passage, time and memory limits, and supports pause/resume. Verified identities can extend focused chat sources; a graph path alone does not prove a new fact. Measurement compares normal and graph retrieval using annotated JSONL; it does not grade the truth of generated answers.
 
 **Diagnostics and logs** is optional: it includes model decisions, administrative overrides and a per-document integrity and exact-duplicate report. Automated assessment does not certify the truth of all content.
 

@@ -7,6 +7,10 @@
 Haz preguntas sobre tus propios documentos (PDF, texto, imágenes) desde una página
 web en tu equipo. Los documentos se indexan en tu máquina y las respuestas citan su fuente.
 
+| Biblioteca | Grafo | Configuración |
+|---|---|---|
+| [![Biblioteca](docs/images/biblioteca.png)](docs/images/biblioteca.png) | [![Grafo](docs/images/grafo.png)](docs/images/grafo.png) | [![Configuración](docs/images/configuracion.png)](docs/images/configuracion.png) |
+
 ## Requisitos
 
 - Windows x64 o Linux x86_64
@@ -62,7 +66,7 @@ Opcional: [preparar un corpus de recetas](tools/recipes/README.md) con un adapta
 
 **Datasets CTI / APTs:** en **Biblioteca**, pulsa **Añadir CTI · APTs**, selecciona la nueva colección y pulsa **Sincronizar CTI · ATT&CK 20.1**. La muestra semántica predeterminada es de 5.000 documentos; las relaciones documentadas completas se guardan aparte en SQLite. Cambia de colección en Biblioteca para volver a tus documentos actuales. Las descargas, originales, evidencias Markdown, exportaciones JSONL y licencias quedan en `datasets/cti/`; los índices e históricos de cada colección, en `data/collections/`. El chat interpreta las preguntas estructuradas con el modelo configurado y cita la evidencia real; las técnicas de un grupo no establecen la secuencia de un incidente.
 
-**Grafo (piloto):** abre **Grafo**, elige la colección y pulsa **Modelizar siguiente lote**. La aplicación prepara las evidencias y el modelo extrae y contrasta las relaciones automáticamente; no necesitas revisar listas. El mapa muestra conexiones respaldadas con acceso a sus fuentes. Elige proveedor, modelo y documentos en las opciones del grafo; el envío remoto se selecciona expresamente. El modo continuo procesa un pasaje por turno con límites de cantidad, tiempo y memoria, y permite pausar y reanudar. Las identidades verificadas pueden ampliar las fuentes del chat enfocado; una ruta del grafo no demuestra por sí sola un hecho nuevo. Medición compara la recuperación normal y con grafo mediante JSONL anotado; no evalúa la veracidad de las respuestas generadas.
+**Grafo (piloto):** abre **Grafo**, elige la colección, pulsa **Seleccionar el máximo** y después **Procesar selección**. La aplicación prepara las evidencias y el modelo extrae y contrasta las relaciones automáticamente; no necesitas revisar listas. El mapa muestra conexiones respaldadas con acceso a sus fuentes. Elige proveedor, modelo y documentos en esa pantalla; el envío remoto se selecciona expresamente. El proceso avanza un pasaje por turno con límites de cantidad, tiempo y memoria, y permite pausar y reanudar. Las identidades verificadas pueden ampliar las fuentes del chat enfocado; una ruta del grafo no demuestra por sí sola un hecho nuevo. Medición compara la recuperación normal y con grafo mediante JSONL anotado; no evalúa la veracidad de las respuestas generadas.
 
 **Diagnóstico y registros** es opcional: incluye decisiones del modelo, revisión administrativa e informe por documento de integridad y duplicados exactos. El contraste automático no certifica la veracidad de todo el contenido.
 
