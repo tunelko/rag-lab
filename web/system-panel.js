@@ -2,7 +2,7 @@
 // a small card with the user's model on it, the last minute as a chart, a rolling log, and a classic task manager.
 import {$, node, number} from './ui.js';
 import {t} from './i18n.js';
-import {gpuFamily, gpuBusy, sparkPoints, pushReading, sortProcesses} from './system-readings.js';
+import {gpuFamily, gpuBusy, gpuShort, sparkPoints, pushReading, sortProcesses} from './system-readings.js';
 
 const GIB = 1024 ** 3, clockOf = time => String(time).slice(11, 19);
 
@@ -50,6 +50,7 @@ export class SystemPanel {
   card(device) {
     if (!device) return;
     this.busy = gpuBusy(this.busy, device.utilization_percent);
+    $('system-gpu-caption').textContent = gpuShort(device.name);
     const image = gpuFamily(device.name) + '-' + (this.busy ? 'busy' : 'idle');
     if (image !== this.image) {
       this.image = image;

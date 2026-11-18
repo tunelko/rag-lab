@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {gpuFamily, gpuBusy, sparkPoints, pushReading, sortProcesses} from '../../web/system-readings.js';
+import {gpuFamily, gpuBusy, gpuShort, sparkPoints, pushReading, sortProcesses} from '../../web/system-readings.js';
 
 test('the illustration follows the family of the device named by the system', () => {
   const cases = {
@@ -15,6 +15,16 @@ test('the illustration follows the family of the device named by the system', ()
     'Matrox G200': 'generic', '': 'generic',
   };
   for (const [name, family] of Object.entries(cases)) assert.equal(gpuFamily(name), family, name);
+});
+
+test('the caption under the picture is the model without the vendor words', () => {
+  assert.equal(gpuShort('NVIDIA GeForce RTX 3080'), 'RTX 3080');
+  assert.equal(gpuShort('NVIDIA GeForce RTX 4070 Ti SUPER'), 'RTX 4070 Ti SUPER');
+  assert.equal(gpuShort('AMD Radeon RX 7900 XT'), 'RX 7900 XT');
+  assert.equal(gpuShort('Intel(R) Arc(TM) A770 Graphics'), 'Arc A770');
+  assert.equal(gpuShort('Intel(R) UHD Graphics 770'), 'UHD 770');
+  assert.equal(gpuShort('AMD Radeon(TM) Graphics'), 'AMD Radeon(TM) Graphics');
+  assert.equal(gpuShort(''), 'GPU');
 });
 
 test('working starts at a quarter of use and ends near idle, so the picture does not flicker', () => {

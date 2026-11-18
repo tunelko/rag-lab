@@ -20,6 +20,12 @@ export function gpuFamily(name = '') {
   return 'generic';
 }
 
+// The model as it is written under the picture: the name without the vendor words ("RTX 3080").
+export function gpuShort(name = '') {
+  const words = String(name).replace(/[™®]|\((tm|r)\)/gi, '').split(/\s+/).filter(word => word && !/^(nvidia|amd|intel|geforce|radeon|corporation|graphics|series|generation)$/i.test(word));
+  return words.join(' ') || String(name).trim() || 'GPU';
+}
+
 // Whether the device counts as working. Two thresholds, so the picture does not flicker around one value.
 export function gpuBusy(previous, use) {
   if (use == null) return false;

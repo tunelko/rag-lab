@@ -1053,10 +1053,12 @@
 /* ---------- System status: the graphics card ---------- */
 :root[data-theme] .sys { width: min(388px, calc(100vw - 32px)); }
 :root[data-theme] .gpu { display: flex; align-items: center; gap: 12px; }
-/* The illustration of the device: one image per theme, both in the page, so a change of theme needs no script. */
-:root[data-theme] .gpu__card { flex: none; width: 96px; height: 84px; }
-:root[data-theme] .gpu__img { display: block; width: 100%; height: 100%; object-fit: contain; }
+/* The picture of the device, as a tile: the photograph above and the real model in a caption under it.
+   One image per theme, both in the page, so a change of theme needs no script. */
+:root[data-theme] .gpu__card { flex: none; display: flex; flex-direction: column; width: 150px; margin: 0; overflow: hidden; background: var(--card); border: var(--bw) solid var(--edge); border-radius: 10px; }
+:root[data-theme] .gpu__img { display: block; width: 100%; height: auto; aspect-ratio: 236 / 65; }
 :root[data-theme="light"] .gpu__img--dark, :root[data-theme="dark"] .gpu__img--light { display: none; }
+:root[data-theme] .gpu__caption { height: 21px; padding: 2px 8px; overflow: hidden; border-top: var(--bw) solid var(--edge); color: var(--ink); font-size: 11px; line-height: 16px; font-weight: 700; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-theme] .gpu__side { flex: 1 1 0; min-width: 0; }
 /* Nothing here changes size with the readings: the name is one line and each reading has a slot of fixed width. */
 :root[data-theme] .gpu__side .sys__value { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
