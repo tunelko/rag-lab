@@ -1290,5 +1290,11 @@
   "graph.join_step_3": "Save",
   "graph.join_batch": "Batch of {pairs} pairs · step {step} of {total}",
   "graph.join_saved": "Batch of {pairs} pairs saved",
-  "graph.join_counts": "Joining entities: {assessed} pairs decided · {pending} left"
+  "graph.join_counts": "Joining entities: {assessed} pairs decided · {pending} left",
+  "sentinel.you": "you",
+  "sentinel.fold_how": "How it was answered",
+  "sentinel.fold_sources_one": "{count} source",
+  "sentinel.fold_sources_other": "{count} sources",
+  "sentinel.fold_best": "best {value}",
+  "sentinel.fold_all_in_context": "See all {count} in Context"
 }

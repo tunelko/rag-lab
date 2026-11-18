@@ -600,7 +600,10 @@ def run_browser(url):
         target=f"turn-{last_turn.get_attribute('data-turn')}-{citation.inner_text()}"
         expect(last_turn.locator('.q__bubble')).to_have_text('¿Cuándo se realiza la copia de seguridad?')
         expect(last_turn.locator('.q__meta')).to_contain_text('en Toda la biblioteca')
-        expect(last_turn.locator('.a__route')).to_have_text('Texto')
+        # The route of the answer is told in «how it was answered», a fold that starts closed.
+        how=last_turn.locator('.fold').nth(1);expect(last_turn.locator('.how')).to_be_hidden();how.click()
+        expect(how).to_have_attribute('aria-expanded','true');expect(last_turn.locator('.how .checks li').nth(2)).to_contain_text('texto')
+        how.click();expect(last_turn.locator('.how')).to_be_hidden()
         # A citation opens the side panel on its fragment, lit against the darkened rest.
         expect(page.locator("#context-panel")).not_to_be_visible()
         citation.click()
@@ -614,6 +617,8 @@ def run_browser(url):
         expect(citation).to_be_focused()
         expect(page.locator("#open-context")).to_have_attribute("aria-expanded", "false")
         # A later source must be the actual target, even when other cards precede it.
+        # The sources of an answer are a fold too, with its three best documents.
+        expect(last_turn.locator('.sources')).to_be_hidden();last_turn.locator('.fold').first.click();expect(last_turn.locator('.sources')).to_be_visible()
         chip=last_turn.locator('.src-num').last
         target=f"turn-{last_turn.get_attribute('data-turn')}-{chip.inner_text()}"
         assert last_turn.locator('.src-num').count()>1
@@ -716,15 +721,17 @@ def run_browser(url):
         # Send sits on the tools' row, at its right end.
         tools=page.locator('.composer2__tools').bounding_box();send=page.locator('#ask-button').bounding_box();attach=page.locator('#attach-image').bounding_box()
         assert abs((send['y']+send['height']/2)-(attach['y']+attach['height']/2))<2 and tools['x']+tools['width']-send['x']-send['width']<=12, (tools,send,attach)
-        # The conversation runs between 5 % side margins, shared with the header title and buttons.
-        card=page.locator('.conversation-card').bounding_box()
-        margin=page.locator('.chat-turn .a__avatar').last.bounding_box()['x']-card['x']
-        assert abs(margin-card['width']*.05)<=2, f"Side margin is {margin}px in a {card['width']}px card"
-        edges=[page.locator(selector).last.bounding_box()['x'] for selector in ('.chat-heading .page-title','.chat-turn .a__avatar','#composer-box')]
-        assert max(edges)-min(edges)<=1, f'Header title, Musa and composer do not share a left edge: {edges}'
+        # One reading column of 920 px shared by the heading, the turns and the question box; no side column,
+        # and the answer is not inside a card.
+        column=[page.locator(selector).last.bounding_box() for selector in ('.chat2__head','.chat-turn','#composer-box')]
+        assert all(abs(box['width']-920)<=1 for box in column) and max(box['x'] for box in column)-min(box['x'] for box in column)<=1, f'Heading, turn and question box are not one 920 px column: {column}'
+        assert page.locator('.chat-aside').count()==0
+        assert page.locator('.chat-turn .a__main').last.evaluate("element=>getComputedStyle(element).borderTopWidth+' '+getComputedStyle(element).backgroundColor")=='0px rgba(0, 0, 0, 0)'
         right=lambda selector:(lambda box:box['x']+box['width'])(page.locator(selector).last.bounding_box())
-        ends=[right(selector) for selector in ('#new-chat','.chat-turn .a__main','.chat-turn .q__bubble','#composer-box')]
-        assert max(ends)-min(ends)<=1, f'Header buttons, answer, question and composer do not share a right edge: {ends}'
+        ends=[right(selector) for selector in ('.chat-turn .a__main','.chat-turn .q__bubble','#composer-box')]
+        assert max(ends)-min(ends)<=1, f'Answer, question and question box do not share a right edge: {ends}'
+        # The question box shows three empty lines and stays in view.
+        question=page.locator('#question').bounding_box();assert question['height']>=100 and question['y']+question['height']<page.viewport_size['height'], question
         page.screenshot(path=str(reports / "redesign-consulta-con-respuesta.png"), full_page=True)
         page.reload(wait_until="networkidle")
         expect(page.locator(".chat-turn")).to_have_count(5)
@@ -1077,9 +1084,9 @@ def run_browser(url):
         expect(page.locator('.chat-turn .answer').last).to_contain_text('manual.txt')
         page.reload(wait_until='networkidle');expect(page.locator('#chat-scope')).to_have_value(cabinet)
         expect(page.locator('#context-panel')).not_to_be_visible()
-        # The conversation and its side column share the row; the Context drawer stays closed until asked for.
-        card=page.locator('.conversation-card').bounding_box();side=page.locator('.chat-aside').bounding_box()
-        assert card['width']>900 and side['x']>=card['x']+card['width'] and card['width']+side['width']>1300,(card,side)
+        # One column and no side column; the Context drawer stays closed until asked for.
+        column=page.locator('.chat2__head').bounding_box()
+        assert page.locator('.chat-aside').count()==0 and column['width']<=921,column
         page.locator('#open-context').click();expect(page.locator('#context-panel')).to_be_visible()
         page.keyboard.press('Escape');expect(page.locator('#open-context')).to_be_focused()
         page.locator('#chat-scope').select_option('')

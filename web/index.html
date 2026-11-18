@@ -641,24 +641,18 @@
       <p id="scope-empty-message"></p>
       <button class="btn btn--secondary" id="scope-use-all" type="button" data-i18n="library.use_all">Usar toda la biblioteca</button>
      </div>
-     <div class="split chat-split">
-      <section class="split__main card conversation-card">
-       <header class="page-head card__head chat-toolbar">
-        <div class="chat-heading">
-         <p class="chat-crumb" id="chat-crumb"></p>
-         <h1 class="page-title"><span class="chat-title-short" data-i18n="sentinel.chat">Chat</span><span class="chat-title-long" data-i18n="journey.page_title">Consultas</span></h1>
-         <span class="chat-summary" id="conversation-count"></span>
-         <span class="meta" id="settings-sync" role="status"></span>
-        </div>
-        <div class="chat-pills">
-         <span class="pill pill--butter num" hidden id="chat-pill-questions"></span>
-        </div>
+     <section class="conversation-card chat2">
+       <header class="chat-toolbar chat2__head">
+        <h1 class="page-title chat2__title"><span data-i18n="sentinel.chat">Chat</span> <span class="chat2__scope" id="chat-crumb"></span></h1>
+        <span class="chat2__count num" id="conversation-count"></span>
+        <span class="meta" id="settings-sync" role="status"></span>
+        <span class="chat2__gap"></span>
         <div class="chat-actions">
-         <button aria-controls="context-panel" aria-expanded="false" aria-label="Contexto recuperado" data-i18n-aria-label="sentinel.context" data-i18n-title="sentinel.context" class="btn btn--secondary context-toggle" id="open-context" type="button">
+         <button aria-controls="context-panel" aria-expanded="false" aria-label="Contexto recuperado" data-i18n-aria-label="sentinel.context" data-i18n-title="sentinel.context" class="btn-quiet context-toggle" id="open-context" type="button">
           <svg aria-hidden="true" class="icon"><use href="#i-panel"></use></svg>
           <span data-i18n="sentinel.context_short">Contexto</span>
          </button>
-         <button aria-label="Nueva conversación" data-i18n-aria-label="sentinel.new_chat" data-i18n-title="sentinel.new_chat" class="btn btn--secondary" id="new-chat" type="button">
+         <button aria-label="Nueva conversación" data-i18n-aria-label="sentinel.new_chat" data-i18n-title="sentinel.new_chat" class="btn-quiet" id="new-chat" type="button">
           <svg aria-hidden="true" class="icon"><use href="#i-plus"></use></svg>
           <span data-i18n="sentinel.new_chat_short">Nueva</span>
          </button>
@@ -722,7 +716,7 @@
             Pregunta
            </span>
           </label>
-          <textarea class="composer2__input" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="2"></textarea>
+          <textarea class="composer2__input" id="question" maxlength="6000" placeholder="Pregunta a tus documentos…" required="" rows="3"></textarea>
           <div class="query-attachments" hidden="" id="query-attachments">
           </div>
           <div class="composer2__tools">
@@ -731,18 +725,17 @@
             <svg aria-hidden="true" class="icon"><use href="#i-clip"></use></svg>
            </button>
            <label class="tool tool--scope" for="chat-scope">
-            <svg aria-hidden="true" class="icon"><use href="#i-database"></use></svg>
-            <span class="tool__label" data-i18n="sentinel.search_in">Buscar en</span>
-            <select class="tool__select" id="chat-scope">
+            <i aria-hidden="true" class="tool__dot"></i>
+            <select aria-label="Buscar en" class="tool__select" data-i18n-aria-label="sentinel.search_in" id="chat-scope">
             </select>
            </label>
            <label class="tool" for="chat-top-k">
-            <span class="tool__label">top-k</span>
+            <i aria-hidden="true" class="tool__dot tool__dot--lilac"></i>
             <select aria-label="Fragmentos por respuesta" class="tool__select" data-i18n-aria-label="sentinel.fragments_per_answer" id="chat-top-k">
-             <option value="2">2</option>
-             <option value="4">4</option>
-             <option value="6">6</option>
-             <option value="8">8</option>
+             <option value="2">top-k 2</option>
+             <option value="4">top-k 4</option>
+             <option value="6">top-k 6</option>
+             <option value="8">top-k 8</option>
             </select>
            </label>
            <button aria-describedby="ask-reason" class="send send--go" id="ask-button" type="submit">
@@ -756,26 +749,6 @@
         </div>
        </form>
       </section>
-      <aside aria-label="Cómo se respondió" class="split__aside chat-aside" data-i18n-aria-label="journey.aside_label">
-       <section class="card journey">
-        <div class="journey__top">
-         <span class="eyebrow num" id="journey-step"></span>
-         <span class="pill pill--sm" hidden id="journey-state" role="status"></span>
-        </div>
-        <h2 class="journey__title" id="journey-title"></h2>
-        <div id="journey-scene"></div>
-        <p class="journey__text" id="journey-text"></p>
-        <div class="callout">
-         <svg aria-hidden="true" class="icon"><use href="#i-bulb"></use></svg>
-         <span><strong data-i18n="journey.key_title">IDEA CLAVE</strong><span data-i18n="journey.key_text">La respuesta solo usa lo que hay en los fragmentos recuperados. Si falta algo, sube top-k o revisa la colección.</span></span>
-        </div>
-       </section>
-       <section aria-labelledby="journey-list-title" class="card journey">
-        <h2 class="eyebrow" data-i18n="journey.list_title" id="journey-list-title">EN ESTA CONSULTA</h2>
-        <ul class="checks" id="journey-checks"></ul>
-       </section>
-      </aside>
-     </div>
      <dialog aria-labelledby="context-title" class="context-drawer" id="context-panel">
       <div class="context-aside">
        <section class="card chat-sources" id="context-details">
@@ -1105,6 +1078,10 @@
       </div>
       <span class="page-head__spacer">
       </span>
+      <button class="btn btn--primary" id="add-documents-button" type="button">
+       <svg aria-hidden="true" class="icon"><use href="#i-plus"></use></svg>
+       <span data-i18n="scene.go_upload">Añadir documentos</span>
+      </button>
       <button class="btn btn--danger" id="empty-library-button" type="button">
        <span data-i18n="sentinel.empty_library">
         Vaciar biblioteca

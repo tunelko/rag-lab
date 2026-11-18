@@ -9,11 +9,11 @@ import {sessionKey} from './collection-scope.js';
 import {PipelineScene} from './pipeline-scene.js';
 import {journey} from './chat-journey.js';
 
-const STORE=sessionKey('rag-local-chat-v3'),VISIBLE_DOCUMENTS=4,s=(key,values={})=>t(`sentinel.${key}`,values);
+const STORE=sessionKey('rag-local-chat-v3'),s=(key,values={})=>t(`sentinel.${key}`,values);
 const busyStatus=status=>['queued','running'].includes(status);
 const clock=value=>new Intl.DateTimeFormat(intlLocale(),{hour:'2-digit',minute:'2-digit'}).format(new Date(value));
 const plural=(key,count)=>s(`${key}_${count===1?'one':'other'}`,{count:number(count)});
-const j=(key,values={})=>t(`journey.${key}`,values),CHECKS=['vector','fragments','route','answer','cited'];
+const j=(key,values={})=>t(`journey.${key}`,values),CHECKS=['vector','fragments','route','answer','cited'],VISIBLE_DOCUMENTS=3;
 // Rewriting identical text would restart animations and drop a selection.
 const put=(element,text)=>{if(element.textContent!==text)element.textContent=text;};
 // A plain control with an optional icon; the shared .btn look does not apply inside an answer.
@@ -23,9 +23,6 @@ export class Chat{
   constructor(api,changed,beforeSend=async()=>{},patchSettings=()=>{}){
     this.api=api;this.changed=changed;this.beforeSend=beforeSend;this.patchSettings=patchSettings;this.turns=[];this.active=null;this.submitting=false;this.stopping=false;this.contextTurnId=null;this.attachments=[];this.turnImages=new Map();this.elements=new Map();this.settings=null;
     try{this.turns=JSON.parse(sessionStorage.getItem(STORE)||'[]').slice(-30);}catch{sessionStorage.removeItem(STORE);}
-    // Light theme side column: the scene of this question and its checklist, ticked as the job is polled.
-    this.scene=new PipelineScene($('journey-scene'),{mini:true});this.checks=new Map();
-    for(const key of CHECKS){const row=node('li'),box=node('span','check'),text=node('span','checks__text'),title=node('span','checks__title'),detail=node('span','checks__detail num'),state=node('span','sr-only');box.setAttribute('aria-hidden','true');box.append(icon('check'));text.append(title,detail);row.append(box,text,state);$('journey-checks').append(row);this.checks.set(key,{row,title,detail,state});}
     this.contextPanel=new ContextPanel();this.render();
     const question=$('question'),thread=$('chat-thread'),box=$('composer-box');
     question.addEventListener('input',()=>{this.autosize();this.controls();});
@@ -65,7 +62,8 @@ export class Chat{
     });
   }
   save(){this.turns=this.turns.slice(-30);try{sessionStorage.setItem(STORE,JSON.stringify(this.turns));}catch{toast(s('history_full'));}}
-  autosize(){const input=$('question');input.style.height='auto';const height=input.scrollHeight;input.style.height=height?Math.min(height,240)+'px':'';}
+  // The question box grows with its text up to about ten lines, then scrolls.
+  autosize(){const input=$('question');input.style.height='auto';const height=input.scrollHeight;input.style.height=height?Math.min(height,284)+'px':'';}
   atEnd(){const thread=$('chat-thread');return thread.scrollHeight-thread.scrollTop-thread.clientHeight<80;}
   jump(){$('chat-jump').hidden=!this.turns.length||this.atEnd();}
   scopeName(){const scope=$('chat-scope');return scope.value?scope.selectedOptions[0]?.textContent.replace(/ · [\d.,]+$/,'')||'':'';}
@@ -77,7 +75,7 @@ export class Chat{
     $('new-chat').disabled=busy;$('question').required=!busy;$('question').placeholder=name?s('ask_scope',{name}):t('ui.ask_your_documents_45c5ff');
     $('attach-image').disabled=busy;$('attach-image').title=s('attach_image');$('attach-image').setAttribute('aria-label',s('attach_image'));
     $('conversation-count').textContent=count?[plural('question_count',count),first?s('started_at',{time:clock(first)}):''].filter(Boolean).join(' · '):'';
-    put($('chat-crumb'),s('chat')+' / '+(name||t('library.all')));$('chat-pill-questions').hidden=!count;put($('chat-pill-questions'),count?plural('question_count',count):'');
+    put($('chat-crumb'),'/ '+(name||t('library.all')));
   }
   // The composer shows the same top-k as Settings and writes it through the same store.
   setSettings(value){
@@ -87,7 +85,7 @@ export class Chat{
   setStatus(status){
     this.status=status;this.controls();this.suggestions();this.context();this.scopeWarning();
     const empty=$('chat-empty').querySelector('.musa');empty.dataset.state=status.ollama.connected?'idle':'offline';empty.classList.toggle('is-static',Boolean(this.turns.length));
-    let banner=$('ollama-offline');if(!banner){banner=node('div','banner banner--err');banner.id='ollama-offline';$('query-view').querySelector('.page-head').after(banner);}banner.hidden=status.ollama.connected;banner.textContent=s('ollama_start');
+    let banner=$('ollama-offline');if(!banner){banner=node('div','banner banner--err');banner.id='ollama-offline';$('query-view').querySelector('.chat-toolbar').after(banner);}banner.hidden=status.ollama.connected;banner.textContent=s('ollama_start');
   }
   scopeWarning(){
     const id=$('chat-scope').value,scope=sourceScope(this.status,id);
@@ -124,16 +122,35 @@ export class Chat{
   }
   create(turn){
     const article=node('article','chat-turn');article.dataset.turn=turn.id;article.setAttribute('aria-label',s('answer_of_musa'));
-    const ask=node('div','q'),tag=node('span','q__meta'),meta=node('span');tag.append(icon('user'),meta);ask.append(node('div','q__bubble',turn.question));
-    if(turn.attachment_names?.length)ask.append(node('p','q__files',turn.attachment_names.join(' · ')));ask.append(tag);
+    const ask=node('div','q'),meta=node('span','q__meta');ask.append(node('div','q__bubble',turn.question));
+    if(turn.attachment_names?.length)ask.append(node('p','q__files',turn.attachment_names.join(' · ')));ask.append(meta);
     const reply=node('div','a'),avatarBox=node('div','a__avatar'),avatar=createMusa(),main=node('div','a__main');avatarBox.append(avatar);
-    const head=node('div','a__head'),route=node('span','a__route'),state=node('span','a__state chat-state'),model=node('span','a__model');state.setAttribute('role','status');head.append(node('strong','a__name','Musa'),route,state,model);
-    const steps=node('ol','steps2');steps.setAttribute('aria-label',s('query_progress'));
-    const answer=node('div','answer a__body'),sources=node('section','sources');sources.hidden=true;
-    const actions=node('div','a__actions'),copy=control('button','act',s('copy'),'copy'),retry=control('button','act',s('regenerate'),'refresh'),view=control('a','act',s('view_trace'),'activity'),trace=node('span','a__trace');
+    const head=node('div','a__head'),state=node('span','a__state chat-state'),model=node('span','a__model');state.setAttribute('role','status');head.append(node('strong','a__name','Musa'),model,state);
+    const answer=node('div','answer a__body');
+    // The foot of an answer: two folds (its sources, how it was answered) and, on the right, copy and regenerate.
+    const foot=node('div','a__foot a__actions'),sourcesFold=control('button','fold','','layers'),howFold=control('button','fold',s('fold_how'),'activity'),best=node('span','fold__extra');
+    const copy=control('button','act',s('copy')),retry=control('button','act',s('regenerate')),gap=node('span','a__gap');sourcesFold.append(best);
     copy.setAttribute('aria-label',s('copy_answer'));copy.addEventListener('click',()=>this.copy(turn,copy));retry.addEventListener('click',()=>this.send(turn.question,turn.id));
-    actions.append(copy,retry,view,trace);main.append(head,steps,answer,sources,actions);reply.append(avatarBox,main);article.append(ask,reply);$('chat-thread').append(article);
-    const result={article,meta,avatar,route,state,model,steps,answer,sources,copy,retry,view,trace,sourceKey:''};this.elements.set(turn.id,result);return result;
+    const sources=node('section','sources fold-panel'),how=node('section','how fold-panel fold-panel--how');sources.hidden=how.hidden=true;how.setAttribute('aria-label',s('fold_how'));
+    const column=node('div','how__col'),sceneHost=node('div','how__scene'),text=node('p','how__text'),side=node('div','how__col'),list=node('ul','checks'),view=control('a','act how__trace',s('view_trace'),'activity'),checks=new Map();
+    for(const key of CHECKS){const row=node('li'),box=node('span','check'),line=node('span','checks__text'),title=node('span','checks__title'),detail=node('span','checks__detail num'),done=node('span','sr-only');box.setAttribute('aria-hidden','true');box.append(icon('check'));line.append(title,detail);row.append(box,line,done);list.append(row);checks.set(key,{row,title,detail,state:done});}
+    column.append(sceneHost,text);side.append(list,view);how.append(column,side);
+    foot.append(sourcesFold,howFold,gap,copy,retry);main.append(head,answer,foot,sources,how);reply.append(avatarBox,main);article.append(ask,reply);$('chat-thread').append(article);
+    // Folds start closed; only the last answer remembers how the user left them.
+    const last=turn===this.turns.at(-1),open={sources:Boolean(last&&turn.folds?.sources),how:Boolean(last&&turn.folds?.how)};
+    const result={article,meta,avatar,state,model,answer,foot,sources,how,sourcesFold,howFold,best,copy,retry,view,sceneHost,text,checks,scene:null,open,touched:Boolean(last&&turn.folds?.touched),sourceKey:''};
+    const toggle=name=>{result.open[name]=name==='how'?!this.howOpen(turn,result):!result.open[name];if(name==='how')result.touched=true;if(turn===this.turns.at(-1)){turn.folds={...result.open,touched:result.touched};this.save();}this.folds(turn,result);};
+    sourcesFold.addEventListener('click',()=>toggle('sources'));howFold.addEventListener('click',()=>toggle('how'));
+    this.elements.set(turn.id,result);return result;
+  }
+  // While an answer is being written, how it is answered shows open and its boxes are ticked; it folds itself at
+  // the end, unless the user has touched it.
+  howOpen(turn,e){return e.touched?e.open.how:busyStatus(turn.status)||e.open.how;}
+  folds(turn,e){
+    const sources=(turn.sources||[]).length>0,showSources=sources&&e.open.sources,showHow=this.howOpen(turn,e);
+    e.sourcesFold.setAttribute('aria-expanded',String(showSources));e.sources.hidden=!showSources;
+    e.howFold.setAttribute('aria-expanded',String(showHow));e.how.hidden=!showHow;
+    if(showHow)this.howPanel(turn,e);
   }
   async copy(turn,button){
     try{await navigator.clipboard.writeText(turn.answer||'');}catch{toast(t('ui.could_not_copy_select_the_text_and_use_ctrl_c_687bf3'));return;}
@@ -143,7 +160,7 @@ export class Chat{
   update(turn){
     const thread=$('chat-thread'),atEnd=this.atEnd(),e=this.elements.get(turn.id)||this.create(turn),sources=turn.sources||[],metrics=turn.metrics||{},busy=busyStatus(turn.status);
     const scope=turn.topic_id?(turn.scope_label==='unassigned'?t('library.unassigned'):turn.scope_label||t('library.missing_scope')):t('library.all');
-    e.meta.textContent=[turn.asked_at?clock(turn.asked_at):'',s('asked_in',{scope})].filter(Boolean).join(' · ');
+    e.meta.textContent=[s('you'),turn.asked_at?clock(turn.asked_at):'',s('asked_in',{scope})].filter(Boolean).join(' · ');
     renderText(e.answer,turn.answer||'',new Set(sources.map(source=>Number(source.citation))),`turn-${turn.id}`);
     e.answer.querySelector('.stream-caret')?.remove();if(busy&&turn.answer){const caret=node('span','stream-caret');caret.setAttribute('aria-hidden','true');e.answer.append(caret);}
     e.answer.hidden=!turn.answer;
@@ -159,34 +176,23 @@ export class Chat{
       label=doing.replace(/[.…]+$/,'')+(seconds==null?'':' · '+number(seconds,1)+' s');kind='run';
     }
     if(e.state.textContent!==label)e.state.textContent=label;e.state.hidden=!label;e.state.className='a__state chat-state'+(kind?' a__state--'+kind:'');
-    const mode=busy?'':metrics.routing_mode||'',visual=metrics.visual_mode==='images';
-    const routeKey=!mode?'':mode==='search_only'?'retrieval_only':mode==='catalog'?'catalog':visual?'route_visual':mode.startsWith('external')?'route_cloud':'route_text';
-    e.route.textContent=routeKey?s(routeKey):'';e.route.hidden=!routeKey;e.route.classList.toggle('a__route--visual',routeKey==='route_visual');e.route.dataset.route=routeKey;
     const finished=busy?[]:[turn.model||metrics.model,turn.elapsed_seconds!=null&&turn.status!=='error'?number(turn.elapsed_seconds,1)+' s':''].filter(Boolean);
     e.model.textContent=finished.join(' · ');e.model.hidden=!finished.length;
-    e.steps.replaceChildren();e.steps.hidden=!busy;
-    if(busy){
-      const ready=sources.length>0||metrics.vector_search_seconds!=null,hasRoute=Boolean(turn.model||metrics.model);
-      const stages=[{caption:s('vectorized'),done:ready,run:!ready},{caption:s('sources_ready',{count:sources.length||'—'}),done:ready,run:false}];
-      if(metrics.retrieval_mode==='structured')stages.splice(0,stages.length,{caption:t('collections.interpreting'),done:ready,run:!ready},{caption:t('collections.graph_lookup'),done:false,run:ready});
-      if(metrics.images_used!=null)stages.push({caption:s('images_ready',{count:metrics.images_used}),done:hasRoute,run:false});
-      if(metrics.retrieval_mode!=='structured')stages.push({caption:hasRoute?s('generating_with',{model:turn.model||metrics.model}):s('preparing_model'),done:false,run:ready});
-      for(const stage of stages){const chip=node('li',stage.done?'is-done':stage.run?'is-run':'');if(stage.done)chip.append(icon('check'));chip.append(document.createTextNode(stage.caption));e.steps.append(chip);}
-    }
     const key=getLanguage()+JSON.stringify(sources);if(e.sourceKey!==key){this.renderSourceList(turn,e.sources,sources);e.sourceKey=key;}
-    const facts=[];if(metrics.routing_mode)facts.push(s(metrics.routing_mode==='automatic'?visual?'auto_visual':'auto_text':metrics.routing_mode==='search_only'?'retrieval_only':metrics.routing_mode==='catalog'?'catalog':metrics.routing_mode.startsWith('external')?'external':'manual'));
-    if(metrics.images_used!=null)facts.push(s('image_count',{count:metrics.images_used}));if(metrics.output_tokens!=null)facts.push(number(metrics.output_tokens)+' tok');if(metrics.generation_tok_s!=null)facts.push(number(metrics.generation_tok_s,2)+' tok/s');
-    e.trace.textContent=busy?'':facts.join(' · ');
+    // The route, the images and the speed of the answer are told in «how it was answered», not in its heading.
+    const top=sources.reduce((value,source)=>Math.max(value,relevance(source)),0),documented=sources.length>0&&sources.every(source=>source.match_type==='documented_relationship');
+    put(e.sourcesFold.querySelector('span'),plural('fold_sources',sources.length));put(e.best,documented?'· '+t('collections.documented'):'· '+s('fold_best',{value:number(top,2)}));
+    e.sourcesFold.hidden=!sources.length;this.folds(turn,e);
     e.copy.hidden=busy||!turn.answer;e.retry.hidden=busy;e.retry.disabled=Boolean(this.active||this.submitting);e.retry.querySelector('span').textContent=s(turn.status==='error'?'retry':'regenerate');
     e.view.hidden=busy||!turn.job_id;e.view.href='/estadisticas?query='+encodeURIComponent(turn.job_id||'');e.article.setAttribute('aria-busy',String(busy));
     if(this.contextTurnId===turn.id)this.context();if(atEnd)thread.scrollTop=thread.scrollHeight;this.jump();
   }
   // One row per document: its citation numbers, a readable title and its best relevance.
   renderSourceList(turn,box,sources){
-    box.replaceChildren();box.classList.remove('is-expanded');box.hidden=!sources.length;box.setAttribute('aria-label',s('answer_sources'));if(!sources.length)return;
-    const groups=groupSources(sources),head=node('div','sources__head'),list=node('ol','sources__list');
-    head.append(icon('layers'),node('h3','sources__title',s('sources_title')),node('span','sources__count',plural('documents',groups.length)+' · '+plural('fragments',sources.length)),node('span','sources__label',sources.every(source=>source.match_type==='documented_relationship')?t('collections.documented'):s('relevance_label')));
-    for(const group of groups){
+    box.replaceChildren();box.setAttribute('aria-label',s('answer_sources'));if(!sources.length)return;
+    // The three best documents; the whole list, fragment by fragment, is in the Context panel.
+    const groups=groupSources(sources),list=node('ol','sources__list');
+    for(const group of groups.slice(0,VISIBLE_DOCUMENTS)){
       const row=node('li','src-row'),numbers=node('span','src-row__nums'),text=node('span','src-row__text'),file=node('span','src-row__file');row.dataset.file=group.file;
       for(const citation of group.citations){const chip=node('button','src-num',citation);chip.type='button';chip.setAttribute('aria-label',s('show_in_context',{number:citation}));chip.addEventListener('click',()=>this.selectContext(turn,citation,chip));numbers.append(chip);}
       const best=group.fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top),title=node('button','src-row__title',group.title);title.type='button';title.title=group.file;
@@ -197,12 +203,9 @@ export class Chat{
       if(group.fragments.every(source=>source.match_type==='documented_relationship')){score.title=t('collections.documented');score.replaceChildren(node('span','',t('collections.documented')));}
       row.append(numbers,text,score);list.append(row);
     }
-    box.append(head,list);
-    if(groups.length>VISIBLE_DOCUMENTS){
-      const more=node('div','sources__more'),toggle=node('button','act act--accent');toggle.type='button';
-      const caption=()=>{const open=box.classList.contains('is-expanded');toggle.replaceChildren(node('span','',open?s('show_fewer'):s('show_more',{count:number(groups.length-VISIBLE_DOCUMENTS)})),icon('chevron'));toggle.setAttribute('aria-expanded',String(open));};
-      toggle.addEventListener('click',()=>{box.classList.toggle('is-expanded');caption();});caption();more.append(toggle);box.append(more);
-    }
+    const all=control('button','sources__all',s('fold_all_in_context',{count:number(sources.length)})),first=groups[0].fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top);
+    all.append(icon('arrow'));all.addEventListener('click',()=>this.selectContext(turn,first.citation,all));
+    box.append(list,all);
   }
   // A citation or a document opens the Context panel on that fragment, lit against the darkened rest.
   selectContext(turn,citation,trigger){this.contextTurnId=turn.id;this.context();this.contextPanel.open(citation,trigger);}
@@ -212,16 +215,15 @@ export class Chat{
     if(signature!==this.contextSignature){this.contextSignature=signature;renderSources(sources,turn?.question||'',$('sources'),`turn-${turn?.id||'empty'}`);$('context-count').textContent=number(sources.length);$('context-empty').hidden=Boolean(sources.length);}
     const reason=serverText(turn?.metrics?.routing_reason)||s('route_empty');if($('context-route').textContent!==reason)$('context-route').textContent=reason;
     const model=this.status?.embedding_model?.split('/').at(-1),dimensions=this.status?.embedding_dimensions,info=model?model+' · '+s('dimension_count',{count:dimensions==null?'—':number(dimensions)}):'—';if($('query-vector-info').textContent!==info)$('query-vector-info').textContent=info;
-    this.insight(turn);
   }
-  // «Así viajó tu pregunta» and «En esta consulta»: the same turn the Context panel shows, read from its polled job.
-  insight(turn){
+  // «Cómo se respondió»: the small scene of the pipeline for this answer and its checklist, read from its polled
+  // job. The scene is drawn the first time the panel is opened.
+  howPanel(turn,e){
     const view=journey(turn),f=view.facts,live=['queued','retrieving','generating'].includes(view.phase),count=number(f.fragments||0);
-    this.scene.set(view.scene);put($('journey-step'),j('step',{step:view.step}));
-    const pill=$('journey-state');pill.hidden=view.phase==='empty';pill.dataset.phase=view.phase;put(pill,view.phase==='empty'?'':j('state_'+(view.phase==='catalog'?'done':view.phase)));
-    put($('journey-title'),j(view.phase==='empty'?'title_empty':live?'title_live':'title_done'));
+    if(!e.scene)e.scene=new PipelineScene(e.sceneHost,{mini:true});
+    e.scene.set(view.scene);
     const target=j(f.cloud?'target_cloud':f.visual?'target_visual':'target_text');
-    put($('journey-text'),{empty:j('text_empty'),queued:j('text_queued'),retrieving:j('text_retrieving'),generating:j('text_generating',{count}),done:j(f.fragments===1?'text_done_one':'text_done_other',{count,target}),retrieved:j('text_search_only',{count}),catalog:j('text_catalog'),stopped:j('text_stopped'),error:j('text_error')}[view.phase]);
+    put(e.text,{empty:j('text_empty'),queued:j('text_queued'),retrieving:j('text_retrieving'),generating:j('text_generating',{count}),done:j(f.fragments===1?'text_done_one':'text_done_other',{count,target}),retrieved:j('text_search_only',{count}),catalog:j('text_catalog'),stopped:j('text_stopped'),error:j('text_error')}[view.phase]);
     const embedding=this.status?.embedding_model?this.status.embedding_model.split('/').at(-1)+' · '+this.status.embedding_device.toUpperCase():'—',join=parts=>parts.filter(Boolean).join(' · ')||'—';
     const route=!f.mode?'check_route':f.catalog?'route_catalog':f.searchOnly?'route_search_only':f.cloud?'route_cloud':(f.mode==='automatic'?'route_auto_':'route_manual_')+(f.visual?'visual':'text');
     const rows={
@@ -230,7 +232,7 @@ export class Chat{
       route:[j(route),join([serverText(f.reason),f.images!=null?s('image_count',{count:f.images}):''])],
       answer:[j(view.phase==='retrieved'?'check_answer_none':'check_answer'),join([f.model,f.tokens!=null?number(f.tokens)+' tok':'',f.speed!=null?number(f.speed,2)+' tok/s':''])],
       cited:[j('check_cited'),f.cited&&!live?j(f.cited===1?'check_cited_one':'check_cited_other',{count:number(f.cited)}):turn&&!live&&turn.answer&&!f.searchOnly?j('check_cited_none'):'—']};
-    for(const [key,[title,detail]] of Object.entries(rows)){const item=this.checks.get(key),state=view.checks[key];item.row.dataset.state=state;put(item.title,title);put(item.detail,detail);put(item.state,j('check_'+state));}
+    for(const [key,[title,detail]] of Object.entries(rows)){const item=e.checks.get(key),state=view.checks[key];item.row.dataset.state=state;put(item.title,title);put(item.detail,detail);put(item.state,j('check_'+state));}
   }
   render(){
     const thread=$('chat-thread');thread.replaceChildren();this.elements.clear();if(!this.turns.some(turn=>turn.id===this.contextTurnId))this.contextTurnId=this.turns.at(-1)?.id||null;

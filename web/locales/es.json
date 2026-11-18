@@ -1290,5 +1290,11 @@
   "graph.join_step_3": "Guardar",
   "graph.join_batch": "Tanda de {pairs} parejas · paso {step} de {total}",
   "graph.join_saved": "Tanda de {pairs} parejas guardada",
-  "graph.join_counts": "Unión de entidades: {assessed} parejas decididas · {pending} pendientes"
+  "graph.join_counts": "Unión de entidades: {assessed} parejas decididas · {pending} pendientes",
+  "sentinel.you": "tú",
+  "sentinel.fold_how": "Cómo se respondió",
+  "sentinel.fold_sources_one": "{count} fuente",
+  "sentinel.fold_sources_other": "{count} fuentes",
+  "sentinel.fold_best": "mejor {value}",
+  "sentinel.fold_all_in_context": "Ver las {count} en Contexto"
 }

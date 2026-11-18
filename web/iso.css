@@ -384,9 +384,6 @@
   --shadow-composer: var(--hard-l);
 }
 
-/* In the light theme only the background of the conversation is white (the user's choice): the heading, the
-   questions, Musa's answers and the composer keep the colour of a card. */
-:root[data-theme="light"] .conversation-card .chat-thread, :root[data-theme="light"] .conversation-card .chat-empty { background: #ffffff; }
 /* Card, heading and conversation */
 :root[data-theme] .conversation-card { height: max(620px, calc(100dvh - 104px)); border-radius: var(--r-card); }
 :root[data-theme] .conversation-card:has(.chat-empty:not([hidden])) { height: auto; min-height: max(620px, calc(100dvh - 104px)); }
@@ -475,8 +472,6 @@
 :root[data-theme] .tool { height: 34px; padding: 0 12px; border: var(--bw) solid var(--edge); border-radius: var(--r-pill); background: var(--card); color: var(--ink); font-weight: 600; }
 :root[data-theme] .tool:hover { background: var(--card); box-shadow: var(--hard-s); }
 :root[data-theme] .tool--icon { width: 34px; padding: 0; border-radius: var(--r-ctl); }
-:root[data-theme] .tool--scope, :root[data-theme] .tool--scope:hover { background: var(--mint); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-:root[data-theme] .tool[for="chat-top-k"], :root[data-theme] .tool[for="chat-top-k"]:hover { background: var(--lilac); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .tool__label, :root[data-theme] .tool--scope .icon { color: var(--ink); }
 :root[data-theme] .tool:has(.tool__select)::after { border-color: var(--edge); }
 :root[data-theme] .send { height: 40px; padding: 0 16px; border: var(--bw) solid var(--edge); border-radius: var(--r-ctl); box-shadow: var(--hard); font: 800 14px/1 var(--font); transition: transform .08s, box-shadow .08s; }
@@ -509,16 +504,7 @@
 :root[data-theme] .musa__hat-iso { display: block; fill: var(--on-fill); stroke: var(--hat-edge); stroke-width: 5; stroke-linejoin: round; }
 :root[data-theme] .musa .musa__hat-trim--brim { display: block; stroke: #c4161c; stroke-width: 7; }
 
-/* Side column: how the question travelled, and what happened in this query */
-:root[data-theme] .chat-split { display: flex; align-items: flex-start; }
-:root[data-theme] .chat-aside { display: flex; flex: 1 1 360px; }
-:root[data-theme] .journey { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
-:root[data-theme] .journey__top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 22px; }
-:root[data-theme] .journey__title { margin: 0; font-size: 18px; line-height: 24px; font-weight: 800; color: var(--ink); }
-:root[data-theme] .journey__text { margin: 0; font-size: 12px; line-height: 20px; color: var(--text); }
-:root[data-theme] #journey-state[data-phase="done"], :root[data-theme] #journey-state[data-phase="retrieved"], :root[data-theme] #journey-state[data-phase="catalog"] { background: var(--mint); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-:root[data-theme] #journey-state[data-phase="retrieving"], :root[data-theme] #journey-state[data-phase="generating"] { background: var(--lima); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-:root[data-theme] #journey-state[data-phase="error"] { color: var(--err); }
+/* Callouts and checklists, shared by several screens */
 :root[data-theme] .callout { display: flex; gap: 10px; padding: 12px; border: var(--bw) solid var(--edge); border-radius: 12px; background: var(--lilac); font-size: 12px; line-height: 18px; color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .callout--warn { background: var(--butter); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 :root[data-theme] .callout .icon { width: 18px; height: 18px; margin-top: 1px; }
@@ -547,6 +533,115 @@
   :root[data-theme] .chat-actions .btn span { display: none; }
   :root[data-theme] .src-row { grid-template-columns: 48px minmax(0, 1fr); }
   :root[data-theme] .a__main { padding: 12px; }
+}
+
+/* ---------- 6b. Chat v2: one column, no nested boxes ----------
+   The conversation sits on the page itself, in one centred column shared by the heading, the turns and the
+   question box. An answer is not inside a card; its sources and how it was answered are two folds under it.
+   These rules come after the older chat rules above and replace them where both apply. */
+/* The view takes the height of the window under the top bar; whatever notices it shows, the column fills the rest
+   and only the conversation scrolls. */
+:root[data-theme] #query-view { --chat-top: 59px; box-sizing: border-box; height: calc(100dvh - var(--chat-top)); min-height: 560px; padding-top: 12px; padding-bottom: 12px; }
+/* With nothing asked yet the welcome takes the room of the conversation, inside the same height: the page does not scroll. */
+:root[data-theme] .chat2:has(.chat-empty:not([hidden])) { height: auto; min-height: 0; }
+:root[data-theme] .chat2 .chat-empty { flex: 1 1 auto; min-height: 0; justify-content: safe center; overflow-y: auto; scrollbar-width: none; padding: 12px 20px; }
+:root[data-theme] .chat2 .chat-empty::-webkit-scrollbar { display: none; }
+:root[data-theme] .chat2 { --chat-col: 920px; --chat-edge: 0px; flex: 1 1 auto; height: auto; min-height: 0; background: transparent; border: 0; border-radius: 0; overflow: visible; }
+:root[data-theme] .chat2 > .chat2__head, :root[data-theme] .chat2 .composer2-wrap, :root[data-theme] .chat2 .chat-turn { width: 100%; max-width: var(--chat-col); margin-inline: auto; }
+:root[data-theme] .chat2 > .chat2__head { align-items: center; gap: 8px 10px; min-height: 0; padding: 4px 0 10px; background: transparent; border: 0; }
+:root[data-theme] .chat2__title { margin: 0; font: 800 13px/20px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink); }
+:root[data-theme] .chat2__scope { font-weight: 500; color: var(--muted); }
+:root[data-theme] .chat2__count { font-size: 12px; line-height: 20px; color: var(--muted); }
+:root[data-theme] .chat2__gap, :root[data-theme] .a__gap { flex: 1 1 auto; }
+:root[data-theme] .chat-actions { gap: 2px; }
+:root[data-theme] .btn-quiet { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; background: transparent; border: 0; border-radius: 8px; color: var(--ink); font: 700 12px/1 var(--font); white-space: nowrap; cursor: pointer; }
+:root[data-theme] .btn-quiet:hover:not(:disabled) { background: var(--hover); }
+:root[data-theme] .btn-quiet:disabled { color: var(--muted); cursor: not-allowed; }
+:root[data-theme] .btn-quiet .icon { width: 16px; height: 16px; }
+:root[data-theme] .chat2 .chat-thread { gap: 40px; padding: 28px 2px 40px; background: transparent; border: 0; font-size: 15px; }
+/* The conversation scrolls with the wheel, the keyboard and touch, without drawing its scroll bar (the user's choice). */
+:root[data-theme] .chat2 .chat-thread { scrollbar-width: none; }
+:root[data-theme] .chat2 .chat-thread::-webkit-scrollbar { display: none; }
+:root[data-theme] .chat2 .chat-empty { background: transparent; border: 0; }
+:root[data-theme] .chat2 .chat-turn { gap: 40px; }
+
+/* Question: a bubble on the right; under it, who asked, when and where */
+:root[data-theme] .chat2 .q { gap: 8px; }
+:root[data-theme] .chat2 .q__bubble { max-width: 72%; padding: 12px 18px; border-radius: 16px 16px 4px 16px; font-size: 15px; line-height: 24px; }
+:root[data-theme] .chat2 .q__meta { display: block; padding: 0; background: none; border: 0; border-radius: 0; color: var(--muted); font-size: 12px; line-height: 18px; font-weight: 400; text-align: right; }
+
+/* Answer: Musa on the left and, beside her, the text with no card around it */
+:root[data-theme] .chat2 .a { gap: 18px; }
+:root[data-theme] .chat2 .a__avatar .musa { --musa-size: 40px; }
+:root[data-theme] .chat2 .a__main { gap: 18px; padding: 0; background: none; border: 0; border-radius: 0; }
+:root[data-theme] .chat2 .a__head { padding-top: 4px; }
+:root[data-theme] .chat2 .a__name { font-size: 15px; }
+:root[data-theme] .chat2 .answer.a__body { font-size: 15px; line-height: 27px; }
+:root[data-theme] .chat2 .a__body > * { margin-block: 0; }
+:root[data-theme] .chat2 .a__body > * + * { margin-top: 16px; }
+:root[data-theme] .chat2 .a__body :is(h1, h2, h3, h4, h5, h6) { font: 800 15px/27px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink); }
+:root[data-theme] .chat2 .a__body :is(h1, h2, h3, h4, h5, h6) + * { margin-top: 6px; }
+:root[data-theme] .chat2 .a__body strong { font-weight: 800; }
+:root[data-theme] .chat2 .a__body ul { display: flex; flex-direction: column; gap: 6px; margin-bottom: 0; }
+:root[data-theme] .chat2 .a__body ul > li { margin: 0; padding-left: 19px; }
+:root[data-theme] .chat2 .a__body ul > li::before { top: 10px; }
+:root[data-theme] .chat2 .a__body ol > li { margin: 6px 0; }
+
+/* The foot of an answer: two folds, then copy and regenerate */
+:root[data-theme] .a__foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+:root[data-theme] .fold { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; background: var(--card); border: var(--bw) solid var(--edge); border-radius: var(--r-pill); color: var(--ink); font: 700 12px/1 var(--font); white-space: nowrap; cursor: pointer; }
+:root[data-theme] .fold:hover { background: var(--hover); }
+:root[data-theme] .fold[aria-expanded="true"] { background: var(--lima); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .fold .icon { width: 14px; height: 14px; }
+:root[data-theme] .fold__extra { font-weight: 500; font-variant-numeric: tabular-nums; }
+:root[data-theme] .chat2 .act { height: 32px; padding: 0 10px; border: 0; border-radius: 8px; font-weight: 600; }
+:root[data-theme] .fold-panel { overflow: hidden; background: var(--card); border: var(--bw) solid var(--edge); border-radius: 12px; }
+:root[data-theme] .fold-panel[hidden] { display: none; }
+:root[data-theme] .chat2 .src-row { grid-template-columns: 84px minmax(0, 1fr) 128px; padding: 9px 14px; }
+:root[data-theme] .chat2 .sources .src-row:nth-child(n+4) { display: grid; }
+:root[data-theme] .sources__all { display: flex; align-items: center; gap: 6px; width: 100%; height: 34px; padding: 0 14px; background: transparent; border: 0; border-top: 1px solid var(--line); color: var(--ink); font: 700 12px/1 var(--font); cursor: pointer; }
+:root[data-theme] .sources__all:hover { background: var(--hover); }
+:root[data-theme] .sources__all .icon { width: 14px; height: 14px; }
+:root[data-theme] .fold-panel--how { display: flex; flex-wrap: wrap; gap: 16px 24px; padding: 16px; }
+:root[data-theme] .how__col { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+:root[data-theme] .how__scene { padding: 12px 12px 14px; background-color: var(--stage); background-image: var(--iso-grid); border: 1px solid var(--line); border-radius: 12px; }
+:root[data-theme] .how__text { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted); }
+:root[data-theme] .how .checks { gap: 8px; font-size: 12px; line-height: 18px; }
+:root[data-theme] .how .check { width: 16px; height: 16px; border-radius: 4px; }
+:root[data-theme] .how .checks__text { display: block; }
+:root[data-theme] .how .checks__title { font-weight: 700; }
+:root[data-theme] .how .checks__detail::before { content: " · "; }
+:root[data-theme] .how__trace { align-self: flex-start; margin-left: 16px; padding: 0 10px; color: var(--muted); text-decoration: none; }
+
+/* The question box, docked at the bottom of the column; the conversation fades into it */
+:root[data-theme] .chat2 > .composer { padding: 0 0 6px; background: transparent; border: 0; }
+:root[data-theme] .chat2 > .composer::before { content: ""; position: absolute; left: 0; right: 0; top: -24px; height: 24px; background-image: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none; }
+:root[data-theme] .chat2 .composer2, :root[data-theme] .chat2 .composer2:focus-within { border-radius: 18px; }
+:root[data-theme] .chat2 .composer2__input { min-height: 102px; max-height: 284px; padding: 18px 20px 6px; font-size: 16px; line-height: 26px; }
+:root[data-theme] .chat2 .composer2__tools { padding: 8px 12px 12px; }
+:root[data-theme] .chat2 .tool, :root[data-theme] .chat2 .tool:hover { height: 36px; padding: 0 12px; background: transparent; border: 0; border-radius: var(--r-ctl); box-shadow: none; color: var(--ink); font-size: 13px; font-weight: 400; }
+:root[data-theme] .chat2 .tool:hover { background: var(--hover); }
+:root[data-theme] .chat2 .tool--icon { width: 36px; padding: 0; }
+/* The whole tool is its selector: it reaches under the coloured square and to both edges, so a press anywhere opens it. */
+:root[data-theme] .chat2 .tool__select { height: 36px; margin: 0 -12px 0 -30px; padding: 0 30px 0 30px; font-weight: 700; }
+:root[data-theme] .chat2 .tool__dot { pointer-events: none; }
+:root[data-theme] .chat2 .tool__label { color: var(--ink); }
+:root[data-theme] .tool__dot { flex: none; width: 10px; height: 10px; background: var(--mint); border: var(--bw) solid var(--edge); border-radius: 3px; }
+:root[data-theme] .tool__dot--lilac { background: var(--lilac); }
+:root[data-theme] .chat2 .send { height: 40px; padding: 0 20px; border-radius: 12px; }
+
+@media (max-width: 720px) {
+  :root[data-theme] #query-view { --chat-top: 110px; min-height: 480px; padding-top: 8px; padding-bottom: 8px; }
+  :root[data-theme] .chat2 .chat-thread { gap: 28px; padding-top: 16px; }
+  :root[data-theme] .chat2 .chat-turn { gap: 28px; }
+  :root[data-theme] .chat2 .q__bubble { max-width: 88%; }
+  :root[data-theme] .chat2 .a { flex-direction: column; gap: 6px; }
+  :root[data-theme] .chat2 .a__avatar { padding-top: 26px; }
+  :root[data-theme] .chat2 .a__avatar .musa { --musa-size: 32px; }
+  :root[data-theme] .chat2 .a__foot .fold { flex: 1 1 100%; justify-content: center; }
+  :root[data-theme] .chat2 .src-row { grid-template-columns: 56px minmax(0, 1fr); }
+  :root[data-theme] .btn-quiet span { display: none; }
+  :root[data-theme] .chat2 .composer2__input { min-height: 76px; padding: 14px 16px 4px; }
 }
 
 /* ---------- 7. Library ---------- */
@@ -649,6 +744,10 @@
 :root[data-theme] .stage-labels3 > .is-done, :root[data-theme] .stage-labels3 > .is-run { color: var(--ink); font-weight: 700; }
 :root[data-theme] .queue-meta { font-size: 11px; color: var(--muted); }
 :root[data-theme] .queue-error-text { font-size: 11px; color: var(--err); }
+
+/* A jump to the upload card stops under the sticky top bar, not behind it. */
+:root[data-theme] #upload-card-head { scroll-margin-top: 76px; }
+@media (max-width: 720px) { :root[data-theme] #upload-card-head { scroll-margin-top: 124px; } }
 
 /* ---------- 8. Settings ---------- */
 /* Header card: heading, save state, explained scene and the reindex notice */
