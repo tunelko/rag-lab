@@ -568,7 +568,7 @@
   "sentinel.collection": "Colección",
   "sentinel.last_index": "Última indexación",
   "sentinel.ingestion": "Ingesta",
-  "sentinel.auto": "Automática",
+  "sentinel.auto": "Autopilot",
   "sentinel.manual": "Manual",
   "sentinel.text_model": "Modelo de texto",
   "sentinel.vision_model": "Modelo visual para respuestas",
@@ -1298,5 +1298,9 @@
   "sentinel.fold_best": "mejor {value}",
   "sentinel.fold_all_in_context": "Ver las {count} en Contexto",
   "viewer.show_source": "Ver original",
-  "viewer.show_formatted": "Ver con formato"
+  "viewer.show_formatted": "Ver con formato",
+  "sentinel.mode_autopilot": "Selección Autopilot",
+  "sentinel.mode_manual": "Selección Manual",
+  "sentinel.reindex_title": "Hay que actualizar el índice",
+  "notice.ok": "Entendido"
 }

@@ -196,6 +196,15 @@ def run_browser(url):
         checks.append(name)
         print("OK:", name, flush=True)
 
+    def dismiss_notice(page, expected=None):
+        # What a change of configuration means, or a warning, is a modal window: read it, then close it.
+        notice=page.locator('#notice-dialog')
+        try:notice.wait_for(state='visible',timeout=2000)
+        except Exception:
+            assert expected is None, f'No notice was shown; expected {expected!r}'
+            return
+        if expected:expect(page.locator('#notice-title')).to_have_text(expected)
+        page.locator('#notice-ok').click();expect(notice).not_to_be_visible()
     def dialog_close(page):
         if page.locator("#result-dialog").is_visible():
             page.keyboard.press("Escape")
@@ -241,6 +250,9 @@ def run_browser(url):
         english_page.locator('#question').fill('Keep this unsent question <script>literal</script>')
         english_page.locator('#nav-settings').click();english_page.locator("#top-k [data-k='8']").click()
         english_page.locator('[data-response-mode=manual]').click()
+        # The buttons are named after the two ways of choosing the model, and the change is explained in a window, not under the card.
+        expect(english_page.locator('#notice-text')).to_have_text('The selected model is always used.');dismiss_notice(english_page,'Manual selection')
+        expect(english_page.locator('#response-mode-control')).to_contain_text('Autopilot selection');assert english_page.locator('#response-mode').count()==0
         expect(english_page.locator('#settings-message')).to_have_text('Saved')
         before_locale=len(locale_mutations)
         english_page.locator('#language-selection').select_option('es')
@@ -253,7 +265,7 @@ def run_browser(url):
         assert len(locale_mutations)==before_locale
         assert english_page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
         english_page.screenshot(path=str(reports/'redesign-english-mobile.png'),full_page=True)
-        english_page.locator("#top-k [data-k='4']").click();english_page.locator('[data-response-mode=automatic]').click()
+        english_page.locator("#top-k [data-k='4']").click();english_page.locator('[data-response-mode=automatic]').click();dismiss_notice(english_page,'Autopilot selection')
         expect(english_page.locator('#settings-message')).to_have_text('Saved')
         before_locale=len(locale_mutations)
         english_page.reload(wait_until='networkidle')
@@ -395,7 +407,7 @@ def run_browser(url):
         page.reload(wait_until="networkidle")
         expect(page.locator("#top-k [data-k='6']")).to_have_attribute("aria-checked", "true")
         expect(page.locator("#model-selection")).to_have_value("automatic")
-        page.locator('#response-provider').select_option('xai')
+        page.locator('#response-provider').select_option('xai');dismiss_notice(page)
         expect(page.locator('#settings-message')).to_have_text('Guardado')
         expect(page.locator('#external-model-field')).to_be_visible()
         expect(page.locator('#credential-panel')).to_be_visible()
@@ -486,14 +498,14 @@ def run_browser(url):
         with page.expect_request('**/api/providers/xai/models'):
             page.locator('#refresh-provider-models').click()
         expect(page.locator('#external-model')).to_be_disabled()
-        page.locator('#response-provider').select_option('scaleway')
+        page.locator('#response-provider').select_option('scaleway');dismiss_notice(page)
         expect(page.locator('#credential-state')).to_have_text('Sin configurar')
         assert pending_catalog
         for delayed in pending_catalog:
             delayed.fulfill(json={'provider': 'xai', 'models': ['wrong-provider-model']})
         # Changing back must load a new catalog, not the delayed previous one.
         catalog['hold'] = False
-        page.locator('#response-provider').select_option('xai')
+        page.locator('#response-provider').select_option('xai');dismiss_notice(page)
         expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
         expect(page.locator('#external-model option[value="wrong-provider-model"]')).to_have_count(0)
         expect(page.locator('#external-model')).to_have_value('')
@@ -502,14 +514,15 @@ def run_browser(url):
         expect(page.locator('#external-model')).to_be_disabled()
         expect(page.locator('#external-model option')).to_have_count(1)
         catalog['models'] = ['qa-cloud-one', 'qwen/qwen3.8-27b']
-        page.locator('#response-provider').select_option('groq')
+        page.locator('#response-provider').select_option('groq');dismiss_notice(page)
         expect(page.locator('#provider-credential-hint')).to_contain_text('GroqCloud')
         expect(page.locator('#external-model')).to_be_disabled()
         page.locator('#provider-api-key').fill('gsk_qa-only-provider-secret')
         page.locator('#save-api-key').click()
         expect(page.locator('#provider-models-state')).to_have_text('2 modelos disponibles')
         expect(page.locator('#provider-api-key')).to_have_value('')
-        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT'):
+        # Wait for the save that carries this model: the save of the provider chosen a moment ago may still be on its way.
+        with page.expect_response(lambda r: r.url.endswith('/api/settings') and r.request.method == 'PUT' and '"external_model":"qa-cloud-one"' in (r.request.post_data or '')):
             page.locator('#external-model').select_option('qa-cloud-one')
         page.reload(wait_until='networkidle')
         expect(page.locator('#response-provider')).to_have_value('groq')
@@ -532,7 +545,7 @@ def run_browser(url):
             route.fulfill(status=422, json={'detail': 'Selecciona un modelo visual del proveedor en Configuración.'})
         page.route('**/api/status', reindex_status)
         page.route('**/api/admin/index', reject_index)
-        expect(page.locator('#reindex-settings')).to_be_visible(timeout=10000)
+        expect(page.locator('#reindex-settings')).to_be_visible(timeout=10000);dismiss_notice(page)
         page.locator('#reindex-settings').focus()
         page.evaluate("document.querySelector('#top-k [data-k=\"8\"]').click();document.getElementById('reindex-settings').click()")
         expect(page.locator('#result-dialog')).to_have_attribute('role', 'alertdialog')
@@ -572,7 +585,7 @@ def run_browser(url):
         page.unroute('**/api/providers/*/models', provider_catalog)
         page.unroute('**/api/providers/*/pricing', provider_tariffs)
         check('Provider model dropdown: automatic catalog, explicit choice, autosave/reload, empty/error recovery and stale provider responses')
-        page.locator('#response-provider').select_option('ollama')
+        page.locator('#response-provider').select_option('ollama');dismiss_notice(page)
         expect(page.locator('#settings-message')).to_have_text('Guardado')
         expect(page.locator('#vision-model')).to_have_value(local_vision)
         expect(page.locator('#vision-model option[value="qwen/qwen3.8-27b"]')).to_have_count(0)
@@ -919,7 +932,7 @@ def run_browser(url):
         page.locator("#index-vision-model").select_option("qa-vision:latest")
         page.locator("#vision-model").select_option("qa-vision:latest")
         page.locator("#model").select_option("qa-local:latest")
-        page.locator("[data-response-mode=automatic]").click()
+        page.locator("[data-response-mode=automatic]").click();dismiss_notice(page)
         expect(page.locator("#settings-message")).to_have_text("Guardado")
         page.locator("#nav-admin").click()
         clear_queue(page)

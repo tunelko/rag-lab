@@ -568,7 +568,7 @@
   "sentinel.collection": "Collection",
   "sentinel.last_index": "Last indexing",
   "sentinel.ingestion": "Ingestion",
-  "sentinel.auto": "Automatic",
+  "sentinel.auto": "Autopilot",
   "sentinel.manual": "Manual",
   "sentinel.text_model": "Text model",
   "sentinel.vision_model": "Vision model for answers",
@@ -1298,5 +1298,9 @@
   "sentinel.fold_best": "best {value}",
   "sentinel.fold_all_in_context": "See all {count} in Context",
   "viewer.show_source": "View source",
-  "viewer.show_formatted": "View formatted"
+  "viewer.show_formatted": "View formatted",
+  "sentinel.mode_autopilot": "Autopilot selection",
+  "sentinel.mode_manual": "Manual selection",
+  "sentinel.reindex_title": "The index needs updating",
+  "notice.ok": "Got it"
 }

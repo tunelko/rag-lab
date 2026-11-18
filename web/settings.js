@@ -1,5 +1,6 @@
 import {$, node} from './ui.js';
 import {t, serverText, intlLocale} from './i18n.js';
+import {notice} from './notice.js';
 
 const s=(key,values={})=>t(`sentinel.${key}`,values);
 const fields={'response-provider':'response_provider',model:'response_model','external-model':'external_model','vision-model':'query_vision_model','index-vision-model':'vision_model','max-images':'max_images','max-visuals':'max_visuals_per_document','search-only':'search_only',multimodal:'multimodal','graph-retrieval':'graph_retrieval'};
@@ -14,11 +15,11 @@ export class SettingsController {
       if(element.type==='number'){const typed=Math.round(Number(element.value)),fallback=this.value?.[key]??Number(element.min);element.value=String(Math.max(Number(element.min),Math.min(Number(element.max),element.value!==''&&Number.isFinite(typed)?typed:fallback)));}
       if(!element.checkValidity()){element.reportValidity();return;}
       const next=element.type==='checkbox'?element.checked:element.type==='number'?Number(element.value):element.value;
-      if(id==='response-provider'){this.resetCatalog();this.patch({[key]:next,external_model:'',external_vision_model:''});this.loadProviderModels();return;}
+      if(id==='response-provider'){this.resetCatalog();this.patch({[key]:next,external_model:'',external_vision_model:''});this.loadProviderModels();this.explain(element.selectedOptions[0]?.textContent);return;}
       if(id==='vision-model'&&this.value?.response_provider!=='ollama'){this.patch({external_vision_model:next});return;}
       this.patch({[key]:next});
     });
-    $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(control)this.patch({response_mode:control.dataset.responseMode});});
+    $('response-mode-control').addEventListener('click',event=>{const control=event.target.closest('[data-response-mode]');if(!control||control.dataset.responseMode===this.value?.response_mode)return;this.patch({response_mode:control.dataset.responseMode});this.explain();});
     $('top-k').addEventListener('click',event=>{const control=event.target.closest('[data-k]');if(control)this.patch({k:Number(control.dataset.k)});});
     $('graph-hops').addEventListener('click',event=>{const control=event.target.closest('[data-hops]');if(control)this.patch({graph_hops:Number(control.dataset.hops)});});
     for(const group of $('settings-form').querySelectorAll('[role=radiogroup]'))group.addEventListener('keydown',event=>this.arrows(group,event));
@@ -134,7 +135,19 @@ export class SettingsController {
     const hint=$('vision-model-hint');hint.textContent=issue?s('credential_recovery'):this.modelsError?serverText(this.modelsError.message):s('cloud_vision_hint')+(selected&&this.imageLimits?.[selected]?' '+s('vision_image_limit',{count:this.imageLimits[selected]}):'');
     hint.classList.toggle('error',Boolean(issue||this.modelsError));
   }
-  warning(){ $('reindex-warning').hidden=!(this.status?.documents||[]).some(document=>document.needs_reindex); }
+  // What the chosen way of answering means, said in a window when the user changes it: who picks the model, and
+  // what a cloud provider is used for.
+  explain(title){
+    const value=this.value;if(!value)return;
+    const external=value.response_provider!=='ollama',automatic=value.response_mode==='automatic';
+    notice({title:title||s(automatic?'mode_autopilot':'mode_manual'),text:external?s('router_cloud'):s(automatic?'router_auto':'router_manual')});
+  }
+  warning(){
+    const needed=(this.status?.documents||[]).some(document=>document.needs_reindex);$('reindex-warning').hidden=!needed;
+    // A change made here that leaves documents to be indexed again is announced once, in a window, with the way to do it.
+    if(needed&&!this.reindexAnnounced&&this.version>0&&!$('settings-view').hidden)notice({tone:'warn',title:s('reindex_title'),text:s('reindex_required'),action:{label:s('update_index'),run:()=>$('reindex-settings').click()}});
+    this.reindexAnnounced=needed;
+  }
   patch(patch){
     if(!this.value)return;
     this.value={...this.value,...patch};this.version++;this.error=null;this.render();this.changed?.(this.value,false);
@@ -146,7 +159,10 @@ export class SettingsController {
     const version=this.version,value={...this.value};this.error=null;
     this.inFlight=this.api('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}).then(result=>{
       this.saved=version;this.confirmed=true;if(this.version===version)this.value={...result.settings};this.changed?.(this.value,true);
-    }).catch(error=>{this.error=error;throw error;}).finally(()=>{
+    }).catch(error=>{
+      // A change that could not be saved is a warning the user has to see: a window, with the way to try again.
+      this.error=error;notice({tone:'error',title:s('save_failed'),text:serverText(error.message),action:{label:s('retry_save'),run:()=>{this.error=null;this.flush().catch(()=>{});}}});throw error;
+    }).finally(()=>{
       this.inFlight=null;this.render();
       if(!this.error&&this.saved===this.version)this.flash();
       if(!this.error&&this.saved<this.version){clearTimeout(this.timer);this.timer=setTimeout(()=>this.save().catch(()=>{}),0);}
@@ -184,7 +200,6 @@ export class SettingsController {
     // Graph retrieval in the chat exists only on servers that report the setting.
     $('graph-settings').hidden=value.graph_retrieval===undefined;this.radios('#graph-hops [data-hops]',control=>Number(control.dataset.hops)===value.graph_hops);for(const control of $('graph-hops').querySelectorAll('button'))control.disabled=!value.graph_retrieval;
     [...$('k-preview').children].forEach((cell,index)=>cell.classList.toggle('is-on',index<value.k));
-    $('response-mode').textContent=external?s('router_cloud'):s(value.response_mode==='automatic'?'router_auto':'router_manual');
     $('credential-panel').hidden=!external;$('credential-unlock').hidden=!external||!this.credentials?.locked;
     if(external){const configured=Boolean(this.credentials?.configured?.[value.response_provider]),issue=this.credentialIssue();$('credential-state').textContent=s(issue?'key_unreadable':this.credentials?.locked?'store_locked':configured?'key_configured':'key_missing');$('credential-state').classList.toggle('success',this.credentialAvailable());$('credential-state').classList.toggle('error',Boolean(issue));$('delete-api-key').disabled=!configured||this.credentials?.locked;$('save-api-key').disabled=Boolean(this.credentials?.locked);$('refresh-provider-models').disabled=!this.credentialAvailable()||this.modelsLoading;const hint={scaleway:'scaleway_secret_hint',groq:'groq_key_hint'}[value.response_provider];$('provider-credential-hint').hidden=!hint&&!issue;$('provider-credential-hint').textContent=issue?s('credential_recovery'):hint?s(hint):'';$('provider-credential-hint').classList.toggle('error',Boolean(issue));}
     // Visual limits only apply while multimodal processing is on.

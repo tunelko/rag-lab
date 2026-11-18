@@ -185,6 +185,15 @@
 :root[data-theme] [popover] { background: var(--card); color: var(--text); border: 2px solid var(--edge); border-radius: var(--r-card); box-shadow: var(--shadow-dialog); }
 :root[data-theme] .dialog-icon { background: var(--lima); border: var(--bw) solid var(--edge); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
 
+/* A notice: what a change of configuration means, or a warning. A small modal window with one clear way out. */
+:root[data-theme] .notice-dialog { width: min(480px, calc(100% - 32px)); padding: 20px; }
+:root[data-theme] .notice-dialog::backdrop { background: rgb(18 24 20 / .45); }
+:root[data-theme] .notice-dialog h2 { margin: 0 0 6px; font: 800 16px/22px var(--font); letter-spacing: 0; text-transform: none; color: var(--ink); }
+:root[data-theme] .notice-dialog p { margin: 0; font-size: 13px; line-height: 20px; color: var(--text); overflow-wrap: anywhere; }
+:root[data-theme] .notice-dialog .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+:root[data-theme] .notice-dialog[data-tone="warn"] .dialog-icon { background: var(--butter); }
+:root[data-theme] .notice-dialog[data-tone="error"] .dialog-icon { background: var(--coral); }
+
 /* Single-series charts are drawn in ink. */
 :root[data-theme] .resource-line { stroke: var(--ink); }
 :root[data-theme] .resource-single,
@@ -876,8 +885,6 @@
 :root[data-theme] .cfg-group--key:not(:has(> .cfg-credential:not([hidden]))) { display: none; }
 :root[data-theme] .cfg-credential { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
 :root[data-theme] .cfg-model-pricing { border-block-color: var(--line); }
-:root[data-theme] #response-mode { flex: 1 0 100%; padding: 10px 12px; background: var(--lilac); border: var(--bw) solid var(--edge); border-radius: 12px; color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
-:root[data-theme] #response-mode:empty { display: none; }
 
 @media (max-width: 1100px) {
   :root[data-theme] .cfg__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

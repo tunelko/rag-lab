@@ -1783,14 +1783,10 @@
         <input id="model-selection" type="hidden" value="automatic"/>
         <div aria-label="Modo de generación" class="segmented cfg-seg" data-i18n-aria-label="sentinel.generation_mode" id="response-mode-control" role="radiogroup">
          <button aria-checked="true" data-response-mode="automatic" role="radio" type="button">
-          <span data-i18n="sentinel.auto">
-           Automática
-          </span>
+          <span data-i18n="sentinel.mode_autopilot">Selección Autopilot</span>
          </button>
          <button aria-checked="false" data-response-mode="manual" role="radio" tabindex="-1" type="button">
-          <span data-i18n="sentinel.manual">
-           Manual
-          </span>
+          <span data-i18n="sentinel.mode_manual">Selección Manual</span>
          </button>
         </div>
         <label class="cfg-field" for="model" id="local-model-field">
@@ -1892,8 +1888,6 @@
          </div>
         </div>
         </div>
-        <p class="cfg-field__hint" id="response-mode">
-        </p>
        </div>
       </section>
      </form>
@@ -2815,6 +2809,19 @@
     </section>
    </main>
   </div>
+  <dialog aria-describedby="notice-text" aria-labelledby="notice-title" class="notice-dialog" id="notice-dialog" role="alertdialog">
+   <div class="dialog-heading">
+    <span class="dialog-icon" id="notice-icon"></span>
+    <div>
+     <h2 id="notice-title"></h2>
+     <p id="notice-text"></p>
+    </div>
+   </div>
+   <div class="dialog-actions">
+    <button class="btn btn--secondary" hidden="" id="notice-action" type="button"></button>
+    <button class="btn btn--primary" data-i18n="notice.ok" id="notice-ok" type="button">Entendido</button>
+   </div>
+  </dialog>
   <dialog aria-describedby="dialog-description" aria-labelledby="dialog-title" id="result-dialog">
    <button aria-label="Cerrar diálogo" class="icon-button dialog-close btn--secondary btn--icon btn" data-i18n-aria-label="ui.close_dialog_6ceb93" id="dialog-x">
     <svg aria-hidden="true" class="icon">
