@@ -2915,8 +2915,10 @@
    <header class="document-viewer__header">
     <div class="document-viewer__heading">
      <h2 id="document-title" data-i18n="viewer.title">Documento</h2>
+     <span class="pill pill--sm document-kind" hidden id="document-kind"></span>
      <p id="document-location"></p>
     </div>
+    <button aria-pressed="false" class="btn btn--secondary btn--sm" hidden id="document-source" type="button"><span>Ver original</span></button>
     <button class="btn btn--secondary btn--icon" id="document-maximize" type="button" aria-pressed="false" data-i18n-aria-label="viewer.maximize" aria-label="Ampliar a pantalla completa">
      <svg aria-hidden="true" class="icon"><use href="#i-maximize"></use></svg>
     </button>

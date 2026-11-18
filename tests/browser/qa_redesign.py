@@ -903,8 +903,8 @@ def run_browser(url):
             clear_queue(page)
             page.locator("#file-input").set_input_files([file(f"extra-{i:02}.txt") for i in range(offset,offset+20)])
             page.locator("#upload-button").click();expect(page.locator("#result-dialog")).to_be_visible();dialog_close(page)
-        expect(page.locator("#documents-table tr")).to_have_count(50)
-        page.locator("#next-page").click();assert 0<page.locator("#documents-table tr").count()<50
+        expect(page.locator("#documents-table tr")).to_have_count(20)
+        page.locator("#next-page").click();assert 0<page.locator("#documents-table tr").count()<=20
         page.locator("#document-search").fill("extra-19")
         expect(page.locator("#documents-table tr")).to_have_count(1)
         expect(page.locator("#documents-table")).to_contain_text("extra-19")
@@ -1179,6 +1179,11 @@ def run_browser(url):
         expect(page.locator('#context-panel')).to_be_visible()
         text_link=page.locator('#qa-viewer-links .source-link').nth(1)
         text_link.click();expect(page.locator('#document-viewer')).to_have_attribute('aria-busy','false')
+        # A Markdown file is shown formatted, and the HTML inside it stays text; its source is one press away.
+        expect(page.locator('#document-viewer')).to_have_attribute('data-kind','markdown')
+        expect(page.locator('#document-content .document-markdown')).to_contain_text('<script>window.__viewerXss=true</script>')
+        expect(page.locator('#document-content script')).to_have_count(0)
+        page.locator('#document-source').click()
         expect(page.locator('#document-content pre')).to_contain_text('<script>window.__viewerXss=true</script>')
         expect(page.locator('#document-content script')).to_have_count(0)
         assert not page.evaluate('window.__viewerXss')

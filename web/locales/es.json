@@ -1296,5 +1296,7 @@
   "sentinel.fold_sources_one": "{count} fuente",
   "sentinel.fold_sources_other": "{count} fuentes",
   "sentinel.fold_best": "mejor {value}",
-  "sentinel.fold_all_in_context": "Ver las {count} en Contexto"
+  "sentinel.fold_all_in_context": "Ver las {count} en Contexto",
+  "viewer.show_source": "Ver original",
+  "viewer.show_formatted": "Ver con formato"
 }

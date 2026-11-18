@@ -656,6 +656,58 @@
 :root[data-theme] .context-drawer #close-context:hover { background: var(--hover); box-shadow: none; transform: none; }
 :root[data-theme] .context-drawer .card__body { padding: 16px 20px 20px; }
 
+/* ---------- Document viewer: it adapts to the document ----------
+   The dialog carries the kind of what it shows (data-kind): a Markdown file is a formatted page in a reading
+   column, plain text is shown as written, and a PDF page or an image sits framed on the stage. */
+:root[data-theme] .document-viewer__header { gap: 10px; padding: 12px 14px 12px 20px; background: var(--card); border-bottom: var(--bw) solid var(--edge); }
+:root[data-theme] .document-viewer__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+:root[data-theme] .document-viewer__heading h2 { min-width: 0; margin: 0; font: 800 15px/22px var(--font); color: var(--ink); }
+:root[data-theme] .document-viewer__heading p { flex-basis: 100%; margin: 0; font-size: 12px; line-height: 18px; color: var(--muted); }
+:root[data-theme] .document-viewer__heading p:empty { display: none; }
+:root[data-theme] .document-kind[data-kind="markdown"] { background: var(--mint); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .document-kind[data-kind="pdf"] { background: var(--coral); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .document-kind[data-kind="image"] { background: var(--lilac); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] #document-source[aria-pressed="true"] { background: var(--lima); color: var(--on-fill); --ink: var(--on-fill); --text: var(--on-fill); --muted: var(--on-fill-2); --edge: var(--on-fill); --card: var(--paper); --hover: var(--paper-2); --line: var(--on-fill-2); }
+:root[data-theme] .document-pagination { background: var(--card); border-bottom: 1px solid var(--line); font-size: 12px; }
+:root[data-theme] .document-viewer__content { padding: 24px 20px 32px; background-color: var(--stage); }
+:root[data-theme] .document-viewer[data-kind="markdown"] .document-viewer__content, :root[data-theme] .document-viewer[data-kind="text"] .document-viewer__content { background-color: var(--card); }
+:root[data-theme] .document-viewer__content > .banner { max-width: 820px; margin: 0 auto 16px; }
+:root[data-theme] .document-image { background: #ffffff; border: var(--bw) solid var(--edge); border-radius: 6px; box-shadow: var(--hard); }
+:root[data-theme] .document-text { max-width: 920px; margin: 0 auto; color: var(--text); font: 400 13px/22px var(--font); white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-theme] .document-meta { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 16px; max-width: 820px; margin: 0 auto 24px; padding: 12px 16px; background: var(--stage); border: 1px solid var(--line); border-radius: 10px; font-size: 12px; line-height: 18px; }
+:root[data-theme] .document-meta dt { color: var(--ink); font-weight: 700; }
+:root[data-theme] .document-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+/* The formatted page */
+:root[data-theme] .document-markdown { max-width: 820px; margin: 0 auto; color: var(--text); font-size: 14px; line-height: 24px; overflow-wrap: anywhere; }
+:root[data-theme] .document-markdown > :first-child { margin-top: 0; }
+:root[data-theme] .document-markdown > :last-child { margin-bottom: 0; }
+:root[data-theme] .document-markdown :is(h2, h3, h4, h5, h6) { margin: 28px 0 10px; color: var(--ink); font-family: var(--font); font-weight: 800; letter-spacing: 0; text-transform: none; }
+:root[data-theme] .document-markdown h2 { padding-bottom: 8px; border-bottom: var(--bw) solid var(--edge); font-size: 22px; line-height: 30px; }
+:root[data-theme] .document-markdown h3 { font-size: 18px; line-height: 26px; }
+:root[data-theme] .document-markdown h4 { font-size: 15px; line-height: 24px; }
+:root[data-theme] .document-markdown :is(h5, h6) { font-size: 14px; line-height: 22px; }
+:root[data-theme] .document-markdown p { margin: 12px 0; }
+:root[data-theme] .document-markdown strong { color: var(--ink); font-weight: 700; }
+:root[data-theme] .document-markdown a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+:root[data-theme] .document-markdown :is(ul, ol) { margin: 12px 0; padding-left: 24px; }
+:root[data-theme] .document-markdown li { margin: 4px 0; }
+:root[data-theme] .document-markdown li.markdown-task { list-style: none; margin-left: -20px; }
+:root[data-theme] .document-markdown blockquote { margin: 16px 0; padding: 6px 16px; background: var(--stage); border-left: 3px solid var(--edge); }
+:root[data-theme] .document-markdown hr { margin: 24px 0; border: 0; border-top: 1px solid var(--line); }
+:root[data-theme] .document-markdown :not(pre) > code { padding: 0 4px; background: var(--stage); border: 1px solid var(--line); border-radius: 4px; font-size: 13px; }
+:root[data-theme] .document-markdown .markdown-code { margin: 16px 0; overflow: hidden; background: var(--stage); border: var(--bw) solid var(--edge); border-radius: 10px; }
+:root[data-theme] .document-markdown .markdown-code-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+:root[data-theme] .document-markdown pre { margin: 0; padding: 12px; overflow-x: auto; font: 400 12.5px/20px var(--font); white-space: pre; }
+:root[data-theme] .document-markdown .markdown-table { margin: 16px 0; overflow-x: auto; border: var(--bw) solid var(--edge); border-radius: 10px; }
+:root[data-theme] .document-markdown table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 20px; }
+:root[data-theme] .document-markdown :is(th, td) { padding: 6px 12px; border: 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+:root[data-theme] .document-markdown th { background: var(--stage); color: var(--ink); font-weight: 700; text-transform: none; letter-spacing: 0; }
+:root[data-theme] .document-markdown tr:last-child > td { border-bottom: 0; }
+/* A column keeps the alignment its Markdown table asks for. */
+:root[data-theme] .document-markdown :is(th, td)[align="center"] { text-align: center; }
+:root[data-theme] .document-markdown :is(th, td)[align="right"] { text-align: right; }
+:root[data-theme] .document-markdown :is(th, td) + :is(th, td) { border-left: 1px solid var(--line); }
+
 /* ---------- 7. Library ---------- */
 /* Header card: breadcrumb, title, totals as pills and the explained scene */
 :root[data-theme] .library-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 18px 20px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); }
