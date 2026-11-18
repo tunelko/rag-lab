@@ -1,6 +1,7 @@
 """Collection separation through real ASGI HTTP, files and library stores."""
 from pathlib import Path
 import tempfile
+import time
 import unittest
 
 from fastapi.testclient import TestClient
@@ -12,6 +13,52 @@ from cti_sources import write_json
 
 
 class CollectionTests(unittest.TestCase):
+    def test_chat_lists_names_from_the_selected_category_without_a_model_or_vector_index(self):
+        from knowledge_store import KnowledgeStore
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            service = RagService(Config(db=root / 'chroma'), root / 'documents')
+            app = create_app(service)
+            with TestClient(app, client=('127.0.0.1', 45000)) as client:
+                token = client.get('/api/session').json()['token']
+                created = client.post('/api/collections', headers={'X-RAG-Token': token},
+                                      json={'id': 'cti', 'name': 'CTI', 'adapter': 'cti'})
+                self.assertEqual(created.status_code, 201)
+                child = app.state.collections.get('cti')
+                child.settings.save(child.settings.get().model_copy(update={'response_provider': 'groq', 'external_model': ''}))
+                topic = child.topics.create('groups')
+                evidence = child.documents / 'cti'
+                (evidence / 'groups').mkdir(parents=True)
+                rows = []
+                for n in range(10):
+                    name = f'Group {n}'
+                    path = f'groups/{n}.md'
+                    (evidence / path).write_text('# ' + name, encoding='utf-8')
+                    if n < 8:
+                        child.topics.assign(['cti/' + path], topic)
+                    rows.append(dict(id=str(n), canonical_id=str(n), type='intrusion-set', source='mitre',
+                                     document=path, active=True, name=name, aliases=[]))
+                receipt = {'status': 'done', 'evidence_root': str(evidence)}
+                KnowledgeStore(child.config.db.parent / 'knowledge.sqlite3').publish(rows, receipt)
+                write_json(child.config.db.parent / 'dataset-status.json', receipt)
+                headers = {'X-RAG-Collection': 'cti'}
+                headers['X-RAG-Token'] = client.get('/api/session', headers=headers).json()['token']
+                response = client.post('/api/query', headers=headers, json={
+                    'question': 'nombrs de grupos, hasta 100', 'topic_id': topic, 'k': 2})
+                self.assertEqual(response.status_code, 202, response.text)
+                url = '/api/jobs/' + response.json()['job_id']
+                for _ in range(100):
+                    job = client.get(url, headers=headers).json()
+                    if job['status'] not in ('running', 'queued'):
+                        break
+                    time.sleep(0.05)
+                self.assertEqual(job['status'], 'done', job.get('error'))
+                self.assertEqual(job['metrics']['knowledge_total'], 8)
+                self.assertEqual(job['metrics']['routing_mode'], 'catalog')
+                self.assertEqual([s['text'] for s in job['sources']], [f'Group {n}' for n in range(8)])
+                for source in job['sources']:
+                    self.assertEqual(client.get(source['url']).text, '# ' + source['text'])
+
     def test_libraries_sessions_and_document_routes_are_isolated(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

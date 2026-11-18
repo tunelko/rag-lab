@@ -5,7 +5,7 @@ import unittest
 
 from cti_records import normalize, export, public_id, sample_documents
 from cti_sources import write_json, digest
-from knowledge_store import KnowledgeQuery, KnowledgeStore
+from knowledge_store import KnowledgeQuery, KnowledgeStore, direct_name_list
 from document_evidence import EvidenceStore
 
 
@@ -46,6 +46,34 @@ def fixture(root):
 
 
 class CtiTests(unittest.TestCase):
+    def test_name_catalogue_respects_category_before_deduplication_and_limit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows, _ = normalize([fixture(root)])
+            groups = [r for r in rows if r['type'] == 'intrusion-set']
+            def extra(n, name, canonical):
+                return {**groups[0], 'id': f'test-{n}', 'canonical_id': canonical,
+                        'name': name, 'source': 'misp', 'document': f'groups/{n}.md'}
+            variants = [extra(1, 'Alternative name', groups[0]['canonical_id']),
+                        extra(2, 'Independent actor', 'misp:independent'),
+                        extra(3, 'independent actor', 'misp:homonym'),
+                        {**extra(4, 'Retired', 'misp:retired'), 'active': False}]
+            db = KnowledgeStore(root / 'knowledge.sqlite3')
+            db.publish(rows + variants, {})
+            plan = direct_name_list('nombrs de grupos, hasta 100')
+            self.assertEqual(plan.limit, 100)
+            self.assertEqual(db.query(plan)['total'], len(groups) + 1)
+            scope = {'cti/' + r['document'] for r in variants}
+            scoped = db.query(plan, documents=scope)
+            self.assertEqual([r['name'] for r in scoped['rows']], ['Alternative name', 'Independent actor'])
+            one = db.query(direct_name_list('list up to 1 APT group names'), documents=scope)
+            self.assertEqual((len(one['rows']), one['total']), (1, 2))
+            self.assertEqual(db.query(plan, documents=set())['total'], 0)
+            self.assertEqual(db.query(plan.model_copy(update={'source':'mitre'}), documents=scope)['rows'], [])
+            for qualified in ('nombres de grupos de China, hasta 100', 'nombre de APT 29',
+                              'list groups related to T1059', 'dame el nombre de APT-29'):
+                self.assertIsNone(direct_name_list(qualified))
+
     def test_citations_keep_their_original_content_after_an_update(self):
         with tempfile.TemporaryDirectory() as directory:
             store = EvidenceStore(Path(directory) / 'evidence.sqlite3')

@@ -1,6 +1,6 @@
 // How a question travelled through retrieval and the model, read from the job the browser already polls.
 // Pure: no DOM and no texts. chat.js turns the result into the side panel and its checklist.
-import {groupSources, relevance} from './chat-sources.js';
+import {groupSources, isDocumented, relevance} from './chat-sources.js';
 
 const live = status => ['queued', 'running'].includes(status);
 
@@ -45,7 +45,7 @@ export function journey(turn) {
   return {phase, checks, scene,
     step: catalog ? 1 : ['generating', 'done'].includes(phase) || (['stopped', 'error'].includes(phase) && retrieved) ? 6 : 5,
     facts: {fragments: sources.length, documents: groupSources(sources).length, best, mode, model, cited, searchOnly, catalog,
-      similarity: sources.some(source => source.match_type !== 'documented_relationship'),
+      similarity: sources.some(source => !isDocumented(source)),
       visual: metrics.visual_mode === 'images', cloud: Boolean(metrics.cloud) || mode.startsWith('external'),
       images: metrics.images_used, tokens: metrics.output_tokens, speed: metrics.generation_tok_s, reason: metrics.routing_reason || ''}};
 }

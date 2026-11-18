@@ -36,6 +36,7 @@ from server_console import ConsoleBuffer, ConsoleCapture
 from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve, tokens
+from knowledge_store import direct_name_list
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
@@ -534,7 +535,7 @@ class RagService(JobRuntime):
         if (getattr(self, 'dataset_adapter', None) == 'cti' and not query.search_only and not query.images
                 and not query_intent(query.question).mode.startswith('catalog_')):
             from cti_chat import query_knowledge
-            result = query_knowledge(self, job_id, query, settings, provider_key, document_names)
+            result = query_knowledge(self, job_id, query, settings, provider_key, document_names, scope_label)
             if result is not None:
                 return result
         parameters = retrieval_configuration or self.effective_retrieval(query.k)
@@ -1203,24 +1204,27 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
         settings = service.settings.get()
         if body.graph_retrieval is None:
             body.graph_retrieval = settings.graph_retrieval
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not query_intent(body.question).mode.startswith('catalog_'):
+        if "search_only" not in body.model_fields_set:
+            body.search_only = settings.search_only
+        catalog = query_intent(body.question).mode.startswith('catalog_')
+        name_list = (getattr(service, 'dataset_adapter', None) == 'cti' and not body.images
+                     and not body.search_only and direct_name_list(body.question) is not None)
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not (catalog or name_list):
             from graph_jobs import graph_store
             store = graph_store(service)
             if not body.graph_retrieval or not store.path.is_file() or not store.accepted_rows(document_names):
                 raise HTTPException(409, "Añade e indexa documentos o modeliza evidencias del grafo antes de consultar.")
         if "k" not in body.model_fields_set:
             body.k = settings.k
-        if "search_only" not in body.model_fields_set:
-            body.search_only = settings.search_only
         if body.images:
-            if body.search_only or query_intent(body.question).mode.startswith('catalog_'):
+            if body.search_only or catalog:
                 raise HTTPException(422,'Las imágenes adjuntas necesitan una consulta con generación, no solo recuperación o inventario.')
             try:
                 body.images=normalize_query_images(body.images,settings.max_images)
             except ValueError as error:
                 raise HTTPException(422,str(error)) from error
         provider_key = None
-        generates = not body.search_only and not query_intent(body.question).mode.startswith('catalog_')
+        generates = not (body.search_only or catalog or name_list)
         if generates and settings.response_provider != 'ollama':
             if not settings.external_model.strip() and not (body.images and settings.external_vision_model):
                 raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')

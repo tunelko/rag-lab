@@ -2,6 +2,7 @@ import {t, intlLocale, serverText} from './i18n.js';
 import {writeClipboard} from './clipboard.js';
 import {renderMarkdown} from './markdown.js';
 import {collectionUrl} from './collection-scope.js';
+import {isDocumented} from './chat-sources.js';
 
 export const $ = (id) => document.getElementById(id);
 export const number = (value, digits = 0) => new Intl.NumberFormat(intlLocale(), {minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: 'always'}).format(value);
@@ -65,7 +66,7 @@ export function renderSources(sources, question, container = $('sources'), prefi
     const pageLabel = pdf && hasPage && source.page_label && String(source.page_label) !== String(page) ? t("ui.document_numbering_9d763c", {value1: (source.page_label)}) : '';
     const location = [pageLocation, pageLabel, source.chunk != null ? `fragmento ${source.chunk}` : ''].filter(Boolean).join(' · ');
     meta.append(node('span', '', location));
-    if(source.match_type==='documented_relationship')meta.append(node('span','badge badge--neutral',t('collections.documented')));
+    if(isDocumented(source))meta.append(node('span','badge badge--neutral',t('collections.documented')));
     else {
     const score = Math.max(0, Math.min(1, source.relevance ?? (1 - Number(source.cosine_distance || 0))));
     const relevance = node('div', 'relevance'); relevance.title = t("ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451");

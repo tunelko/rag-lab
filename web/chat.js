@@ -4,7 +4,7 @@ import {t,getLanguage,intlLocale,serverText} from './i18n.js';
 import {createMusa} from './musa.js';
 import {ContextPanel} from './context-panel.js';
 import {sourceScope} from './source-scope.js';
-import {groupSources,relevance} from './chat-sources.js';
+import {groupSources,isDocumented,relevance} from './chat-sources.js';
 import {sessionKey} from './collection-scope.js';
 import {PipelineScene} from './pipeline-scene.js';
 import {journey} from './chat-journey.js';
@@ -182,7 +182,7 @@ export class Chat{
     e.model.textContent=finished.join(' · ');e.model.hidden=!finished.length;
     const key=getLanguage()+JSON.stringify(sources);if(e.sourceKey!==key){this.renderSourceList(turn,e.sources,sources);e.sourceKey=key;}
     // The route, the images and the speed of the answer are told in «how it was answered», not in its heading.
-    const top=sources.reduce((value,source)=>Math.max(value,relevance(source)),0),documented=sources.length>0&&sources.every(source=>source.match_type==='documented_relationship');
+    const top=sources.reduce((value,source)=>Math.max(value,relevance(source)),0),documented=sources.length>0&&sources.every(isDocumented);
     put(e.sourcesFold.querySelector('span'),plural('fold_sources',sources.length));put(e.best,documented?'· '+t('collections.documented'):'· '+s('fold_best',{value:number(top,2)}));
     e.sourcesFold.hidden=!sources.length;this.folds(turn,e);
     e.copy.hidden=busy||!turn.answer;e.retry.hidden=busy;e.retry.disabled=Boolean(this.active||this.submitting);e.retry.querySelector('span').textContent=s(turn.status==='error'?'retry':'regenerate');
@@ -202,7 +202,7 @@ export class Chat{
       file.append(node('span','src-row__name',group.file),node('span','',' · '+plural('fragments',group.fragments.length)));text.append(title,file);
       const score=node('span','src-row__rel'),bar=node('span','bar'),fill=node('i');fill.style.width=Math.round(group.relevance*100)+'%';bar.append(fill);
       score.title=t('ui.cosine_similarity_clipped_to_0_1_this_is_not_a_probability_ebe451');score.append(bar,node('span','src-row__score',number(group.relevance,2)));
-      if(group.fragments.every(source=>source.match_type==='documented_relationship')){score.title=t('collections.documented');score.replaceChildren(node('span','',t('collections.documented')));}
+      if(group.fragments.every(isDocumented)){score.title=t('collections.documented');score.replaceChildren(node('span','',t('collections.documented')));}
       row.append(numbers,text,score);list.append(row);
     }
     const all=control('button','sources__all',s('fold_all_in_context',{count:number(sources.length)})),first=groups[0].fragments.reduce((top,item)=>relevance(item)>relevance(top)?item:top);

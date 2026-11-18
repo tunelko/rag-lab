@@ -1,5 +1,6 @@
 // The chat lists sources by document, not by fragment. Pure helpers, no DOM.
 export const relevance = source => Math.max(0, Math.min(1, source.relevance ?? (1 - Number(source.cosine_distance || 0))));
+export const isDocumented = source => ['documented_relationship', 'documented_entity'].includes(source.match_type);
 
 // The index stores no title. Use the document's own first heading when the opening
 // fragment was retrieved; otherwise a readable form of the file name.
