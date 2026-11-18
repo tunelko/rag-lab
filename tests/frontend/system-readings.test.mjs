@@ -1,13 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {gpuLabel, sparkPoints, pushReading, sortProcesses} from '../../web/system-readings.js';
+import {gpuFamily, gpuBusy, sparkPoints, pushReading, sortProcesses} from '../../web/system-readings.js';
 
-test('the card carries the series and model of the device, without the vendor words', () => {
-  assert.deepEqual(gpuLabel('NVIDIA GeForce RTX 3080'), {series: 'RTX', model: '3080'});
-  assert.deepEqual(gpuLabel('NVIDIA GeForce RTX 4070 Ti SUPER'), {series: 'RTX', model: '4070 Ti'});
-  assert.deepEqual(gpuLabel('AMD Radeon RX 7900 XT'), {series: 'RX', model: '7900 XT'});
-  assert.deepEqual(gpuLabel('Intel(R) Arc(TM) A770 Graphics'), {series: 'ARC', model: 'A770'});
-  assert.deepEqual(gpuLabel(''), {series: 'GPU', model: ''});
+test('the illustration follows the family of the device named by the system', () => {
+  const cases = {
+    'NVIDIA GeForce RTX 3080': 'nvidia-high', 'NVIDIA GeForce RTX 4090': 'nvidia-high', 'NVIDIA TITAN RTX': 'nvidia-high',
+    'NVIDIA GeForce RTX 4070 Ti SUPER': 'nvidia-mid', 'NVIDIA GeForce RTX 3060': 'nvidia-mid',
+    'NVIDIA GeForce GTX 1660 SUPER': 'nvidia-gtx', 'NVIDIA GeForce GT 1030': 'nvidia-gtx',
+    'NVIDIA RTX A4000': 'nvidia-pro', 'Quadro P2000': 'nvidia-pro', 'NVIDIA RTX 6000 Ada Generation': 'nvidia-pro',
+    'Tesla T4': 'nvidia-datacenter', 'NVIDIA A100-SXM4-40GB': 'nvidia-datacenter', 'NVIDIA L4': 'nvidia-datacenter',
+    'AMD Radeon RX 7900 XT': 'amd-high', 'AMD Radeon RX 6800': 'amd-high', 'AMD Radeon RX 6600 XT': 'amd-mid', 'Radeon RX 580 Series': 'amd-mid',
+    'Intel(R) Arc(TM) A770 Graphics': 'intel-arc',
+    'Intel(R) UHD Graphics 770': 'integrated', 'Intel(R) Iris(R) Xe Graphics': 'integrated', 'AMD Radeon(TM) Graphics': 'integrated',
+    'Matrox G200': 'generic', '': 'generic',
+  };
+  for (const [name, family] of Object.entries(cases)) assert.equal(gpuFamily(name), family, name);
+});
+
+test('working starts at a quarter of use and ends near idle, so the picture does not flicker', () => {
+  assert.equal(gpuBusy(false, 24), false);
+  assert.equal(gpuBusy(false, 25), true);
+  assert.equal(gpuBusy(true, 12), true);
+  assert.equal(gpuBusy(true, 10), false);
+  assert.equal(gpuBusy(true, null), false);
 });
 
 test('the chart spans the box, clamps to its range and skips missing readings', () => {

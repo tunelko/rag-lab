@@ -1053,20 +1053,10 @@
 /* ---------- System status: the graphics card ---------- */
 :root[data-theme] .sys { width: min(388px, calc(100vw - 32px)); }
 :root[data-theme] .gpu { display: flex; align-items: center; gap: 12px; }
-:root[data-theme] .gpu__card { flex: none; width: 108px; height: 56px; overflow: visible; }
-:root[data-theme] .gpu__shade { fill: var(--shade); }
-:root[data-theme] .gpu__body { fill: var(--card); stroke: var(--edge); stroke-width: 2; }
-:root[data-theme] .gpu__bracket { fill: var(--line-2); stroke: var(--edge); stroke-width: 1.5; }
-:root[data-theme] .gpu__pins { fill: var(--butter); stroke: var(--edge); stroke-width: 1.5; }
-:root[data-theme] .gpu__fan { transform-box: fill-box; transform-origin: center; }
-:root[data-theme] .gpu__fan > circle { fill: var(--stage); stroke: var(--edge); stroke-width: 1.5; }
-:root[data-theme] .gpu__fan > path { fill: none; stroke: var(--edge); stroke-width: 3; stroke-linecap: round; }
-:root[data-theme] .gpu__fan > .gpu__hub { fill: var(--lima); }
-:root[data-theme] .gpu__plate { fill: var(--lima); stroke: var(--edge); stroke-width: 1.5; }
-:root[data-theme] .gpu__series { fill: var(--on-fill); font-size: 10px; font-weight: 800; letter-spacing: .04em; }
-:root[data-theme] .gpu__model { fill: var(--on-fill); font-size: 8.5px; font-weight: 700; }
-:root[data-theme] .gpu__card.is-busy .gpu__fan { animation: gpu-spin 1.1s linear infinite; }
-@keyframes gpu-spin { to { transform: rotate(360deg); } }
+/* The illustration of the device: one image per theme, both in the page, so a change of theme needs no script. */
+:root[data-theme] .gpu__card { flex: none; width: 96px; height: 84px; }
+:root[data-theme] .gpu__img { display: block; width: 100%; height: 100%; object-fit: contain; }
+:root[data-theme="light"] .gpu__img--dark, :root[data-theme="dark"] .gpu__img--light { display: none; }
 :root[data-theme] .gpu__side { flex: 1 1 0; min-width: 0; }
 /* Nothing here changes size with the readings: the name is one line and each reading has a slot of fixed width. */
 :root[data-theme] .gpu__side .sys__value { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1089,8 +1079,7 @@
 :root[data-theme] .gpu__log > li > span { text-align: right; }
 :root[data-theme] .gpu__log > li > .gpu__time { text-align: left; opacity: .65; }
 :root[data-theme] .gpu__log > li:first-child { font-weight: 700; }
-:root[data-theme] .gpu__log:empty { display: none; }
-@media (prefers-reduced-motion: reduce) { :root[data-theme] .gpu__card.is-busy .gpu__fan { animation: none; } }
+:root[data-theme] .gpu__log { box-sizing: content-box; min-height: 85px; }
 
 /* ---------- System status: the processes and the performance, as a classic task manager ----------
    The window, its tabs, its columns and its dark screens with green lines keep the classic layout;

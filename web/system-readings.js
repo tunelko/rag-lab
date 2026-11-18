@@ -1,16 +1,29 @@
-// Pure helpers of the system status panel: the label printed on the drawn graphics card, the points of its small chart,
+// Pure helpers of the system status panel: which illustration stands for the graphics card, the points of its small chart,
 // the rolling log of readings and the order of the process table. No DOM here, so they are unit-tested.
 
-const VENDOR = /^(nvidia|amd|intel|intel\(r\)|geforce|radeon|\(tm\)|\(r\)|graphics|corporation)$/i;
-const SERIES = /^(rtx|gtx|gt|rx|arc|quadro|tesla|titan|iris|uhd)$/i;
+// Which illustration stands for a device, from the name the system reports. The exact model is shown as text;
+// the picture only tells the family apart: vendor, tier and kind of cooling.
+export function gpuFamily(name = '') {
+  const text = String(name).replace(/[™®]|\((tm|r)\)/gi, '').toLowerCase();
+  const nvidia = /nvidia|geforce|quadro|tesla|\brtx\b|\bgtx\b|titan/.test(text), amd = /\bamd\b|radeon/.test(text), intel = /intel|\barc\b|iris|\buhd\b/.test(text);
+  if (/\buhd\b|iris|\bhd graphics|integrated/.test(text) || (amd && /graphics/.test(text) && !/\brx\b/.test(text))) return 'integrated';
+  if (nvidia) {
+    if (/tesla|\b(a100|a10g?|a16|a2|a30|a40|h100|h200|l4|l40s?|t4|v100|p100|p40|p4|k80)\b/.test(text)) return 'nvidia-datacenter';
+    if (/quadro|\brtx\s*a\d{4}|\bada\b/.test(text)) return 'nvidia-pro';
+    if (/titan/.test(text)) return 'nvidia-high';
+    const rtx = text.match(/\brtx\s*(\d{4})/);
+    if (rtx) return /[89]0$/.test(rtx[1]) ? 'nvidia-high' : 'nvidia-mid';
+    return /\bgtx?\b/.test(text) ? 'nvidia-gtx' : 'nvidia-mid';
+  }
+  if (amd) { const rx = text.match(/\brx\s*(\d{3,4})/); return rx && rx[1].length === 4 && /^\d[89]/.test(rx[1]) ? 'amd-high' : 'amd-mid'; }
+  if (intel && /\barc\b/.test(text)) return 'intel-arc';
+  return 'generic';
+}
 
-// "NVIDIA GeForce RTX 3080" -> {series: "RTX", model: "3080"}: the two lines printed on the card.
-export function gpuLabel(name = '') {
-  const words = String(name).replace(/[™®]|\((tm|r)\)/gi, '').split(/\s+/).filter(word => word && !VENDOR.test(word));
-  if (!words.length) return {series: 'GPU', model: ''};
-  const at = words.findIndex(word => SERIES.test(word));
-  if (at < 0) return {series: 'GPU', model: words.slice(0, 2).join(' ').slice(0, 12)};
-  return {series: words[at].toUpperCase(), model: words.slice(at + 1, at + 3).join(' ').slice(0, 12)};
+// Whether the device counts as working. Two thresholds, so the picture does not flicker around one value.
+export function gpuBusy(previous, use) {
+  if (use == null) return false;
+  return previous ? use > 10 : use >= 25;
 }
 
 // The points of a polyline for `values` (null breaks nothing: it is skipped) on a width x height box, 0 at the bottom.

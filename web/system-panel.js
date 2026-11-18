@@ -2,13 +2,13 @@
 // a small card with the user's model on it, the last minute as a chart, a rolling log, and a classic task manager.
 import {$, node, number} from './ui.js';
 import {t} from './i18n.js';
-import {gpuLabel, sparkPoints, pushReading, sortProcesses} from './system-readings.js';
+import {gpuFamily, gpuBusy, sparkPoints, pushReading, sortProcesses} from './system-readings.js';
 
 const GIB = 1024 ** 3, clockOf = time => String(time).slice(11, 19);
 
 export class SystemPanel {
   constructor() {
-    this.log = []; this.sort = {key: '', descending: false}; this.selected = null; this.data = null;
+    this.log = []; this.sort = {key: '', descending: false}; this.selected = null; this.data = null; this.busy = false; this.image = '';
     $('taskman-head').addEventListener('click', event => {
       const control = event.target.closest('[data-sort]'); if (!control) return;
       // The same column again turns the order round, as in a task manager.
@@ -46,14 +46,15 @@ export class SystemPanel {
     $('perf-memory-line').setAttribute('points', sparkPoints(history.map(point => share(point.ram_used_bytes, point.ram_total_bytes)), 100, 200, 60));
   }
 
-  // The drawn card carries the model of this computer's device; its fans turn while the device is working.
+  // The illustration matches the family of this computer's device and whether it is working now.
   card(device) {
     if (!device) return;
-    const label = gpuLabel(device.name);
-    const model = $('system-gpu-model'); $('system-gpu-series').textContent = label.series; model.textContent = label.model;
-    // A long model is squeezed into the plate instead of running over its edge.
-    if (label.model.length > 6) { model.setAttribute('textLength', '31'); model.setAttribute('lengthAdjust', 'spacingAndGlyphs'); } else { model.removeAttribute('textLength'); model.removeAttribute('lengthAdjust'); }
-    $('system-gpu-card').classList.toggle('is-busy', (device.utilization_percent ?? 0) >= 15);
+    this.busy = gpuBusy(this.busy, device.utilization_percent);
+    const image = gpuFamily(device.name) + '-' + (this.busy ? 'busy' : 'idle');
+    if (image !== this.image) {
+      this.image = image;
+      for (const theme of ['light', 'dark']) $('system-gpu-image-' + theme).src = `/assets/icons/gpu/${image.replace(/-(idle|busy)$/, '-' + theme + '-$1')}`+'.webp';
+    }
     // Each reading has its own slot of fixed width and whole numbers, so nothing moves when a value changes.
     const slot = (id, value, unit) => { $(id).textContent = value == null ? '—' : number(value) + unit; };
     slot('gpu-now-use', device.utilization_percent, ' %'); slot('gpu-now-heat', device.temperature_c, ' °C'); slot('gpu-now-power', device.power_w, ' W');
