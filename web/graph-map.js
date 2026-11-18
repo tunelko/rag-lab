@@ -111,6 +111,12 @@ export class GraphMap {
       });
       drawing.append(control); this.cards.push({item, control});
     }
+    // The wheel zooms around the pointer; a pinch on a touchpad arrives as the same event, in smaller steps.
+    drawing.addEventListener('wheel', event => {
+      event.preventDefault();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1);
+      this.zoom(Math.max(.8, Math.min(1.25, Math.exp(delta * .0015))), this.point(event));
+    }, {passive: false});
     drawing.addEventListener('pointerdown', event => {
       if (event.target !== drawing) return;
       const initial = {x: event.clientX, y: event.clientY}, view = [...this.view]; drawing.setPointerCapture(event.pointerId);
@@ -198,7 +204,13 @@ export class GraphMap {
       : [0, 0, width, HEIGHT];
     this.applyView();
   }
-  zoom(factor) { if (!this.drawing) return; const [x, y, width, height] = this.view, next = width * factor; if (next < 240 || next > 8000) return; this.view = [x + (width - next) / 2, y + (height - height * factor) / 2, next, height * factor]; this.applyView(); }
+  // Zooms keeping one point of the map where it is on screen: the centre for the buttons, the pointer for the wheel.
+  zoom(factor, at = null) {
+    if (!this.drawing) return;
+    const [x, y, width, height] = this.view, next = width * factor; if (next < 240 || next > 8000) return;
+    const point = at || {x: x + width / 2, y: y + height / 2};
+    this.view = [point.x - (point.x - x) * factor, point.y - (point.y - y) * factor, next, height * factor]; this.applyView();
+  }
   applyView() { this.drawing.setAttribute('viewBox', this.view.join(' ')); }
 
   select(selection) {
