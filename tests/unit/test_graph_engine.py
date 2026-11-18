@@ -294,6 +294,38 @@ class GraphEngineTests(unittest.TestCase):
             server.server_close()
             worker.join(timeout=1)
 
+    def test_deadline_during_header_wait_is_not_an_ollama_outage(self):
+        from unittest.mock import patch
+
+        received = threading.Event()
+        release = threading.Event()
+
+        class SlowHeaders(BaseHTTPRequestHandler):
+            def do_POST(self):
+                received.set()
+                release.wait(5)
+
+            def log_message(self, *_args):
+                pass
+
+        with ThreadingHTTPServer(('127.0.0.1', 0), SlowHeaders) as server:
+            worker = threading.Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                with patch.dict(os.environ, RAG_OLLAMA_URL=f'http://127.0.0.1:{server.server_port}'):
+                    job = self.service.start('graph', lambda job: generate_passage(
+                        self.service, job, [{'role': 'user', 'content': 'Transport deadline check.'}],
+                        {'provider': 'ollama', 'model': 'not-invoked'}, None, {}),
+                        graph_budget_seconds=1)
+                    state = wait_job(self.client, job['job_id'])
+                self.assertTrue(received.is_set())
+                self.assertEqual(state['status'], 'cancelled', state)
+                self.assertNotIn('error_info', state)
+            finally:
+                release.set()
+                server.shutdown()
+                worker.join(timeout=1)
+
     def test_cancellation_during_real_http_is_not_reported_as_an_ollama_failure(self):
         service, ready, submitted = self.service, threading.Event(), {}
 

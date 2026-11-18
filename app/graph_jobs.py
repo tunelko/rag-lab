@@ -172,6 +172,10 @@ def generate_passage(service, job, messages, config, key, arguments):
             raise JobFailure('GRAPH_OLLAMA_UNAVAILABLE',
                 'Ollama no pudo ejecutar el modelo. Las fuentes y lo ya validado se conservan; puedes reanudar cuando el modelo esté disponible.', detail[:4096]) from error
         except OSError as error:
+            # A deadline can expire while waiting for HTTP headers, before a
+            # streamed chunk gives the cancellation callback a chance to run.
+            if isinstance(getattr(error, 'reason', error), TimeoutError):
+                service.check_cancel(job)
             raise JobFailure('GRAPH_OLLAMA_UNAVAILABLE',
                 'No se pudo completar la conexión con Ollama. El trabajo se conserva para reanudarlo.', str(error)) from error
     for attempt in range(3):
