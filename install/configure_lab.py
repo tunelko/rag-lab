@@ -5,6 +5,7 @@ import argparse
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import importlib.metadata
+import importlib.util
 import ipaddress
 import json
 import os
@@ -708,6 +709,9 @@ def make_app(root=ROOT, inspect=probe, installer=install_environment):
 def bootstrap():
     directory = '.cache/wizard-venv'
     python = venv_python(ROOT, directory)
+    if not python.exists() or not venv_python(ROOT).exists():
+        if any(importlib.util.find_spec(module) is None for module in ('venv', 'ensurepip')):
+            raise ValueError(t('need_venv'))
     if not python.exists():
         print(t('preparing_interface'), flush=True)
         subprocess.run([sys.executable, '-m', 'venv', str(ROOT / directory)], check=True)
@@ -734,8 +738,10 @@ def main():
     set_language(setup_texts.resolve(args.lang, saved_language(ROOT)))
     if platform.system() not in ('Windows', 'Linux'):
         parser.error(t('unsupported_system'))
-    if sys.version_info[:2] != (3, 13):
-        parser.error(t('use_python'))
+    if (sys.implementation.name != 'cpython' or sys.version_info[:2] != (3, 13)
+            or sys.maxsize <= 2**32 or platform.machine().lower() not in ('amd64', 'x86_64')):
+        bits = 64 if sys.maxsize > 2**32 else 32
+        parser.error(t('use_python', interpreter=f'{platform.python_implementation()} {platform.python_version()} ({platform.machine()}, {bits}-bit)'))
     try:
         if args.check:
             print(json.dumps(probe(ROOT, load_plan(ROOT)), ensure_ascii=False, indent=2))

@@ -13,14 +13,19 @@ computer. Documents are indexed on your machine and answers cite their source.
 
 Ask in your own words. Musa answers with the documents of the collection or category chosen in the question box, and every answer cites its sources: **Context** opens the fragments it used.
 
-## Requirements
-
-- Windows x64 or Linux x86_64
-- [Python](https://www.python.org/downloads/) 3.13, 64-bit
-- [Git](https://git-scm.com/install/)
-- [Ollama](https://ollama.com/download)
-
 ## Install
+
+### Requirements
+
+1. **System.** Windows x64 with PowerShell or x86_64 Linux with Bash.
+2. **Python.** Install **64-bit CPython 3.13.x** with `venv` and `ensurepip`. The wizard creates its environments with pip and installs the application libraries. On Windows, check the version with `py -3.13 -V`. On Linux, use `python3.13 -V` and install `python3.13-venv` if your distribution packages it separately. [Download Python](https://www.python.org/downloads/)
+3. **Disk.** Choose a writable project directory. Allow space for the Python environment, your chosen models, your documents and their index.
+4. **Initial downloads.** You need internet access to download packages and models. Install Git to clone the project with the command below, or extract the repository ZIP. [Download Git](https://git-scm.com/install/)
+5. **Models.** Local answers require a running Ollama server and a downloaded model. Image analysis requires a model with vision support. Text retrieval runs embeddings on the CPU. The advanced PyTorch profile requires an NVIDIA GPU and driver supported by its CUDA 13.0 build. [Download Ollama](https://ollama.com/download)
+
+**Python compatibility.** The installer and the Windows and Linux CI use 3.13. Among the pinned dependencies, NumPy 2.5.4 requires Python ≥3.12 and Transformers 5.22.2 requires ≥3.11. You can install 3.13 alongside an existing 3.10 installation.
+
+### Steps
 
 **1. Download the project**
 
@@ -29,11 +34,13 @@ git clone https://github.com/tunelko/rag-lab.git
 cd rag-lab
 ```
 
-**2. Download a model**
+**2. Download a model for local answers**
 
 ```text
 ollama pull qwen3.5:9b-q4_K_M
 ```
+
+With a 6 GB GPU, you can choose `ollama pull qwen3.5:4b-q4_K_M` instead. This variant accepts text and images and has a 3.3 GB download. [Qwen3.5 4B on Ollama](https://ollama.com/library/qwen3.5:4b-q4_K_M)
 
 **3. Open the setup wizard**
 
@@ -50,7 +57,7 @@ bash install/linux/configurar.sh
 **4. Follow the wizard**
 
 1. **Language:** choose English or Español.
-2. **Welcome:** continue.
+2. **Welcome:** review the requirements and click **Check this computer** to see what the wizard detected.
 3. **Python environment:** keep **Ollama GPU + CPU embeddings** and click **Install dependencies**.
 4. **Ollama models:** click **Refresh models** and choose the text model. For images, enable multimodal and choose a vision model.
 5. **RAG retrieval:** keep the defaults.

@@ -43,7 +43,8 @@ TEXTS = {
         'install_first': 'Primero instala el entorno desde el asistente.',
         'preparing_interface': 'Preparando interfaz de terminal en .cache/wizard-venv (sin tocar .venv)…',
         'unsupported_system': 'Sistemas admitidos: Windows y Linux.',
-        'use_python': 'Usa Python 3.13 x64. Linux puede necesitar el paquete python3.13-venv.',
+        'use_python': 'Intérprete detectado: {interpreter}. Esta instalación está probada con CPython 3.13.x de 64 bits (x86_64). Puedes instalarlo en paralelo y comprobarlo con «py -3.13 -V» en Windows o «python3.13 -V» en Linux.',
+        'need_venv': 'Esta instalación de Python necesita venv y ensurepip. En Debian/Ubuntu, instala python3.13-venv para tu intérprete. En Windows, activa pip en el instalador de Python.',
         'need_terminal': 'Abre una terminal interactiva o usa --check para la detección de solo lectura.',
         'need_launcher': 'Abre install\\windows\\Configurar.ps1 o install/linux/configurar.sh para instalar la interfaz aislada.',
         # Terminal interface
@@ -76,17 +77,22 @@ TEXTS = {
                        'Un servidor ya abierto debe reiniciarse después para leer cambios de .env.',
         'help_done': 'La instalación y la configuración están separadas del arranque. Iniciar web vuelve a la consola y ejecuta '
                      'el servidor en primer plano, donde Ctrl+C lo cierra. No se detienen instancias existentes.',
-        'welcome_title': 'Tu laboratorio, paso a paso',
-        'welcome_description': 'Configura un RAG local con Ollama, documentos y fuentes.\n\n'
-                               'Este asistente conserva los documentos, el índice y los modelos existentes. '
-                               'Puedes recorrerlo sin aplicar cambios.\n\n'
-                               'Dos lanzadores; el mismo asistente en Windows y Linux.',
+        'welcome_title': 'Requisitos de instalación',
+        'welcome_description': '1. Windows x64 con PowerShell o Linux x86_64 con Bash.\n'
+                               '2. CPython 3.13.x de 64 bits, con venv y ensurepip para crear los entornos con pip. '
+                               'Comprueba la versión con «py -3.13 -V» (Windows) o «python3.13 -V» (Linux).\n'
+                               '3. Una carpeta con permiso de escritura y espacio para los entornos, modelos, documentos e índice.\n'
+                               '4. Acceso a Internet para la descarga inicial de paquetes y modelos. Git solo se usa para clonar el proyecto.\n'
+                               '5. Para generar respuestas en local, Ollama en ejecución y un modelo descargado. '
+                               'Para analizar imágenes, elige un modelo con visión. Para buscar solo texto basta la CPU.',
         'check_machine': 'Comprobar equipo',
         'environment_title': '01 / Entorno Python',
         'profile_ollama': 'Ollama GPU + embeddings CPU (recomendado)',
         'profile_cuda': 'PyTorch CUDA 13.0 + HF NF4 (avanzado)',
-        'environment_description': 'Requiere Python 3.13 x64 / Linux x86_64. Los paquetes se instalan en .venv; '
-                                   'el asistente usa otro entorno en .cache.',
+        'environment_description': '«Instalar dependencias» prepara .venv con PyTorch, SentenceTransformers, '
+                                   'NumPy, las librerías de documentos y el servidor web. El perfil recomendado calcula '
+                                   'los embeddings en CPU. El avanzado requiere una GPU NVIDIA y un controlador '
+                                   'compatibles con la compilación CUDA 13.0 de PyTorch y añade bitsandbytes y Accelerate.',
         'install_dependencies': 'Instalar dependencias',
         'commands_to_run': 'COMANDOS A EJECUTAR',
         'models_title': '02 / Modelos de respuesta',
@@ -170,7 +176,8 @@ TEXTS = {
         'install_first': 'Install the environment from the wizard first.',
         'preparing_interface': 'Preparing the terminal interface in .cache/wizard-venv (.venv is not touched)…',
         'unsupported_system': 'Supported systems: Windows and Linux.',
-        'use_python': 'Use Python 3.13 x64. Linux may need the python3.13-venv package.',
+        'use_python': 'Detected interpreter: {interpreter}. This installation is tested with 64-bit x86 CPython 3.13.x. You can install it alongside your current Python. Check with “py -3.13 -V” on Windows or “python3.13 -V” on Linux.',
+        'need_venv': 'This Python installation needs venv and ensurepip. On Debian/Ubuntu, install python3.13-venv for your interpreter. On Windows, enable pip in the Python installer.',
         'need_terminal': 'Open an interactive terminal, or use --check for read-only detection.',
         'need_launcher': 'Run install\\windows\\Configurar.ps1 or install/linux/configurar.sh to install the isolated interface.',
         'title': 'RAG Local · Setup',
@@ -202,17 +209,22 @@ TEXTS = {
                        'A server that is already running must be restarted afterwards to read changes in .env.',
         'help_done': 'Installation and configuration are separate from starting. Start web returns to the console and runs '
                      'the server in the foreground, where Ctrl+C stops it. Existing instances are not stopped.',
-        'welcome_title': 'Your laboratory, step by step',
-        'welcome_description': 'Set up a local RAG with Ollama, documents and sources.\n\n'
-                               'This wizard keeps existing documents, index and models. '
-                               'You can go through it without applying changes.\n\n'
-                               'Two launchers; the same wizard on Windows and Linux.',
+        'welcome_title': 'Installation requirements',
+        'welcome_description': '1. Windows x64 with PowerShell or x86_64 Linux with Bash.\n'
+                               '2. 64-bit CPython 3.13.x with venv and ensurepip to create environments with pip. '
+                               'Check the version with “py -3.13 -V” (Windows) or “python3.13 -V” (Linux).\n'
+                               '3. A writable project directory and disk space for environments, models, documents and the index.\n'
+                               '4. Internet access for the initial package and model downloads. Git is only used to clone the project.\n'
+                               '5. For local answers, a running Ollama server and a downloaded model. '
+                               'Choose a vision model for images. A CPU is sufficient for text-only retrieval.',
         'check_machine': 'Check this computer',
         'environment_title': '01 / Python environment',
         'profile_ollama': 'Ollama GPU + CPU embeddings (recommended)',
         'profile_cuda': 'PyTorch CUDA 13.0 + HF NF4 (advanced)',
-        'environment_description': 'Requires Python 3.13 x64 / Linux x86_64. Packages are installed in .venv; '
-                                   'the wizard uses another environment in .cache.',
+        'environment_description': '“Install dependencies” sets up .venv with PyTorch, SentenceTransformers, '
+                                   'NumPy, the document libraries and the web server. The recommended profile runs '
+                                   'embeddings on the CPU. The advanced profile requires an NVIDIA GPU and driver '
+                                   'supported by the CUDA 13.0 PyTorch build and adds bitsandbytes and Accelerate.',
         'install_dependencies': 'Install dependencies',
         'commands_to_run': 'COMMANDS TO RUN',
         'models_title': '02 / Answer models',

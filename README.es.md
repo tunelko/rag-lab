@@ -13,14 +13,19 @@ web en tu equipo. Los documentos se indexan en tu máquina y las respuestas cita
 
 Pregunta con tus palabras. Musa responde con los documentos de la colección o categoría elegida en la caja de preguntar, y cada respuesta cita sus fuentes: **Contexto** abre los fragmentos que usó.
 
-## Requisitos
-
-- Windows x64 o Linux x86_64
-- [Python](https://www.python.org/downloads/) 3.13 de 64 bits
-- [Git](https://git-scm.com/install/)
-- [Ollama](https://ollama.com/download)
-
 ## Instalar
+
+### Requisitos
+
+1. **Sistema.** Windows x64 con PowerShell o Linux x86_64 con Bash.
+2. **Python.** Instala **CPython 3.13.x de 64 bits**, con `venv` y `ensurepip`. El asistente crea sus entornos con pip e instala las bibliotecas de la aplicación. En Windows, comprueba la versión con `py -3.13 -V`. En Linux, usa `python3.13 -V` e instala `python3.13-venv` si tu distribución empaqueta ese módulo por separado. [Descargar Python](https://www.python.org/downloads/)
+3. **Disco.** Elige una carpeta donde puedas escribir. Reserva espacio para el entorno Python, los modelos que elijas, tus documentos y su índice.
+4. **Descarga inicial.** Necesitas conexión para obtener las dependencias y los modelos. Para copiar el proyecto con el comando de abajo, instala Git. También puedes descomprimir el ZIP del repositorio. [Descargar Git](https://git-scm.com/install/)
+5. **Modelos.** Para generar respuestas locales necesitas Ollama en ejecución y un modelo descargado. Para analizar imágenes el modelo debe admitir visión. La búsqueda de texto usa embeddings en CPU. El perfil avanzado de PyTorch requiere una GPU NVIDIA y un controlador compatibles con su compilación CUDA 13.0. [Descargar Ollama](https://ollama.com/download)
+
+**Compatibilidad de Python.** La instalación y la CI de Windows y Linux usan 3.13. De las dependencias fijadas, NumPy 2.5.4 requiere Python ≥3.12 y Transformers 5.22.2 requiere ≥3.11. Si ya utilizas 3.10 para otro proyecto, puedes instalar 3.13 en paralelo.
+
+### Pasos
 
 **1. Descargar el proyecto**
 
@@ -29,11 +34,13 @@ git clone https://github.com/tunelko/rag-lab.git
 cd rag-lab
 ```
 
-**2. Descargar un modelo**
+**2. Descargar un modelo para respuestas locales**
 
 ```text
 ollama pull qwen3.5:9b-q4_K_M
 ```
+
+Con una GPU de 6 GB, puedes elegir en su lugar `ollama pull qwen3.5:4b-q4_K_M`. Esta variante acepta texto e imágenes y su descarga ocupa 3,3 GB. [Ficha de Qwen3.5 4B en Ollama](https://ollama.com/library/qwen3.5:4b-q4_K_M)
 
 **3. Abrir el asistente de instalación**
 
@@ -50,7 +57,7 @@ bash install/linux/configurar.sh
 **4. Seguir el asistente**
 
 1. **Idioma:** elige Español o English.
-2. **Bienvenida:** continúa.
+2. **Bienvenida:** revisa los requisitos y pulsa **Comprobar equipo** para ver qué se ha detectado.
 3. **Entorno Python:** deja **Ollama GPU + embeddings CPU** y pulsa **Instalar dependencias**.
 4. **Modelos Ollama:** pulsa **Actualizar modelos** y elige el modelo de texto. Para imágenes, activa multimodal y elige un modelo visual.
 5. **Recuperación RAG:** deja los valores predeterminados.
