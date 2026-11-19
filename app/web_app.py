@@ -37,6 +37,7 @@ from hardware_monitor import HardwareMonitor
 from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve, tokens
 from list_queries import enumerate_items, list_request
+from shared_queries import named_comparison, shared_answer, wants_intersection
 from knowledge_store import direct_name_list, cti_list_candidate
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
@@ -534,8 +535,17 @@ class RagService(JobRuntime):
         started = time.perf_counter()
         settings = preferences or self.settings.get()
         listing = list_request(query.question) if not query.search_only and not query.images else None
+        shared = (not query.search_only and not query.images and
+                  (wants_intersection(query.question) or named_comparison(query.question,document_names or ()))
+                  and (settings.graph_retrieval if query.graph_retrieval is None else query.graph_retrieval))
+        if shared:
+            files = document_names if document_names is not None else {d['name'] for d in self.list_documents()}
+            answer = shared_answer(self, job_id, query, files, settings, provider_key)
+            if answer is not None:
+                answer['metrics']['scope_label'] = scope_label
+                return answer
         if (getattr(self, 'dataset_adapter', None) == 'cti' and not query.search_only and not query.images
-                and (not listing or cti_list_candidate(query.question, scope_label))
+                and (shared or not listing or cti_list_candidate(query.question, scope_label))
                 and not query_intent(query.question).mode.startswith('catalog_')):
             from cti_chat import query_knowledge
             result = query_knowledge(self, job_id, query, settings, provider_key, document_names, scope_label)
@@ -1218,7 +1228,9 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
         name_list = (getattr(service, 'dataset_adapter', None) == 'cti' and not body.images
                      and not body.search_only and direct_name_list(body.question) is not None)
         listing = not body.images and not body.search_only and list_request(body.question) is not None
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not (catalog or name_list or listing):
+        shared = (body.graph_retrieval and not body.images and not body.search_only and
+                  (wants_intersection(body.question) or named_comparison(body.question,document_names)))
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not (catalog or name_list or listing or shared):
             from graph_jobs import graph_store
             store = graph_store(service)
             if not body.graph_retrieval or not store.path.is_file() or not store.accepted_rows(document_names):
@@ -1234,7 +1246,7 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
                 raise HTTPException(422,str(error)) from error
         provider_key = None
         # General enumerations only need provider credentials after looking for typed catalogue records.
-        deferred_provider = listing and not (
+        deferred_provider = listing and not shared and not (
             getattr(service, 'dataset_adapter', None) == 'cti' and cti_list_candidate(body.question, scope_label))
         generates = not (body.search_only or catalog or name_list or deferred_provider)
         if generates and settings.response_provider != 'ollama':

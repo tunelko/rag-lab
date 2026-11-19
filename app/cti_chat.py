@@ -59,6 +59,13 @@ Schema: ''' + json.dumps(KnowledgeQuery.model_json_schema())
             if text.startswith('```json\n') and text.endswith('\n```'):
                 text = text[8:-4]
             plan = KnowledgeQuery.model_validate_json(text)
+            if plan.operation == 'intersection' and not plan.entities:
+                # Some local models put the two explicitly named operands in the
+                # target slot. Only accept names copied from this question.
+                named = plan.targets
+                if len(named)<2 or any(normalize(name) not in normalize(query.question) for name in named):
+                    raise ValueError('Intersection requires at least two named operands in entities.')
+                plan = plan.model_copy(update={'entities':named, 'targets':[]})
             break
         except ValueError as error:
             if attempt:
@@ -71,7 +78,88 @@ Schema: ''' + json.dumps(KnowledgeQuery.model_json_schema())
                   'planning_output_tokens': metrics.get('output_tokens'), 'planning_input_tokens': metrics.get('input_tokens')}
 
 
+def shared_cti_answer(service,job,query,plan,result,allowed,cite_source,metrics,scope_label):
+    from shared_queries import render, Passage
+    from list_queries import published_rows
+    operands = result['entities']
+    manifests = {v.get('file',k):v for k,v in rag.load_state(service.config)['files'].items()} if allowed is not None else {}
+    cache = {}
+    def document(file):
+        if file not in allowed or file not in manifests:
+            return None
+        if file not in cache:
+            record = manifests[file]
+            path = (service.documents/file).resolve()
+            if (not path.is_relative_to(service.documents.resolve()) or not path.is_file()
+                    or service.fingerprints.digest(path)!=record['sha256']):
+                cache[file]=None
+            else:
+                full = path.read_text('utf-8')
+                chunks = list(published_rows(rag.open_store(service.config,None),((key,file) for key in record['ids'])))
+                cache[file]=(full,chunks)
+        return cache[file]
+
+    def published_line(file,section_pattern,line_pattern):
+        snapshot=document(file)
+        if not snapshot:
+            return None
+        full,chunks = snapshot
+        section = re.search(r'^## '+section_pattern+r'\s*\n(.*?)(?=^## |\Z)',full,re.M|re.S)
+        if section:
+            match=re.search(line_pattern,section[1],re.M)
+            if match:
+                for text,meta in chunks:
+                    if match[0] in text:
+                        return Passage(file,0,int(meta.get('chunk') or 0)+1,text).source(service.collection_key,0,match[0])
+        return None
+
+    def profile_proof(file,target,direction,relationship):
+        heading = 'Relaciones documentadas salientes' if direction=='outgoing' else 'Relaciones documentadas entrantes'
+        line = '- '+relationship+': '+(target['public_id'] or target['id'])+' · '+target['name']
+        return published_line(file,heading,'^'+re.escape(line)+'$')
+    matches = []
+    for row in result['rows']:
+        service.check_cancel(job)
+        proofs = []
+        edges = {e['id']:e for e in row['evidence'] if e}
+        for operand in operands:
+            proof=None
+            for edge_id,direction in row['proof_by_entity'][operand['canonical']]:
+                edge=edges.get(edge_id)
+                if not edge:
+                    continue
+                if allowed is None:
+                    proof=cite_source(edge)
+                else:
+                    proof=published_line('cti/'+edge['document'],'Relación documentada',
+                                         r'^.+ → '+re.escape(edge['relationship_type'])+r' → .+$')
+                    if proof:
+                        break
+                    for profile in operand['observations']:
+                        for target in row['entities']:
+                            if profile['source']==edge['source']==target['source']:
+                                proof=profile_proof('cti/'+profile['document'],target,direction,edge['relationship_type'])
+                                if not proof:
+                                    reverse='incoming' if direction=='outgoing' else 'outgoing'
+                                    proof=profile_proof('cti/'+target['document'],profile,reverse,edge['relationship_type'])
+                                if proof:
+                                    break
+                        if proof:
+                            break
+                if proof:
+                    break
+            proofs.append(proof)
+        if all(proofs):
+            matches.append((row['entities'][0]['name'],proofs))
+    labels = [item['observations'][0]['name'] for item in operands] if allowed is None else plan.entities
+    return render(query,labels,matches[:plan.limit],{**metrics,'backend':'knowledge','knowledge_total':len(matches),
+                  'model':metrics.get('planning_model'),'knowledge_plan':plan.model_dump(),'topic_id':query.topic_id,
+                  'scope_label':scope_label,'collection':service.collection_key})
+
+
 def query_knowledge(service, job_id, query, settings, provider_key, allowed_documents, scope_label=None):
+    from shared_queries import wants_intersection
+    shared = wants_intersection(query.question) and (settings.graph_retrieval if query.graph_retrieval is None else query.graph_retrieval)
     status_path = service.config.db.parent / 'dataset-status.json'
     direct = direct_name_list(query.question)
     if not status_path.is_file():
@@ -82,7 +170,7 @@ def query_knowledge(service, job_id, query, settings, provider_key, allowed_docu
     if receipt.get('status') != 'done':
         raise JobFailure('DATASET_NOT_READY', 'Completa la sincronización CTI desde Biblioteca antes de consultar las relaciones.')
     scoped = query.topic_id is not None
-    if scoped and not direct and not re.search(
+    if scoped and not direct and not shared and not re.search(
         r'\b(?:nombr\w*|name\w*|list\w*|enumer\w*|cuales|which|hasta|up to|show|muestrame|dame|\d+)\b',
         normalize(query.question)
     ):
@@ -91,7 +179,11 @@ def query_knowledge(service, job_id, query, settings, provider_key, allowed_docu
         plan, metrics = direct, {'planning_seconds': 0.0}
     else:
         plan, metrics = plan_question(service, job_id, query, settings, provider_key, scope_label)
-    if plan.operation == 'semantic' or (scoped and plan.operation != 'list_names'):
+    if shared and plan.operation != 'intersection':
+        message = ('Name the two entities and their shared relationship.' if query.language=='en' else
+                   'Indica las dos entidades y qué relación quieres contrastar en sus fuentes.')
+        return dict(answer=message,sources=[],metrics={**metrics,'retrieval_mode':'intersection','needs_clarification':True})
+    if plan.operation == 'semantic' or (scoped and plan.operation != 'list_names' and not (shared and plan.operation=='intersection')):
         service.update(job_id, knowledge_planning_metrics=metrics, metrics={'retrieval_mode': 'focused'})
         return None
     listing = plan.operation == 'list_names'
@@ -99,10 +191,15 @@ def query_knowledge(service, job_id, query, settings, provider_key, allowed_docu
                    'Consultando relaciones documentadas en el índice estructurado')
     started = time.perf_counter()
     documents = frozenset(allowed_documents or ()) if scoped else None
-    result = KnowledgeStore(service.config.db.parent / 'knowledge.sqlite3').query(plan, documents=documents)
+    # A scoped intersection verifies each proof against a visible document below.
+    result = KnowledgeStore(service.config.db.parent / 'knowledge.sqlite3').query(plan, documents=None if shared else documents)
+    if shared and result['status']!='ok' and scoped:
+        return dict(answer=('I could not identify both entities in the selected sources.' if query.language=='en'
+                    else 'No he podido identificar las dos entidades en las fuentes seleccionadas.'),sources=[],
+                    metrics={**metrics,'retrieval_mode':'intersection','needs_clarification':True})
     sources, citations = [], {}
     evidence_store = EvidenceStore(service.config.db.parent / 'evidence-cache.sqlite3')
-    def cite(row):
+    def cite_source(row):
         chosen = row
         file = 'cti/' + chosen['document']
         if file not in citations:
@@ -116,8 +213,12 @@ def query_knowledge(service, job_id, query, settings, provider_key, allowed_docu
                 'match_type': 'documented_entity' if listing else 'documented_relationship',
                 'cosine_distance': None, 'relevance': None, 'figures': [],
                 'url': '/api/knowledge/source?record=' + quote(chosen['id'], safe='') + '&version=' + version + '&collection=' + service.collection_key})
-        return '[' + str(citations[file]) + ']'
+        return sources[citations[file]-1]
+    def cite(row):
+        return '[' + str(cite_source(row)['citation']) + ']'
 
+    if shared and result['status']=='ok':
+        return shared_cti_answer(service,job_id,query,plan,result,documents,cite_source,metrics,scope_label)
     english = query.language == 'en'
     if result['status'] != 'ok':
         term = result.get('term', '')

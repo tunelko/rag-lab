@@ -471,7 +471,7 @@ class GraphStore:
                 FROM graph_assertions a JOIN graph_units u ON u.id=a.unit JOIN graph_runs r ON r.id=a.run
                 JOIN graph_entities s ON s.id=a.subject JOIN graph_entities o ON o.id=a.object
                 JOIN graph_verifications v ON v.id=(SELECT MAX(id) FROM graph_verifications WHERE assertion=a.id)
-                WHERE u.active=1 AND r.status='done' AND a.review='accepted' AND v.status='supported'
+                WHERE u.active=1 AND u.published_run=a.run AND r.status='done' AND a.review='accepted' AND v.status='supported'
                 AND (?=0 OR u.file IN (SELECT file FROM allowed_files)) ORDER BY a.id''', (int(files is not None),)).fetchall()
             return [dict(row) for row in rows]
 

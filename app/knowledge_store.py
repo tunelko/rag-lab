@@ -171,6 +171,8 @@ class KnowledgeStore:
                 resolved.append({'canonical': next(iter(identities)), 'observations': matches})
             if not resolved:
                 return {'status': 'not_found', 'term': '', 'candidates': []}
+            if plan.operation == 'intersection' and (len(resolved)<2 or len({x['canonical'] for x in resolved})!=len(resolved)):
+                return {'status':'ambiguous','term':', '.join(plan.entities),'candidates':[]}
             if plan.operation == 'entity':
                 return {'status': 'ok', 'entities': resolved, 'rows': [], 'plan': plan.model_dump()}
             target_ids = None
@@ -207,6 +209,8 @@ class KnowledgeStore:
                         found.add(target)
                         result = results.setdefault(target, {'id': target, 'entities': candidates, 'evidence': {}})
                         result['evidence'][edge_id] = read(edge_id)
+                        if plan.operation=='intersection':
+                            result.setdefault('proof_by_entity',{}).setdefault(identity['canonical'],[]).append((edge_id,direction))
                 sets.append(found)
             allowed = set.intersection(*sets) if plan.operation == 'intersection' else set.union(*sets)
             rows = [{**results[key], 'evidence': list(results[key]['evidence'].values())} for key in sorted(allowed)]
