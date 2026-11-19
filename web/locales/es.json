@@ -570,9 +570,9 @@
   "sentinel.ingestion": "Ingesta",
   "sentinel.auto": "Autopilot",
   "sentinel.manual": "Manual",
-  "sentinel.text_model": "Modelo de texto",
-  "sentinel.vision_model": "Modelo visual para respuestas",
-  "sentinel.index_vision_model": "Modelo visual de indexación · Ollama local",
+  "sentinel.text_model": "Modelo de respuesta",
+  "sentinel.vision_model": "Modelo visual para consultas con imágenes",
+  "sentinel.index_vision_model": "Modelo visual para indexar documentos · Ollama local",
   "sentinel.index_vision_hint": "Ollama describe las figuras en tu equipo. La extracción y los embeddings usan CPU. Cambiar el proveedor o modelo de respuestas no modifica el índice.",
   "sentinel.generation": "Generación",
   "sentinel.search_only": "Solo buscar fragmentos",
@@ -633,7 +633,7 @@
   "sentinel.local_vision_hint": "Modelo de Ollama para responder consultas visuales. El modelo de indexación se configura por separado en Indexación local.",
   "sentinel.vision_image_limit": "Máximo: {count} imágenes por consulta.",
   "sentinel.response_provider": "Proveedor de respuesta",
-  "sentinel.external_model": "Modelo externo",
+  "sentinel.external_model": "Modelo de respuesta · proveedor externo",
   "sentinel.choose_external_model": "Selecciona un modelo",
   "sentinel.model_not_in_catalog": "No aparece en el catálogo actual",
   "sentinel.catalog_unavailable": "No se pudo cargar la lista",
@@ -1302,5 +1302,8 @@
   "sentinel.mode_autopilot": "Selección Autopilot",
   "sentinel.mode_manual": "Selección Manual",
   "sentinel.reindex_title": "Hay que actualizar el índice",
-  "notice.ok": "Entendido"
+  "notice.ok": "Entendido",
+  "sentinel.text_model_hint": "Responde a las consultas. Los marcados «Texto e imágenes» también admiten imágenes y sirven igual para responder solo a texto.",
+  "sentinel.takes_text_images": "Texto e imágenes",
+  "sentinel.takes_text": "Texto"
 }

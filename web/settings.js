@@ -108,12 +108,14 @@ export class SettingsController {
   renderExternalModels(){
     const select=$('external-model'),selected=this.value.external_model||'',configured=Boolean(this.credentials?.configured?.[this.value.response_provider]),issue=this.credentialIssue();
     const state=issue?'key_unreadable':this.credentials?.locked?'store_locked':!configured?'key_missing':this.modelsLoading?'loading_models':this.modelsError?'catalog_unavailable':this.modelsLoaded&&!this.externalModels.length?'no_models':this.modelsLoaded?'choose_external_model':'refresh_models';
-    const signature=JSON.stringify([this.externalModels,selected,state,s(state),s('model_not_in_catalog'),this.modelsLoaded]);
+    const seeing=this.externalVisionModels||[],signature=JSON.stringify([this.externalModels,seeing,selected,state,s(state),s('model_not_in_catalog'),s('takes_text_images'),this.modelsLoaded]);
     if(select.dataset.options!==signature){
       select.dataset.options=signature;
       const placeholder=node('option','',s(state));placeholder.value='';placeholder.disabled=true;select.replaceChildren(placeholder);
       if(selected&&!this.externalModels.includes(selected)){const option=node('option','',selected+(this.modelsLoaded?' · '+s('model_not_in_catalog'):''));option.value=selected;option.disabled=true;select.append(option);}
-      for(const model of this.externalModels){const option=node('option','',model);option.value=model;select.append(option);}
+      // A remote catalogue confirms vision for some models and says nothing of the rest: only the confirmed ones are
+      // marked, and no model is called text-only.
+      for(const model of this.externalModels){const option=node('option','',model+(seeing.includes(model)?' · '+s('takes_text_images'):''));option.value=model;select.append(option);}
       select.value=selected;
     }
     select.disabled=this.modelsLoading||!this.credentialAvailable()||!this.externalModels.length;
@@ -170,11 +172,16 @@ export class SettingsController {
     this.render();return this.inFlight;
   }
   async flush(){clearTimeout(this.timer);while(this.saved<this.version){await this.save();if(this.error)throw this.error;}if(this.inFlight)await this.inFlight;return this.value;}
-  select(id,models,value){
-    const select=$(id),signature=JSON.stringify([models,value,t('sentinel.vision'),t('sentinel.unavailable')]);
+  // With `marks`, each model says what it can take in (the answer selector). The two vision selectors list only
+  // models whose vision is confirmed, so there the mark would say nothing.
+  select(id,models,value,marks=false){
+    const select=$(id),signature=JSON.stringify([models,value,marks,s('takes_text_images'),s('takes_text'),s('unavailable')]);
     if(select.dataset.options===signature)return;select.dataset.options=signature;select.replaceChildren();
     const available=models.some(model=>model.name===value)?models:[...(value?[{name:value,missing:true}]:[]),...models];
-    for(const model of available){const option=node('option','',model.name+(model.missing?' · '+s('unavailable'):model.vision?' · '+s('vision'):''));option.value=model.name;select.append(option);}
+    for(const model of available){
+      const mark=model.missing?s('unavailable'):!marks?'':model.vision===true?s('takes_text_images'):model.vision===false?s('takes_text'):'';
+      const option=node('option','',model.name+(mark?' · '+mark:''));option.value=model.name;select.append(option);
+    }
     if(!available.length){const option=node('option','',s('no_models'));option.value='';select.append(option);}select.value=value||available[0]?.name||'';
   }
   radios(selector,selected){for(const control of document.querySelectorAll(selector)){const checked=selected(control);control.setAttribute('aria-checked',String(checked));control.tabIndex=checked?0:-1;}}
@@ -187,7 +194,7 @@ export class SettingsController {
     $('model-selection').value=value.response_mode;
     const providerSelect=$('response-provider'),providerSignature=JSON.stringify(this.providers);
     if(providerSelect.dataset.options!==providerSignature){providerSelect.dataset.options=providerSignature;providerSelect.replaceChildren(...this.providers.map(provider=>{const option=node('option','',provider.label);option.value=provider.id;return option;}));}providerSelect.value=value.response_provider;
-    this.select('model',this.models,value.response_model);
+    this.select('model',this.models,value.response_model,true);
     if(external)this.renderExternalVision();
     else{this.select('vision-model',this.models.filter(model=>model.vision),value.query_vision_model||value.vision_model);$('vision-model').disabled=false;$('vision-model').setAttribute('aria-busy','false');$('vision-model-hint').textContent=s('local_vision_hint');$('vision-model-hint').classList.remove('error');}
     this.select('index-vision-model',this.models.filter(model=>model.vision),value.vision_model);

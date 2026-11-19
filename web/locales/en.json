@@ -570,9 +570,9 @@
   "sentinel.ingestion": "Ingestion",
   "sentinel.auto": "Autopilot",
   "sentinel.manual": "Manual",
-  "sentinel.text_model": "Text model",
-  "sentinel.vision_model": "Vision model for answers",
-  "sentinel.index_vision_model": "Indexing vision model · local Ollama",
+  "sentinel.text_model": "Answer model",
+  "sentinel.vision_model": "Vision model for queries with images",
+  "sentinel.index_vision_model": "Vision model for indexing documents · local Ollama",
   "sentinel.index_vision_hint": "Ollama describes figures on this computer. Extraction and embeddings use the CPU. Changing the answer provider or model does not change the index.",
   "sentinel.generation": "Generation",
   "sentinel.search_only": "Retrieve chunks only",
@@ -633,7 +633,7 @@
   "sentinel.local_vision_hint": "Ollama model for visual answers. The indexing model is configured separately under Local indexing.",
   "sentinel.vision_image_limit": "Maximum: {count} images per query.",
   "sentinel.response_provider": "Response provider",
-  "sentinel.external_model": "External model",
+  "sentinel.external_model": "Answer model · external provider",
   "sentinel.choose_external_model": "Select a model",
   "sentinel.model_not_in_catalog": "Not in the current catalog",
   "sentinel.catalog_unavailable": "Could not load the list",
@@ -1302,5 +1302,8 @@
   "sentinel.mode_autopilot": "Autopilot selection",
   "sentinel.mode_manual": "Manual selection",
   "sentinel.reindex_title": "The index needs updating",
-  "notice.ok": "Got it"
+  "notice.ok": "Got it",
+  "sentinel.text_model_hint": "Answers the queries. Those marked “Text and images” also accept images and work just as well for text alone.",
+  "sentinel.takes_text_images": "Text and images",
+  "sentinel.takes_text": "Text"
 }

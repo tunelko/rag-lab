@@ -1558,7 +1558,7 @@
          </span>
         </label>
         <label class="cfg-field" for="index-vision-model">
-         <span class="cfg-field__label" data-i18n="sentinel.index_vision_model">Modelo visual de indexación · Ollama local</span>
+         <span class="cfg-field__label" data-i18n="sentinel.index_vision_model">Modelo visual para indexar documentos · Ollama local</span>
          <span class="cfg-select"><select class="select" id="index-vision-model" aria-describedby="index-vision-hint"></select></span>
         </label>
         <p class="cfg-field__hint" id="index-vision-hint" data-i18n="sentinel.index_vision_hint">Ollama describe las figuras en tu equipo. La extracción y los embeddings usan CPU. Cambiar el proveedor de respuestas no modifica el índice.</p>
@@ -1790,16 +1790,15 @@
          </button>
         </div>
         <label class="cfg-field" for="model" id="local-model-field">
-         <span class="cfg-field__label" data-i18n="sentinel.text_model">
-          Modelo de texto
-         </span>
+         <span class="cfg-field__label" data-i18n="sentinel.text_model">Modelo de respuesta</span>
          <span class="cfg-select">
-          <select class="select" id="model">
+          <select aria-describedby="model-hint" class="select" id="model">
            <option data-i18n="ui.connecting_to_ollama_4410a1" value="">
             Conectando con Ollama…
            </option>
           </select>
          </span>
+         <span class="cfg-field__hint" data-i18n="sentinel.text_model_hint" id="model-hint">Responde a las consultas. Los marcados «Texto e imágenes» también admiten imágenes y sirven igual para responder solo a texto.</span>
         </label>
         <label class="cfg-field" for="external-model" hidden="" id="external-model-field">
          <span class="cfg-field__label" data-i18n="sentinel.external_model">
