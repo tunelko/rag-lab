@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 from urllib.parse import quote
 
+from comparison_planning import ComparisonClarification, quoted_condition
 import generation_providers
 import rag
 from graph_engine import active_decisions, canonical_groups, current_rows, mentions
@@ -22,10 +23,16 @@ SEPARATE = re.compile(r"\b(?:diferencias?|diferencian|difiere[n]?|difference[s]?
                       r"no (?:comparten|tienen en comun)|(?:not|don't) share|not (?:shared|in common))\b")
 
 
+# "Share the profile with me" or an opening "Share…" asks to be shown something; it compares nothing.
+SHOW = re.compile(r"\bshare[sd]?(?: [^\s?.,;]+){0,6}? with (?:me|us)\b|"
+                  r"^[\W_]*(?:(?:please|can you|could you|would you)[, ]+)*share\b(?!.*\bwith\b)")
+
+
 def wants_intersection(question):
     text = normalize(question)
     if SEPARATE.search(text):
         return False
+    text = SHOW.sub(' ', text)
     return bool(re.search(
         r'\b(?:en comun|comparten|compartid[oa]s?|coinciden|ambos|ambas|'
         r'tanto .{1,180} como|(?:estos|estas) dos|(?:los|las) dos (?:documentos|archivos|fuentes)|'
@@ -104,8 +111,16 @@ def render(query, labels, matches, metrics, partial=()):
         for label, proof in zip(labels, proofs):
             parts.append(f'{escape(label)} {cite(proof)}')
         lines.append(f'- **{escape(name)}** — ' + ' · '.join(parts))
+    # A requested limit shows part of the verified matches; the answer says how many there are in all.
+    total = max(len(lines), int(metrics.get('knowledge_total') or metrics.get('intersection_verified') or 0))
     if lines:
         answer = '\n'.join(lines)
+        if total > len(lines):
+            answer = (f'Showing **{len(lines)} of {total}** verified matches.' if english else
+                      f'Se muestran **{len(lines)} de {total}** coincidencias verificadas.') + '\n\n' + answer
+    elif total:
+        answer = (f'There are **{total}** verified matches; the requested limit shows none.' if english else
+                  f'Hay **{total}** coincidencias verificadas; el límite pedido no muestra ninguna.')
     else:
         answer = ('I could not verify a shared match in the evidence reviewed for ' if english else
                   'No he podido verificar una coincidencia en las evidencias revisadas para ')
@@ -115,7 +130,7 @@ def render(query, labels, matches, metrics, partial=()):
             answer += (f'\n\n**{escape(value)}** appears in {here} {cite(proof)}. I could not verify it in the reviewed passages of {other}.'
                        if english else f'\n\n**{escape(value)}** aparece en {here} {cite(proof)}. En los pasajes revisados de {other} no he podido verificarlo.')
     return dict(answer=answer, sources=sources, metrics={**metrics,'retrieval_mode':'intersection',
-                'intersection_matches':len(lines),'intersection_sides':labels})
+                'intersection_matches':len(lines),'intersection_total':total,'intersection_sides':labels})
 
 
 def schema_array(fields):
@@ -124,7 +139,7 @@ def schema_array(fields):
                                 'additionalProperties':False,'required':list(fields)}}}}
 
 
-def ask_model(service, job, settings, query, key, instructions, data, schema):
+def ask_model(service, job, settings, query, key, instructions, data, schema, field='matches'):
     local = settings.response_provider == 'ollama'
     model = (query.model or settings.response_model or service.ollama_status()['default_model']) if local else settings.external_model
     if not model:
@@ -142,10 +157,10 @@ def ask_model(service, job, settings, query, key, instructions, data, schema):
         except (OSError, generation_providers.ProviderError) as exc:
             raise JobFailure('INTERSECTION_PROVIDER','No se pudo completar el contraste de las dos fuentes.',str(exc)) from exc
         try:
-            result = json.loads(answer)
-            if metrics.get('done_reason') == 'length' or not isinstance(result['matches'],list):
+            value = json.loads(answer)[field]
+            if metrics.get('done_reason') == 'length' or (field=='matches' and not isinstance(value,list)):
                 raise ValueError('Incomplete result')
-            return result['matches'], model
+            return value, model
         except (ValueError, KeyError, TypeError):
             if attempt:
                 raise JobFailure('INTERSECTION_FORMAT','El modelo no devolvió un contraste verificable.')
@@ -209,21 +224,203 @@ def select_passages(service, file, manifest, question, k):
     return [candidates[i] for i in sorted(range(len(terms)),key=rank,reverse=True)[:k]]
 
 
+def history_files(query, files):
+    """The documents a bare "both" points back to: the latest user turn naming two, or the only two named so far."""
+    seen = []
+    for turn in reversed(query.history):
+        if turn.role != 'user':
+            continue
+        found = resolve_files(turn.content, files)
+        if len(found)==2 and not seen:
+            return found
+        seen.extend(name for name in found if name not in seen)
+    # One name, or three across several turns, does not say which two are meant.
+    return sorted(seen) if len(seen)==2 else []
+
+
+def document_condition(value, question, named):
+    """A quoted criterion, accepted by the validator both comparison routes share (literal words of the question, never
+    the whole of it), plus the rule of this route: the name of a document is an operand, not a criterion."""
+    quote = quoted_condition(question, value)
+    if not quote or not 3<=len(quote)<=200 or any(includes(tokens(name), tokens(quote)) for name in named):
+        return None
+    return quote
+
+
+CONDITION_SCHEMA = {'type':'object','additionalProperties':False,'required':['condition'],
+                    'properties':{'condition':{'type':['string','null']}}}
+
+
+def selection_condition(service, job, settings, query, key, named, metrics):
+    """The user's own words when the question picks what to compare by a criterion; never a guess.
+
+    Returns (condition, interpreted). A provider failure or a cancellation is raised, not turned into a question."""
+    try:
+        # One nullable quotation: the model copies words or says there are none; it labels nothing.
+        value, model = ask_model(service, job, settings, query, key,
+            'Do not answer the question. It asks what several documents or items have in common. '
+            'condition: copy the exact words of the question that restrict WHICH documents or items are compared '
+            '(a date, a subject, an ingredient, a property, their contents). Use null when they are identified by name '
+            'or when nothing restricts them. Words that describe the requested result are not a condition. '
+            'Never guess members of a group. Examples: '
+            '"Qué tienen en común las recetas que llevan arroz?" -> {"condition":"que llevan arroz"}; '
+            '"What do the tenders published in 2024 have in common?" -> {"condition":"published in 2024"}; '
+            '"Qué requisitos comparten alfa.pdf y beta.pdf?" -> {"condition":null}; '
+            '"Qué tienen en común?" -> {"condition":null}.',
+            {'named_documents': named}, CONDITION_SCHEMA, 'condition')
+    except JobFailure as failure:
+        if failure.code != 'INTERSECTION_FORMAT':
+            raise
+        return None, False
+    metrics.update(model=model, cloud=settings.response_provider!='ollama', planning_model=model)
+    condition = document_condition(value, query.question, named)
+    return condition, value is None or condition is not None
+
+
+def clarify(service, job, query, files, settings, provider_key, named, metrics, interpretation=None):
+    """Say what is missing to compare, from facts: the names found, the selected sources and the user's own condition."""
+    english = query.language=='en'
+    listed = lambda names: ', '.join(escape(name) for name in names)
+    outside = []
+    if query.topic_id is not None:
+        outside = resolve_files(query.question, {d['name'] for d in service.list_documents()} - set(files))
+    reason, condition, facts = 'missing_operands', None, []
+    if len(named)>2:
+        facts.append(f'You named {len(named)} documents ({listed(named)}); a comparison takes two at a time.' if english else
+                     f'Has nombrado {len(named)} documentos ({listed(named)}); el cruce compara dos cada vez.')
+    elif outside:
+        facts.append(f'Not in the selected category: {listed(outside)}.' if english else
+                     f'No está en la categoría seleccionada: {listed(outside)}.')
+    else:
+        condition, interpreted = interpretation or selection_condition(service, job, settings, query, provider_key, named, metrics)
+        if not interpreted:
+            reason = 'invalid_plan'
+    if len(named)==1:
+        facts.append(f'I identified only {listed(named)}.' if english else f'Solo he identificado {listed(named)}.')
+    if condition:
+        reason = 'selection_by_condition'
+        # The population is the selected sources, counted from the register: neither assumed to qualify nor sampled.
+        facts.append(f'The selected sources hold {len(files)} documents: I do not assume that all of them meet it, '
+                     'nor take the first results as the whole set.' if english else
+                     f'Las fuentes seleccionadas tienen {len(files)} documentos: no doy por hecho que todos la cumplan '
+                     'ni tomo los primeros resultados como si fueran el conjunto.')
+    answer = ComparisonClarification(reason, terms=(condition,) if condition else ()).answer(query, metrics, documents=True)
+    answer['answer'] = ' '.join([answer['answer'], *facts])
+    answer['metrics'].update(clarification_named=list(named), clarification_out_of_scope=outside)
+    return answer
+
+
+FORMATS = {'pdf': ('PDF', ('.pdf',)), 'markdown': ('Markdown', ('.md', '.markdown')), 'md': ('Markdown', ('.md', '.markdown')),
+           'txt': ('TXT', ('.txt',))}
+_FORMAT = r'\.?(?:pdfs?|markdown|md|txt)'
+_ES = (r'(?:tod[oa]s )?(?:los|las|ambos|ambas|estos|estas)(?: dos)? '
+       r'(?:(?P<all>documentos|archivos|ficheros|fuentes)'
+       r'|(?:(?:documentos|archivos|ficheros) )?(?:(?:en formato|de tipo) )?(?P<format>' + _FORMAT + r'))'
+       r'(?: (?:de|en|dentro de) (?:esta|la|mi) (?:categoria|carpeta|coleccion|seleccion|biblioteca)| seleccionad[oa]s'
+       r'| (?:de|en) las fuentes seleccionadas)?')
+_EN = (r'(?:all (?:of )?(?:the )?|the |both (?:the )?|these )(?:two )?(?:selected )?'
+       r'(?:(?P<all>documents|files|sources)|(?P<format>' + _FORMAT + r')(?: (?:files|documents))?)'
+       r'(?: (?:in|of|from|within) (?:this|the|my) (?:selected )?(?:category|folder|collection|selection|library))?')
+_RESULT = r'(?:[a-z]+ ){0,4}'  # what is asked for: a few plain words, with no figures and no punctuation
+# The library register proves two selections by itself: a real file extension, and the whole of the selected sources.
+# One of these simple forms must cover the WHOLE question. Anything else in it (a date, a subject, an exception, a
+# clause, before or after) may narrow the set beyond what the register proves, so the question is left to be clarified.
+SELECTION = [re.compile(form) for form in (
+    r'(?:que|cuales?) ' + _RESULT + r'(?:tienen|tengan) en comun ' + _ES,
+    r'(?:que|cuales?) ' + _RESULT + r'(?:comparten|compartan) ' + _ES,
+    r'en que coinciden ' + _ES,
+    _ES + r' (?:tienen (?:algo|algun[oa]?s? [a-z]+) en comun|comparten (?:algo|algun[oa]?s? [a-z]+))',
+    r'(?:what|which) ' + _RESULT + r'(?:do|does) ' + _EN + r' (?:all )?(?:have in common|share)',
+    r'do ' + _EN + r' (?:all )?(?:have|share) (?:anything|something|any [a-z]+)(?: in common)?',
+    r'(?:what|which) ' + _RESULT + r"(?:is|are|'s) (?:shared by|common to) " + _EN)]
+
+
+def catalogue_selection(question, files):
+    """A selection the register proves by itself, over every document in scope: (kind, label, members), or None."""
+    text = re.sub(r'\s+', ' ', normalize(question)).strip(' ¿?¡!.')
+    found = next((match for form in SELECTION if (match := form.fullmatch(text))), None)
+    if not found:
+        return None
+    word = (found['format'] or '').lstrip('.')
+    # A second format in the question ("qué PDF comparten los Markdown") is not part of what this form proves.
+    if len(re.findall(r'(?<![\w.])' + _FORMAT + r'\b', text)) != bool(word):
+        return None
+    if not word:
+        return 'all', '', sorted(files)
+    label, suffixes = FORMATS[word if word in FORMATS else word[:-1]]
+    return 'format', label, sorted(name for name in files if Path(name).suffix.lower() in suffixes)
+
+
+_BOTH_ES = r'(?:ambos|ambas|los dos|las dos|estos dos|estas dos)'
+_BOTH_EN = r'(?:both(?: of them)?|they both|the two(?: of them)?|these two)'
+BARE = [re.compile(form) for form in (
+    r'(?:que|cuales?) ' + _RESULT + r'(?:tienen|tengan) (?:' + _BOTH_ES + r' en comun|en comun ' + _BOTH_ES + r')',
+    r'(?:que|cuales?) ' + _RESULT + r'(?:comparten|compartan) ' + _BOTH_ES,
+    r'en que coinciden ' + _BOTH_ES,
+    _BOTH_ES + r' (?:tienen (?:algo|algun[oa]?s? [a-z]+) en comun|comparten (?:algo|algun[oa]?s? [a-z]+))',
+    r'(?:what|which) ' + _RESULT + r'(?:do|does) ' + _BOTH_EN + r' (?:have in common|share)',
+    r'do ' + _BOTH_EN + r' (?:have|share) (?:anything|something|any [a-z]+)(?: in common)?',
+    r'(?:what|which) ' + _RESULT + r"(?:is|are|'s) (?:shared by|common to) " + _BOTH_EN)]
+
+
+def bare_reference(question):
+    """Whether "both" stands alone in a simple question, so the two documents in scope are all it can mean."""
+    text = re.sub(r'\s+', ' ', normalize(question)).strip(' ¿?¡!.')
+    return any(form.fullmatch(text) for form in BARE)
+
+
+def selection_count(query, files, selection, metrics):
+    """A proven selection that is not a pair: say how many there are and that a comparison takes two. None is picked."""
+    kind, label, members = selection
+    english, count, total = query.language=='en', len(members), len(files)
+    names = ' (' + ', '.join(escape(name) for name in members) + ')' if 0<count<=6 else ''
+    if kind=='format':
+        fact = (f'Of the {total} documents in the selected sources, {count} {"is" if count==1 else "are"} {label}{names}.' if english else
+                f'De los {total} documentos de las fuentes seleccionadas, {count} {"es" if count==1 else "son"} {label}{names}.')
+    else:
+        fact = (f'The selected sources hold {total} document{"" if total==1 else "s"}{names}.' if english else
+                f'Las fuentes seleccionadas tienen {total} documento{"" if total==1 else "s"}{names}.')
+    if english:
+        limit = 'A comparison takes two documents at a time, and I do not pick two for you.' if count>2 else 'A comparison needs two documents.'
+    else:
+        limit = 'El cruce compara dos documentos cada vez y no elijo dos por ti.' if count>2 else 'El cruce necesita dos documentos.'
+    answer = ComparisonClarification('missing_operands').answer(query, metrics, documents=True)
+    answer['answer'] = ' '.join([fact, limit, answer['answer']])
+    answer['metrics'].update(clarification_selection={'kind': kind, 'format': label, 'members': count, 'population': total})
+    return answer
+
+
 def shared_answer(service, job, query, files, settings, provider_key):
     named = resolve_files(query.question, files)
     text = tokens(query.question)
     deictic = re.search(r'\b(?:ambos|ambas|both|estos dos|estas dos|los dos|las dos|these two|the two)\b', text)
-    if not named and deictic:
-        for turn in reversed(query.history):
-            if turn.role == 'user':
-                named = resolve_files(turn.content, files)
-                if named:
-                    break
+    cti = getattr(service,'dataset_adapter',None)=='cti'
+    selection = catalogue_selection(query.question, files) if not named and not cti else None
+    referred = False
+    if selection and len(selection[2])==2:
+        named = selection[2]
+    elif not named and not selection and deictic:
+        named = history_files(query, files)
         if not named and len(files)==2:
             named = sorted(files)
-    if not named and getattr(service,'dataset_adapter',None)=='cti':
+        referred = bool(named)
+    # A bare "both" can only mean the pair it points to: the one of the conversation, or the two documents in scope.
+    # In a longer question ("los dos pliegos de 2024") something new may restrict them: that is checked below,
+    # before anything is compared.
+    unverified = referred and not bare_reference(query.question)
+    if not named and cti:
         return None  # The structured adapter resolves aliases and cites the underlying records.
     collection = getattr(service,'collection_key','default')
+    metrics = dict(backend='graph',model='Graph' if query.language=='en' else 'Grafo',cloud=False,
+                   scope_documents=len(files),topic_id=query.topic_id)
+    if unverified:
+        interpretation = selection_condition(service, job, settings, query, provider_key, [], metrics)
+        if interpretation[0] or not interpretation[1]:
+            return clarify(service, job, query, files, settings, provider_key, [], metrics, interpretation)
+    if selection:
+        if len(selection[2])!=2:
+            return selection_count(query, files, selection, metrics)
+        metrics['intersection_selection'] = {'kind': selection[0], 'format': selection[1], 'population': len(files)}
     rows = current_rows(service, set(named) if len(named)==2 else files)
     entities = mentions(rows)
     decisions = graph_store(service).identity_decisions() if entities else []
@@ -234,12 +431,8 @@ def shared_answer(service, job, query, files, settings, provider_key):
     else:
         resolved = {groups[key]:e['label'] for key,e in entities.items() if includes(text,tokens(e['label']))}
         anchors, labels = list(resolved), list(resolved.values())
-    metrics = dict(backend='graph',model='Graph' if query.language=='en' else 'Grafo',cloud=False,
-                   scope_documents=len(files),topic_id=query.topic_id)
     if len(anchors)!=2:
-        answer = ('Name the two entities or files to compare in the selected sources.' if query.language=='en'
-                  else 'Indica los nombres de las dos entidades o archivos que quieres comparar en las fuentes seleccionadas.')
-        return dict(answer=answer,sources=[],metrics={**metrics,'retrieval_mode':'intersection','needs_clarification':True})
+        return clarify(service, job, query, files, settings, provider_key, named, metrics)
     service.update(job,phase='Contrastando las dos fuentes seleccionadas')
     graph = graph_pairs(rows,groups,anchors,by_file)
     # The model validates the requested meaning; it cannot add identities or evidence.

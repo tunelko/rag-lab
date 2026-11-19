@@ -7,6 +7,10 @@ from cti_records import normalize, export, public_id, sample_documents
 from cti_sources import write_json, digest
 from knowledge_store import KnowledgeQuery, KnowledgeStore, direct_name_list
 from document_evidence import EvidenceStore
+from comparison_planning import ComparisonClarification
+from cti_chat import ComparisonPlan, ComparisonReview
+from pydantic import ValidationError
+from web_app import Query
 
 
 def fixture(root):
@@ -46,6 +50,55 @@ def fixture(root):
 
 
 class CtiTests(unittest.TestCase):
+    def test_condition_is_a_planning_outcome_outside_the_executable_language(self):
+        query = Query(question='What do the campaigns mentioned in these reports have in common?', language='en')
+        plan = ComparisonPlan(operands=[], membership_condition='mentioned in these reports', direction='both', relationship='').resolve(query)
+        self.assertIsInstance(plan, ComparisonClarification)
+        answer = plan.answer(query, {'planning_attempts': 1}, 'groups')
+        self.assertEqual(answer['metrics']['planning_status'], 'selection_by_condition')
+        self.assertEqual(answer['sources'], [])
+        self.assertIn('condition', answer['answer'])
+        with self.assertRaises(ValidationError):
+            KnowledgeQuery.model_validate({'operation': 'compare_selection'})
+
+    def test_executable_intersections_require_distinct_user_grounded_operands(self):
+        query = Query(question='What do Alpha and Beta have in common?')
+        for names in ([], ['Alpha'], ['Alpha', 'ALPHA'], ['Alpha', 'Be'], ['Alpha', 'Invented']):
+            with self.subTest(names=names):
+                outcome = ComparisonPlan(membership_condition=None, operands=names, direction='both', relationship='').resolve(query)
+                self.assertEqual(outcome.reason, 'missing_operands')
+        outcome = ComparisonPlan(membership_condition=None, operands=['Alpha','Beta'], result_kinds=['tool'], direction='outgoing', relationship='uses').resolve(query)
+        self.assertIsInstance(outcome, KnowledgeQuery)
+        self.assertEqual(outcome.entities, ['Alpha', 'Beta'])
+        self.assertEqual(outcome.target_types, ['tool'])
+        with self.assertRaises(ValueError):
+            ComparisonPlan(membership_condition=None, operands=['Alpha','Beta'], result_names=['Imaginary'], direction='both', relationship='').resolve(query)
+        with self.assertRaises(ValidationError):
+            KnowledgeQuery(operation='intersection', entities=['Alpha'])
+
+    def test_comparison_exposes_unavailable_filters_and_verifies_quoted_evidence(self):
+        query = Query(question='What did Alpha and Beta share in 2023?')
+        draft = ComparisonPlan(operands=['Alpha','Beta'], membership_condition='in 2023', direction='both', relationship='')
+        self.assertEqual(draft.resolve(query).reason, 'unsupported_restriction')
+        review = ComparisonReview(faithful=False, missing_quote='in 2023')
+        self.assertEqual(review.clarification(query), draft.resolve(query))
+        for quote in ('', 'in 2024'):
+            with self.assertRaises(ValueError):
+                draft.model_copy(update={'membership_condition':quote}).resolve(query)
+        self.assertIsNone(ComparisonReview(faithful=True, missing_quote=None).clarification(query))
+
+    def test_followup_grounds_names_in_latest_user_turn_and_recognizes_identifier_separators(self):
+        query = Query(question='What do they share?', history=[
+            {'role':'user','content':'Compare Alpha and Beta.'},
+            {'role':'user','content':'Now compare lab-7 and lab-8.'},
+            {'role':'assistant','content':'What about Gamma?'}])
+        plan = ComparisonPlan(operands=['Lab7','Lab8'], membership_condition=None, direction='both', relationship='')
+        self.assertIsInstance(plan.resolve(query), KnowledgeQuery)
+        for name in ('Gamma', 'Alpha'):
+            self.assertEqual(plan.model_copy(update={'operands':[name,'Lab8']}).resolve(query).reason, 'missing_operands')
+        with self.assertRaises(ValidationError):
+            ComparisonPlan(operands=['Lab7','Lab8'], membership_condition=None, result_names=[' '], direction='both', relationship='')
+
     def test_name_catalogue_respects_category_before_deduplication_and_limit(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -123,6 +176,8 @@ class CtiTests(unittest.TestCase):
             self.assertEqual([row['id'] for row in groups['rows']], ['G0016', 'G9999'])
             shared = store.query(KnowledgeQuery(operation='intersection', entities=['G0016', 'G9999'], target_type='attack-pattern'))
             self.assertEqual(shared['total'], 1)
+            same = store.query(KnowledgeQuery(operation='intersection', entities=['G0016','Cozy Bear']))
+            self.assertEqual(same['status'], 'same_entity')
             self.assertEqual(store.query(KnowledgeQuery(operation='entity', entities=['Pepe']))['status'], 'ambiguous')
             self.assertEqual(store.query(KnowledgeQuery(operation='entity', entities=["';DROP TABLE edges;--"]))['status'], 'not_found')
             self.assertEqual(store.query(KnowledgeQuery(operation='entity', entities=['unknown']))['status'], 'not_found')

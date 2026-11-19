@@ -6,27 +6,40 @@ import re
 import sqlite3
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 from cti_records import alias
 from model_routing import normalize
+
+
+EntityKind = Literal['intrusion-set', 'attack-pattern', 'malware', 'tool', 'campaign']
+Source = Literal['mitre', 'brandefense', 'misp', 'all']
+Direction = Literal['outgoing', 'incoming', 'both']
+EntityName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+def distinct_operands(entities):
+    keys = [alias(entity) for entity in entities]
+    return len(keys) >= 2 and all(keys) and len(set(keys)) == len(keys)
 
 
 class KnowledgeQuery(BaseModel):
     model_config = {'extra': 'forbid'}
     operation: Literal['entity', 'neighbors', 'intersection', 'evidence', 'list_names', 'semantic'] = 'semantic'
-    entities: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=4)
-    source: Literal['mitre', 'brandefense', 'misp', 'all'] = 'mitre'
+    entities: list[EntityName] = Field(default_factory=list, max_length=4)
+    source: Source = 'mitre'
     target_type: Literal['any', 'intrusion-set', 'attack-pattern', 'malware', 'tool', 'campaign'] = 'any'
-    target_types: list[Literal['intrusion-set', 'attack-pattern', 'malware', 'tool', 'campaign']] = Field(default_factory=list, max_length=5)
-    targets: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=4)
-    direction: Literal['outgoing', 'incoming', 'both'] = 'outgoing'
+    target_types: list[EntityKind] = Field(default_factory=list, max_length=5)
+    targets: list[EntityName] = Field(default_factory=list, max_length=4)
+    direction: Direction = 'outgoing'
     relationship: str = Field(default='uses', max_length=80)
     limit: int | None = Field(default=100, ge=0)
 
     @model_validator(mode='after')
-    def check_list(self):
+    def check_operands(self):
         if self.operation == 'list_names' and (self.target_type == 'any' or self.entities or self.targets or self.target_types):
             raise ValueError('list_names needs one entity type and no relationship filters.')
+        if self.operation == 'intersection' and not distinct_operands(self.entities):
+            raise ValueError('intersection requires at least two distinct, named operands.')
         return self
 
 
@@ -167,12 +180,13 @@ class KnowledgeStore:
                 identities = {row['canonical_id'] for row in matches}
                 if len(identities) != 1:
                     return {'status': 'ambiguous' if identities else 'not_found', 'term': term,
-                            'candidates': [{'id': row['public_id'] or row['id'], 'name': row['name'], 'source': row['source']} for row in matches]}
+                            'candidates': [{'id': row['public_id'] or row['id'], 'name': row['name'],
+                                            'source': row['source'], 'document': row['document']} for row in matches]}
                 resolved.append({'canonical': next(iter(identities)), 'observations': matches})
             if not resolved:
                 return {'status': 'not_found', 'term': '', 'candidates': []}
-            if plan.operation == 'intersection' and (len(resolved)<2 or len({x['canonical'] for x in resolved})!=len(resolved)):
-                return {'status':'ambiguous','term':', '.join(plan.entities),'candidates':[]}
+            if plan.operation == 'intersection' and len({x['canonical'] for x in resolved}) != len(resolved):
+                return {'status':'same_entity','entities':resolved,'term':', '.join(plan.entities),'candidates':[]}
             if plan.operation == 'entity':
                 return {'status': 'ok', 'entities': resolved, 'rows': [], 'plan': plan.model_dump()}
             target_ids = None
@@ -202,7 +216,9 @@ class KnowledgeStore:
                         candidates = records(target)
                         if plan.source != 'all':
                             candidates = [row for row in candidates if row['source'] == plan.source]
-                        kinds = set(plan.target_types) or ({plan.target_type} if plan.target_type != 'any' else set())
+                        kinds = set(plan.target_types)
+                        if plan.target_type != 'any':
+                            kinds.add(plan.target_type)
                         candidates = [row for row in candidates if not kinds or row['type'] in kinds]
                         if not candidates:
                             continue
