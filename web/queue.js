@@ -1,5 +1,5 @@
 import {randomId} from './ids.js';
-import {sessionKey} from './collection-scope.js';
+import {collectionUrl, sessionKey} from './collection-scope.js';
 import {t, serverText} from './i18n.js';
 import {$, node, icon, iconButton, button, fileType, progress, segments, errorData, number, size, terminal, toast, announce} from './ui.js';
 
@@ -86,7 +86,7 @@ export class UploadQueue {
   }
   upload(entry){
     entry.state='uploading';entry.started=performance.now();entry.samples=[];this.uploads++;
-    const xhr=new XMLHttpRequest();entry.xhr=xhr;xhr.open('POST','/api/admin/upload');xhr.setRequestHeader('X-RAG-Token',this.token());xhr.timeout=600000;
+    const xhr=new XMLHttpRequest();entry.xhr=xhr;xhr.open('POST',collectionUrl('/api/admin/upload'));xhr.setRequestHeader('X-RAG-Token',this.token());xhr.timeout=600000;
     xhr.upload.onprogress=(event)=>{if(event.lengthComputable){entry.upload=100*event.loaded/event.total;entry.loaded=entry.size*event.loaded/event.total;entry.samples.push({time:performance.now(),bytes:entry.loaded});entry.samples=entry.samples.filter((sample)=>sample.time>=performance.now()-3000);this.emit();}};
     let settled=false;
     const settledOnce=()=>{if(settled)return false;settled=true;this.uploads--;entry.xhr=null;this.schedule();this.ensurePoll();return true;};

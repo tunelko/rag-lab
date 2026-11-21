@@ -48,6 +48,19 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(rag.load_state(self.config),self.previous)
         self.assertEqual(set(self.store.get(ids=self.old['ids'])['ids']),set(self.old['ids']))
 
+    @unittest.skipUnless(sys.platform == 'win32', 'Windows file sharing semantics')
+    def test_manifest_publication_retries_while_a_reader_holds_it_open(self):
+        self.edit()
+        manifest = self.config.db / 'publication-manifest.json'
+        with manifest.open('rb') as reader:
+            with patch.object(rag.time, 'sleep', side_effect=lambda _: reader.close()) as sleep:
+                result = rag.ingest(self.config, self.docs, self.embeddings)
+        sleep.assert_called_once()
+        self.assertEqual((result['indexed_files'], result['errors']), (1, 0))
+        committed = rag.load_state(self.config)['files'][str(self.path.resolve())]
+        self.assertNotEqual(committed['sha256'], self.old['sha256'])
+        self.assertEqual(set(self.store.get()['ids']), set(committed['ids']))
+
     def test_global_retrieval_reads_only_the_published_generation(self):
         from library_queries import global_retrieve
         from langchain_core.documents import Document

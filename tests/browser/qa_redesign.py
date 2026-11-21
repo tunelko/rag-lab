@@ -928,10 +928,10 @@ def run_browser(url):
         check("Literal hostile filenames, 50-document pagination, debounced search and status filters")
 
         page.locator("#nav-settings").click()
-        page.locator("#multimodal").check()
         page.locator("#index-vision-model").select_option("qa-vision:latest")
         page.locator("#vision-model").select_option("qa-vision:latest")
         page.locator("#model").select_option("qa-local:latest")
+        page.locator("#multimodal").check()
         page.locator("[data-response-mode=automatic]").click();dismiss_notice(page)
         expect(page.locator("#settings-message")).to_have_text("Guardado")
         page.locator("#nav-admin").click()

@@ -95,7 +95,15 @@ def save_state(config: Config, state):
         json.dump(state,output,ensure_ascii=False,indent=2)
         output.flush()
         os.fsync(output.fileno())
-    pending.replace(path)
+    # Windows can refuse an atomic replacement while another process reads the manifest.
+    for attempt in range(6):
+        try:
+            pending.replace(path)
+            break
+        except PermissionError as error:
+            if getattr(error, 'winerror', None) not in {5, 32, 33} or attempt == 5:
+                raise
+            time.sleep(0.1)
 
 
 def published_ids(state, file=None):
