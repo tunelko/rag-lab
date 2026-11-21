@@ -77,8 +77,8 @@ jobs:
           bash -n install/linux/web.sh
       - name: Terminal server controls (isolated Uvicorn process)
         run: python -m unittest -v tests.unit.test_server_panel
-      - name: CTI adapters and collection separation (real files, SQLite and ASGI)
-        run: python -m unittest -v tests.unit.test_cti tests.unit.test_document_collections tests.unit.test_graph tests.unit.test_graph_extraction tests.unit.test_graph_engine tests.unit.test_graph_documents tests.unit.test_document_audit tests.unit.test_shared_queries
+      - name: Collection separation and graph (real files, SQLite and ASGI)
+        run: python -m unittest -v tests.unit.test_document_collections tests.unit.test_graph tests.unit.test_graph_extraction tests.unit.test_graph_engine tests.unit.test_graph_documents tests.unit.test_document_audit tests.unit.test_shared_queries
       - name: Select a browser for acceptance tests
         id: browser
         # Runner images ship Chrome and Edge. Using one of them needs no package mirror

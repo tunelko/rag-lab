@@ -27,10 +27,11 @@ class CollectionPool:
     def snapshot(self, selected='default'):
         with self.lock:
             return {'selected': selected, 'collections': [
-                {'id': 'default', 'name': 'Biblioteca', 'adapter': None}, *self.records()]}
+                {'id': 'default', 'name': 'Biblioteca'},
+                *({'id': row['id'], 'name': row['name']} for row in self.records())]}
 
-    def create(self, key, name, adapter=None):
-        if not KEY.fullmatch(key) or key == 'default' or adapter not in (None, 'cti'):
+    def create(self, key, name):
+        if not KEY.fullmatch(key) or key == 'default':
             raise ValueError('Colección no válida.')
         name = name.strip()
         if not name or len(name) > 100:
@@ -39,12 +40,10 @@ class CollectionPool:
             rows = self.records()
             existing = next((row for row in rows if row['id'] == key), None)
             if existing:
-                if existing['adapter'] != adapter:
-                    raise ValueError('La colección existente usa otro adaptador.')
-                return existing
+                return {'id': existing['id'], 'name': existing['name']}
             if len(rows) >= 32:
                 raise ValueError('Se ha alcanzado el límite de 32 colecciones.')
-            record = {'id': key, 'name': name, 'adapter': adapter}
+            record = {'id': key, 'name': name}
             self.root.mkdir(parents=True, exist_ok=True)
             pending = self.registry.with_suffix('.pending')
             pending.write_text(json.dumps([*rows, record], ensure_ascii=False, indent=2), 'utf-8')
@@ -72,7 +71,7 @@ class CollectionPool:
             service.settings = SettingsStore(self.default.settings.path)
             service.credentials.close()
             service.credentials = CredentialStore(self.default.credentials.path)
-            service.collection_key, service.dataset_adapter = key, record['adapter']
+            service.collection_key = key
             service.collection_pool = self
 
             def embeddings(download=False):

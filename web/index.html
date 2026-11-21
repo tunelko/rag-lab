@@ -1051,10 +1051,8 @@
     <section class="page" hidden="" id="admin-view">
      <div class="library-organize">
       <label class="scope-picker" for="collection-select"><span data-i18n="collections.label">Colección</span><select class="select" id="collection-select"></select></label>
-      <label class="scope-picker" for="cti-limit" id="cti-limit-field" hidden><span data-i18n="collections.sample">Documentos para búsqueda semántica</span><input class="input" type="number" id="cti-limit" min="1" max="200000" value="5000" required></label>
-      <button class="btn btn--secondary" id="cti-import" type="button"><span data-i18n="collections.import_cti">Añadir CTI · APTs</span></button>
+      <button class="btn btn--secondary" id="new-collection" type="button" data-i18n="collections.create">Nueva colección</button>
      </div>
-     <p class="meta" id="cti-summary" hidden></p>
      <div class="library-hero">
      <header class="page-head">
       <svg aria-hidden="true" class="icon">
@@ -2808,6 +2806,20 @@
     </section>
    </main>
   </div>
+  <dialog aria-labelledby="collection-title" class="notice-dialog" id="collection-dialog">
+   <form id="collection-form">
+    <h2 id="collection-title" data-i18n="collections.create">Nueva colección</h2>
+    <label class="field" for="collection-name">
+     <span data-i18n="library.name">Nombre</span>
+     <input autocomplete="off" autofocus class="input" id="collection-name" maxlength="100" pattern=".*\S.*" required>
+    </label>
+    <p class="error-reason" hidden id="collection-message" role="alert"></p>
+    <div class="dialog-actions">
+     <button class="btn btn--secondary" id="collection-cancel" type="button" data-i18n="library.cancel">Cancelar</button>
+     <button class="btn btn--primary" id="collection-save" type="submit" data-i18n="library.save">Guardar</button>
+    </div>
+   </form>
+  </dialog>
   <dialog aria-describedby="notice-text" aria-labelledby="notice-title" class="notice-dialog" id="notice-dialog" role="alertdialog">
    <div class="dialog-heading">
     <span class="dialog-icon" id="notice-icon"></span>

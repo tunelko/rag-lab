@@ -112,7 +112,7 @@ def render(query, labels, matches, metrics, partial=()):
             parts.append(f'{escape(label)} {cite(proof)}')
         lines.append(f'- **{escape(name)}** — ' + ' · '.join(parts))
     # A requested limit shows part of the verified matches; the answer says how many there are in all.
-    total = max(len(lines), int(metrics.get('knowledge_total') or metrics.get('intersection_verified') or 0))
+    total = max(len(lines), int(metrics.get('intersection_verified') or 0))
     if lines:
         answer = '\n'.join(lines)
         if total > len(lines):
@@ -394,8 +394,7 @@ def shared_answer(service, job, query, files, settings, provider_key):
     named = resolve_files(query.question, files)
     text = tokens(query.question)
     deictic = re.search(r'\b(?:ambos|ambas|both|estos dos|estas dos|los dos|las dos|these two|the two)\b', text)
-    cti = getattr(service,'dataset_adapter',None)=='cti'
-    selection = catalogue_selection(query.question, files) if not named and not cti else None
+    selection = catalogue_selection(query.question, files) if not named else None
     referred = False
     if selection and len(selection[2])==2:
         named = selection[2]
@@ -408,8 +407,6 @@ def shared_answer(service, job, query, files, settings, provider_key):
     # In a longer question ("los dos pliegos de 2024") something new may restrict them: that is checked below,
     # before anything is compared.
     unverified = referred and not bare_reference(query.question)
-    if not named and cti:
-        return None  # The structured adapter resolves aliases and cites the underlying records.
     collection = getattr(service,'collection_key','default')
     metrics = dict(backend='graph',model='Graph' if query.language=='en' else 'Grafo',cloud=False,
                    scope_documents=len(files),topic_id=query.topic_id)

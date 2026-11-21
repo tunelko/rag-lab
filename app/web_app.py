@@ -38,7 +38,6 @@ from file_fingerprints import FileFingerprints
 from library_queries import query_intent, catalog_answer, global_retrieve, tokens
 from list_queries import enumerate_items, list_request
 from shared_queries import named_comparison, shared_answer, wants_intersection
-from knowledge_store import direct_name_list, cti_list_candidate
 from global_answers import GlobalAnswer
 from statistics_store import StatisticsStore, RETENTION
 from source_locations import pdf_page_label
@@ -86,9 +85,11 @@ class IndexRequest(BaseModel):
     file: str | None = None
 
 
-class DatasetSyncRequest(BaseModel):
-    attack_version: str = Field(default='20.1', pattern=r'^\d{1,2}\.\d{1,2}$')
-    max_documents: int = Field(default=5000, ge=1, le=200000)
+class CollectionRequest(BaseModel):
+    model_config = {'extra': 'forbid'}
+    id: str
+    name: str
+    adapter: None = Field(default=None, deprecated=True)
 
 
 class TopicRequest(BaseModel):
@@ -367,12 +368,13 @@ class RagService(JobRuntime):
                 chunks = 0
             try:
                 with index_writer(self.config):
+                    # Include legacy dataset files in an explicit library backup.
                     extra = [self.config.db.parent / name for name in (
                         'knowledge.sqlite3', 'knowledge.sqlite3-wal', 'knowledge.sqlite3-shm',
                         'evidence-cache.sqlite3', 'evidence-cache.sqlite3-wal', 'evidence-cache.sqlite3-shm',
-                        'dataset-status.json', 'managed-documents.json', 'licenses'
-                    )] if getattr(self, 'dataset_adapter', None) else []
-                    extra.extend(self.config.db.parent / name for name in ('graph.sqlite3', 'graph.sqlite3-wal', 'graph.sqlite3-shm'))
+                        'dataset-status.json', 'managed-documents.json', 'licenses',
+                        'graph.sqlite3', 'graph.sqlite3-wal', 'graph.sqlite3-shm'
+                    ) if (self.config.db.parent / name).exists()]
                     result = library_reset.empty_library(self.config, self.documents, self.visual_root,
                         self.config.db.parent / "library-backups", keep_captions=keep_captions, extra_paths=extra)
             except IndexBusyError as error:
@@ -396,36 +398,15 @@ class RagService(JobRuntime):
         state = rag.load_state(self.config)
         settings = self.settings.get()
         jobs = self.list_jobs()["jobs"]
-        managed = {}
-        inventory_path = self.config.db.parent / 'managed-documents.json'
-        if getattr(self, 'dataset_adapter', None) and inventory_path.is_file():
-            stat = inventory_path.stat()
-            signature = (stat.st_mtime_ns, stat.st_size)
-            cached = getattr(self, '_managed_inventory', (None, {}))
-            if cached[0] != signature:
-                cached = (signature, json.loads(inventory_path.read_text('utf-8')))
-                self._managed_inventory = cached
-            managed = cached[1]
         job_names = {job['id']: set(job.get('document_names', [])) for job in jobs}
         job_outcomes = {job['id']: {item.get('name'): item for item in job.get('documents', [])} for job in jobs}
         items = []
         assignments = self.topics.assignments()
         for path in sorted(self.documents.rglob("*")):
             name = path.relative_to(self.documents).as_posix()
-            generated = managed.get(name)
-            if generated and generated.get('signature'):
-                from file_fingerprints import signature
-                try:
-                    if list(signature(path.stat())) != generated['signature']:
-                        generated = None
-                except OSError:
-                    generated = None
-            if generated:
-                key, digest = generated['source'], generated['sha256']
-            elif path.is_file() and path.suffix.lower() in ALLOWED and path.resolve().is_relative_to(self.documents):
-                key, digest = str(path.resolve()), self.fingerprints.digest(path)
-            else:
+            if not (path.is_file() and path.suffix.lower() in ALLOWED and path.resolve().is_relative_to(self.documents)):
                 continue
+            key, digest = str(path.resolve()), self.fingerprints.digest(path)
             indexed = state["files"].get(key, {})
             expected_policy = multimodal.policy(settings) if path.suffix.lower() in multimodal.EXTENSIONS else None
             ready = indexed.get("sha256") == digest and bool(indexed.get("ids")) and rag.same_parser_policy(indexed.get("parser_policy"), expected_policy)
@@ -437,10 +418,10 @@ class RagService(JobRuntime):
             if indexed.get("sha256") == digest and not indexed.get("ids"):
                 error = {"code": "NO_TEXT", "message": "Necesita OCR" if path.suffix.lower() == ".pdf" else "Sin texto extraíble", "detail": "No se han obtenido fragmentos."}
             processing = latest.get("status") in {"queued", "running"}
-            items.append({"name": name, "bytes": generated['bytes'] if generated else path.stat().st_size, "indexed": ready,
+            items.append({"name": name, "bytes": path.stat().st_size, "indexed": ready,
                 "topic_id": assignments.get(name),
                 "needs_reindex": bool(indexed.get('ids')) and indexed.get('sha256') == digest and not rag.same_parser_policy(indexed.get('parser_policy'), expected_policy),
-                "chunks": len(indexed.get("ids", [])), "updated_at": generated['updated_at'] if generated else datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+                "chunks": len(indexed.get("ids", [])), "updated_at": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
                 "document_id": hashlib.sha256(name.encode()).hexdigest()[:24],
                 "status": "processing" if processing else ("error" if error else ("indexed" if ready else "pending")),
                 "stage": latest.get("stage"), "progress": latest.get("stage_progress"), "error_info": error})
@@ -544,13 +525,6 @@ class RagService(JobRuntime):
             if answer is not None:
                 answer['metrics']['scope_label'] = scope_label
                 return answer
-        if (getattr(self, 'dataset_adapter', None) == 'cti' and not query.search_only and not query.images
-                and (shared or not listing or cti_list_candidate(query.question, scope_label))
-                and not query_intent(query.question).mode.startswith('catalog_')):
-            from cti_chat import query_knowledge
-            result = query_knowledge(self, job_id, query, settings, provider_key, document_names, scope_label)
-            if result is not None:
-                return result
         parameters = retrieval_configuration or self.effective_retrieval(query.k)
         documents = self.list_documents()
         if document_names is not None:
@@ -586,8 +560,7 @@ class RagService(JobRuntime):
             embeddings = self.get_embeddings() if has_vectors else None
         except Exception as exc:
             raise JobFailure("EMBEDDINGS_NOT_READY", "El modelo de búsqueda no está preparado.", str(exc)) from exc
-        timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics,
-                   **self.snapshot(job_id).get('knowledge_planning_metrics', {})}
+        timings = {"embedding_setup_seconds": round(time.perf_counter() - stage_started, 6), **scope_metrics}
         stage_started = time.perf_counter()
         if intent.mode == 'global':
             hits, scope = global_retrieve(self.config, documents, embeddings, query.question,
@@ -867,101 +840,28 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
     install_graph_routes(app, service, require_local_credentials)
 
     @app.post('/api/collections', status_code=201)
-    def create_collection(body: dict, request: Request):
-        require_local_credentials(request)
+    def create_collection(body: CollectionRequest, request: Request):
+        require_local_credentials(request, 'Las colecciones solo pueden crearse desde el equipo que ejecuta RAG Local.')
         try:
-            return collection_pool.create(str(body.get('id', '')), str(body.get('name', '')), body.get('adapter'))
+            return collection_pool.create(body.id, body.name)
         except ValueError as error:
             raise HTTPException(422, str(error)) from error
 
-    @app.get('/api/datasets')
-    def datasets():
-        path = service.config.db.parent / 'dataset-status.json'
-        return {'adapter': getattr(service, 'dataset_adapter', None),
-                'status': json.loads(path.read_text('utf-8')) if path.is_file() else None}
-
-    @app.post('/api/datasets/cti/sync', status_code=202)
-    def synchronize_dataset(body: DatasetSyncRequest, request: Request):
-        require_local_credentials(request)
-        if getattr(service, 'dataset_adapter', None) != 'cti':
-            raise HTTPException(409, 'Selecciona una colección CTI en Biblioteca.')
-        from dataset_jobs import synchronize_cti
-        with service.lock:
-            if any(job['kind'] in {'index', 'evaluation'} for job in service.list_jobs(active=True)['jobs']):
-                raise HTTPException(409, 'Ya hay una ingesta o evaluación activa en esta colección.')
-            preferences = service.settings.get()
-            return service.start('index', lambda job: synchronize_cti(service, job, body.attack_version,
-                                 preferences=preferences, max_documents=body.max_documents),
-                                 dataset_id='cti', document_name='CTI · Fuentes públicas')
-
-    @app.post('/api/knowledge/query')
-    def knowledge_query(body: dict):
-        if getattr(service, 'dataset_adapter', None) != 'cti':
-            raise HTTPException(409, 'Esta colección no contiene relaciones estructuradas.')
-        status_path = service.config.db.parent / 'dataset-status.json'
-        if not status_path.is_file() or json.loads(status_path.read_text('utf-8')).get('status') != 'done':
-            raise HTTPException(409, 'Completa la sincronización CTI antes de consultar las relaciones.')
-        from knowledge_store import KnowledgeQuery, KnowledgeStore
-        from pydantic import ValidationError
+    def archived_evidence(version):
+        from document_evidence import EvidenceStore
         try:
-            plan = KnowledgeQuery.model_validate(body)
-            if plan.operation == 'semantic':
-                raise ValueError('Las preguntas semánticas se realizan desde Chat.')
-            return KnowledgeStore(service.config.db.parent / 'knowledge.sqlite3').query(plan)
-        except (ValueError, ValidationError) as error:
-            raise HTTPException(422, str(error)) from error
-
-    def knowledge_document(identifier):
-        if getattr(service, 'dataset_adapter', None) != 'cti':
-            raise HTTPException(404, 'Evidencia no disponible.')
-        from knowledge_store import KnowledgeStore
-        try:
-            receipt = json.loads((service.config.db.parent / 'dataset-status.json').read_text('utf-8'))
-            if receipt.get('status') != 'done':
-                raise HTTPException(409, 'La sincronización CTI no ha terminado.')
-            row = KnowledgeStore(service.config.db.parent / 'knowledge.sqlite3').observation(identifier)
-            root = Path(receipt['evidence_root']).resolve()
-            expected = (rag.ROOT / 'datasets' / 'cti' / 'exports' / 'markdown').resolve()
-            if service.collection_key != 'cti':
-                expected = (rag.ROOT / 'datasets' / 'cti' / 'collections' / service.collection_key / 'exports' / 'markdown').resolve()
-            path = (root / row['document']).resolve()
-            if root != expected or not path.is_relative_to(root) or not path.is_file() or path.suffix != '.md':
-                raise ValueError('Ruta no válida.')
-            return path
-        except (OSError, ValueError, KeyError):
+            return EvidenceStore(service.config.db.parent / 'evidence-cache.sqlite3').get(version)
+        except ValueError:
             raise HTTPException(404, 'Evidencia no disponible.') from None
 
+    # Previously saved chat citations carry a version and resolve within their collection.
     @app.get('/api/knowledge/source')
-    def knowledge_source(record: str = QueryParameter(max_length=200), version: str | None = QueryParameter(default=None, pattern=r'^[a-f0-9]{64}$')):
-        if version:
-            from document_evidence import EvidenceStore
-            try:
-                evidence = EvidenceStore(service.config.db.parent / 'evidence-cache.sqlite3').get(version)
-                return Response(evidence['text'], media_type='text/plain; charset=utf-8')
-            except ValueError:
-                raise HTTPException(404, 'Evidencia no disponible.') from None
-        path = knowledge_document(record)
-        return FileResponse(path, media_type='text/plain; charset=utf-8', content_disposition_type='inline')
+    def knowledge_source(version: str = QueryParameter(pattern=r'^[a-f0-9]{64}$')):
+        return Response(archived_evidence(version)['text'], media_type='text/plain; charset=utf-8')
 
     @app.get('/api/knowledge/preview')
-    def knowledge_preview(record: str = QueryParameter(max_length=200), version: str | None = QueryParameter(default=None, pattern=r'^[a-f0-9]{64}$')):
-        if version:
-            from document_evidence import EvidenceStore
-            try:
-                evidence = EvidenceStore(service.config.db.parent / 'evidence-cache.sqlite3').get(version)
-                return {'kind': 'text', **evidence, 'truncated': False}
-            except ValueError:
-                raise HTTPException(404, 'Evidencia no disponible.') from None
-        path = knowledge_document(record)
-        text = path.read_text('utf-8')
-        return {'kind': 'text', 'file': path.name, 'text': text[:2 * 1024 ** 2], 'truncated': len(text) > 2 * 1024 ** 2}
-
-    @app.get('/api/datasets/licenses')
-    def dataset_licenses():
-        path = service.config.db.parent / 'licenses' / 'LICENSES.md'
-        if not path.is_file():
-            raise HTTPException(404, 'Licencias no disponibles.')
-        return FileResponse(path, media_type='text/plain; charset=utf-8', content_disposition_type='inline')
+    def knowledge_preview(version: str = QueryParameter(pattern=r'^[a-f0-9]{64}$')):
+        return {'kind': 'text', **archived_evidence(version), 'truncated': False}
 
     @app.get("/api/console")
     def console(after: int = QueryParameter(default=0, ge=0), limit: int = QueryParameter(default=200, ge=1, le=500)):
@@ -1225,12 +1125,10 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
         if "search_only" not in body.model_fields_set:
             body.search_only = settings.search_only
         catalog = query_intent(body.question).mode.startswith('catalog_')
-        name_list = (getattr(service, 'dataset_adapter', None) == 'cti' and not body.images
-                     and not body.search_only and direct_name_list(body.question) is not None)
         listing = not body.images and not body.search_only and list_request(body.question) is not None
         shared = (body.graph_retrieval and not body.images and not body.search_only and
                   (wants_intersection(body.question) or named_comparison(body.question,document_names)))
-        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not (catalog or name_list or listing or shared):
+        if not (service.config.db / f"{service.config.collection}-manifest.json").exists() and not (catalog or listing or shared):
             from graph_jobs import graph_store
             store = graph_store(service)
             if not body.graph_retrieval or not store.path.is_file() or not store.accepted_rows(document_names):
@@ -1246,9 +1144,8 @@ def create_app(service=None, *, _enable_collections=True, collection_pool=None):
                 raise HTTPException(422,str(error)) from error
         provider_key = None
         # General enumerations only need provider credentials after looking for typed catalogue records.
-        deferred_provider = listing and not shared and not (
-            getattr(service, 'dataset_adapter', None) == 'cti' and cti_list_candidate(body.question, scope_label))
-        generates = not (body.search_only or catalog or name_list or deferred_provider)
+        deferred_provider = listing and not shared
+        generates = not (body.search_only or catalog or deferred_provider)
         if generates and settings.response_provider != 'ollama':
             if not settings.external_model.strip() and not (body.images and settings.external_vision_model):
                 raise HTTPException(422, 'Escribe el identificador exacto del modelo externo en Configuración.')

@@ -1430,6 +1430,30 @@ def run_browser(url):
         expect(page.locator('#lab-stale')).to_be_visible()
         assert page.locator('.lab-result-body a').count()==0
         check('Laboratory empty library explains indexing and preserves historical partial results without live source links')
+
+        library_context = browser.new_context(locale='es-ES')
+        library_page = library_context.new_page()
+        library_page.goto(url + '/biblioteca', wait_until='networkidle')
+        library_page.locator('#new-collection').click()
+        expect(library_page.locator('#collection-name')).to_be_focused()
+        library_page.keyboard.press('Escape')
+        expect(library_page.locator('#collection-dialog')).not_to_be_visible()
+        library_page.locator('#new-collection').click()
+        library_page.locator('#collection-name').fill('Filmoteca de prueba')
+        library_page.locator('#collection-save').click()
+        library_page.wait_for_url(re.compile(r'/biblioteca\?collection=library-[0-9a-f-]+$'))
+        expect(library_page.locator('#collection-select option:checked')).to_have_text('Filmoteca de prueba')
+        selected = library_page.locator('#collection-select').input_value()
+        library_page.locator('#auto-index').uncheck()
+        library_page.locator('#file-input').set_input_files(file('pelicula-ficticia.txt'))
+        with library_page.expect_response(lambda response: '/api/admin/upload?' in response.url) as uploaded:
+            library_page.locator('#upload-button').click()
+        assert uploaded.value.ok and uploaded.value.json()['saved'] == ['pelicula-ficticia.txt']
+        child = library_page.request.get(url + '/api/status?collection=' + selected).json()
+        assert [document['name'] for document in child['documents']] == ['pelicula-ficticia.txt']
+        assert library_page.request.get(url + '/api/status').json()['document_count'] == 0
+        library_context.close()
+        check('Generic collection creation and native upload preserve library isolation')
         browser.close()
     report={"status":"OK","checks":checks,"external_requests":external,"page_errors":errors,
             "llm":"fake test adapter; no Ollama/GPU calls","embeddings":"deterministic test vectors; no model downloads",

@@ -88,7 +88,7 @@ class SharedEvidenceTests(unittest.TestCase):
         whole=render(q,labels,shown,{'intersection_verified':2})
         self.assertNotIn('Se muestran',whole['answer'])
         # The structured route reports its own total; a limit of zero is not an absence of matches.
-        none=render(SimpleNamespace(language='en'),labels,[],{'knowledge_total':3})
+        none=render(SimpleNamespace(language='en'),labels,[],{'intersection_verified':3})
         self.assertIn('**3** verified matches',none['answer'])
         self.assertNotIn('could not verify',none['answer'])
 

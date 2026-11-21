@@ -243,7 +243,7 @@ window.addEventListener('rag:languagechange',()=>{
 async function init(){
   try{
     state.token=(await api('/api/session')).token;
-    await new Collections(api,refreshStatus).load();
+    await new Collections(api).load();
     shell=new Shell(api);shell.setView(state.view);settingsController=new SettingsController(api,(value,saved)=>{preferences=value;state.k=value.k;shell.setSettings(value);chat?.setSettings(value);if(saved)refreshStatus();});
     serverConsole=new ServerConsole(api);serverConsole.setActive(state.view==='console');
     telemetry=new Telemetry(api);telemetry.setActive(state.view==='statistics');

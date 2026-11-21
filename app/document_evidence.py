@@ -1,4 +1,4 @@
-"""Immutable, content-addressed source text for citations across dataset updates."""
+"""Read archived, content-addressed evidence for previously saved citations."""
 from contextlib import closing
 import hashlib
 from pathlib import Path
@@ -12,23 +12,14 @@ class EvidenceStore:
     def __init__(self, path):
         self.path = Path(path)
 
-    def put(self, name, content):
-        raw = content.encode('utf-8')
-        if len(raw) > MAX_TEXT:
-            raise ValueError('La evidencia supera el límite de 8 MiB.')
-        version = hashlib.sha256(name.encode('utf-8') + b'\0' + raw).hexdigest()
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with closing(sqlite3.connect(self.path)) as db, db:
-            db.execute('PRAGMA journal_mode=WAL')
-            db.execute('CREATE TABLE IF NOT EXISTS evidence(version TEXT PRIMARY KEY,name TEXT NOT NULL,content BLOB NOT NULL)')
-            db.execute('INSERT OR IGNORE INTO evidence VALUES(?,?,?)', (version, name, zlib.compress(raw)))
-        return version
-
     def get(self, version):
         if not self.path.is_file():
             raise ValueError('Evidencia no disponible.')
-        with closing(sqlite3.connect(self.path.absolute().as_uri() + '?mode=ro', uri=True)) as db:
-            row = db.execute('SELECT name,content FROM evidence WHERE version=?', (version,)).fetchone()
+        try:
+            with closing(sqlite3.connect(self.path.absolute().as_uri() + '?mode=ro', uri=True)) as db:
+                row = db.execute('SELECT name,content FROM evidence WHERE version=?', (version,)).fetchone()
+        except sqlite3.Error as error:
+            raise ValueError('Evidencia no disponible.') from error
         if row is None:
             raise ValueError('Evidencia no disponible.')
         stream = zlib.decompressobj()
